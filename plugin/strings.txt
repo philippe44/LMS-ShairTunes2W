@@ -1,0 +1,11 @@
+# String file for ShairTunes plugin
+
+PLUGIN_SHAIRTUNES2
+	EN	ShairTunes2
+
+PLUGIN_SHAIRTUNES2_DESC
+	EN	ShairTunes2 Integration
+
+SHAIRTUNES2
+	EN	ShairTunes2
+

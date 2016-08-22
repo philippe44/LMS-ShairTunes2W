@@ -45,3 +45,26 @@ $RECYCLE.BIN/
 Network Trash Folder
 Temporary Items
 .apdisk
+
+# C++ builder related
+test/
+misc/
+shairport_helper/*bin/
+__history
+/repo*.xml
+/package*.*
+_backup/
+*.pcm
+*.*proj
+*.zip
+*.z
+*.local
+*.$$$
+*.res
+*.i??
+*.map
+*.tds
+*.xml
+*-idx*
+*.save*
+*.xml
