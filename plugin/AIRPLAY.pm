@@ -2,7 +2,8 @@ package Plugins::ShairTunes2::AIRPLAY;
 
 use strict;
 use warnings;
-use base qw(Slim::Player::Pipeline);
+
+use base qw(Slim::Player::Protocols::HTTP);
 use Slim::Utils::Strings qw(string);
 use Slim::Utils::Misc;
 use Slim::Utils::Log;
@@ -54,12 +55,39 @@ sub scanUrl {
 
 sub canDirectStream {
     my ( $class, $client, $url ) = @_;
-
+	
+	return 0 if $client->isSynced(1);
+	
     $log->info( "canDirectStream $url" );
 
     $url =~ s{^airplay://}{http://};
+	
+    return $class->SUPER::canDirectStream($client, $url);
+}
 
-    return $url;
+# To support remote streaming (synced players, slimp3/SB1), we need to subclass Protocols::HTTP
+sub new {
+    my $class  = shift;
+    my $args   = shift;
+    
+    my $client = $args->{client};
+    my $song   = $args->{song};
+	my $url    = $args->{url};
+	
+	$url =~ s/airplay/http/;
+	
+	my $sock = $class->SUPER::new( {
+        url     => $url,
+        song    => $song,
+        client  => $client,
+		timeout => 20,
+    } ) || return;
+	
+	$log->error("NEW: $url");
+
+    #${*$sock}{contentType} = 'audio/mpeg';
+
+    return $sock;
 }
 
 sub contentType {

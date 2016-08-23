@@ -85,7 +85,7 @@ sub initPlugin {
     $log->info( "Initialising " . $class->_pluginDataFor( 'version' ) . " on " . $Config{'archname'} );
 	
 	my $shairtunes_helper = Plugins::ShairTunes2::Utils::helperBinary();
-	$log->error($shairtunes_helper);
+	$log->info($shairtunes_helper);
 
     revoke_publishPlayer();
 
@@ -155,7 +155,7 @@ sub playerSubscriptionChange {
             Slim::Networking::Select::addRead( $sockets{$client}, \&handleSocketConnect );
 
             $clients{$client} = publishPlayer( $clientname, "", $sockets{$client}->sockport() );
-			$log->error("create client $client with proc $clients{$client}");
+			$log->info("create client $client with proc $clients{$client}");
         }
         else {
             $log->error( "could not create ShairTunes socket for $clientname" );
@@ -163,7 +163,7 @@ sub playerSubscriptionChange {
         }
     }
     elsif ( $reqstr eq "client disconnect" ) {
-        $log->debug( "publisher for $clientname PID $clients{$client} will be terminated." );
+        $log->info( "publisher for $clientname PID $clients{$client} will be terminated." );
         $clients{$client}->die();
         Slim::Networking::Select::removeRead( $sockets{$client} );
     }
@@ -289,10 +289,11 @@ sub handleHelperOut {
 	if (!defined $line) {
 		$log->error("helper crash");
 		cleanHelper($connections{$slave}) if defined $slave;
+		Slim::Networking::Select::removeRead( $socket ) if !defined $slave;
 		return;
 	}
 	
-	$log->debug("From helper: ", $line);
+	$log->info("From helper: ", $line);
 	
     $connections{$slave}->{player}->execute( ['play'] ) if ($line =~ /play/);
 }	
@@ -321,7 +322,7 @@ sub handleSocketRead {
     }
 	
 	if (!$buffer) {
-        $log->debug( "Closed: " . $socket );
+        $log->info( "Closed: " . $socket );
 		
 		Slim::Networking::Select::removeRead( $socket );
 		close $socket;
@@ -490,8 +491,7 @@ sub conn_handle_request {
 
         $rsa->use_pkcs1_padding;              # this isn't hashed before signing
         my $signature = encode_base64 $rsa->private_encrypt( $data ), '';
-		$log->error("SIGN: $ip, $signature");
-        $signature =~ s/=*$//;
+		$signature =~ s/=*$//;
         $resp->header( 'Apple-Response', $signature );
     }
 
@@ -591,7 +591,7 @@ sub conn_handle_request {
             while ( @ready = $sel->can_read( 5 ) ) {
 			    foreach my $reader ( @ready ) {
                     while ( defined( my $line = _readline($reader) ) ) {
-                        $log->error( $line ) and next if ( $line =~ /^shairport_helper: / );
+                        $log->debug( $line ) and next if ( $line =~ /^shairport_helper: / );
 						next if ( $line =~ /^shairport_helper: / );
                         if ( $reader == $helper_err ) {
                             $log->error( "Helper error: " . $line );
@@ -628,13 +628,7 @@ sub conn_handle_request {
             my $host         = Slim::Utils::Network::serverAddr();
             my $url          = "airplay://$host:$helper_ports{hport}/stream.wav";
 			my $client       = $conn->{player};
-            my @otherclients = grep { $_->name ne $client->name and $_->power } $client->syncGroupActiveMembers();
-            foreach my $otherclient ( @otherclients ) {
-                $log->info( 'turning off: ' . $otherclient->name );
-                $otherclient->display->showBriefly(
-                    { line => [ 'AirPlay streaming to ' . $client->name . ':', 'Turning this player off' ] } );
-                $otherclient->execute( [ 'power', 0 ] );
-            }
+            
             $conn->{poweredoff} = !$client->power;
 			$conn->{metaData}->{offset} = 0;
 			$conn->{player}->execute( [ 'playlist', 'play', $url ] );
@@ -662,7 +656,6 @@ sub conn_handle_request {
             send ($dfh, "flush\n", 0);
 
 			$conn->{metaData}->{offset} = 0;
-			$log->debug(Dumper($conn->{metaData}));
 			$conn->{player}->execute( ['stop'] );
             
             last;
@@ -746,8 +739,7 @@ sub conn_handle_request {
                 my $client = $conn->{player};
 				$client->currentPlaylistUpdateTime( Time::HiRes::time() );
 				$metaData->{offset} = $client->songElapsedSeconds();
-				$log->debug(Dumper($conn->{metaData}));
-                Slim::Control::Request::notifyFromArray( $client, ['newmetadata'] );
+				Slim::Control::Request::notifyFromArray( $client, ['newmetadata'] );
             }
             elsif ( $req->header( 'Content-Type' ) eq "image/jpeg" ) {
 				my $metaData = $conn->{metaData};
@@ -798,7 +790,7 @@ sub conn_handle_request {
         $log->error( "Got unknown method: $_" );
     }
 
-    $log->error("\n\nPLAYER_MESSAGE_START: \n" .$resp->as_string("\r\n"). "\nPLAYER_MESSAGE_END\n\n");
+    $log->debug("\n\nPLAYER_MESSAGE_START: \n" .$resp->as_string("\r\n"). "\nPLAYER_MESSAGE_END\n\n");
 
     print $socket $resp->as_string( "\r\n" );
     $socket->flush;

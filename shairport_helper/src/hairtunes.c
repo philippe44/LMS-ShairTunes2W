@@ -994,7 +994,9 @@ static void *audio_thread_func(void *arg) {
     }
 #endif
 
-    while (1) {
+	while (1) {
+		ssize_t sent;
+
         if (http_connection == -1) {
 			http_connection = accept(http_listener, NULL, NULL);
 
@@ -1045,51 +1047,51 @@ static void *audio_thread_func(void *arg) {
 						_fflush(stderr);
 					}
 
-                    http_parser_execute(http_parser_ctx, &http_settings, http_buffer, recvd);
-                }
-			}			        
-        }
+					http_parser_execute(http_parser_ctx, &http_settings, http_buffer, recvd);
+				}
+			}
+		}
 
-        inbuf = buffer_get_frame();
-        while (!inbuf) {
-            pthread_mutex_lock(&ab_mutex);
-            pthread_cond_wait(&ab_buffer_ready, &ab_mutex);
-            pthread_mutex_unlock(&ab_mutex);
-            inbuf = buffer_get_frame();
-        }
+		// do not wait for buffer if http_header not completed, could be a race condition
+		if (http_status != 1000) continue;
+
+		inbuf = buffer_get_frame();
+		while (!inbuf) {
+			pthread_mutex_lock(&ab_mutex);
+			pthread_cond_wait(&ab_buffer_ready, &ab_mutex);
+			pthread_mutex_unlock(&ab_mutex);
+			inbuf = buffer_get_frame();
+		}
 
 #ifdef FANCY_RESAMPLING
-        if (fancy_resampling) {
-            int i;
-            pthread_mutex_lock(&vol_mutex);
-            for (i=0; i<2*FRAME_BYTES; i++) {
-                frame[i] = (float)inbuf[i] / 32768.0;
-                frame[i] *= volume;
-            }
-            pthread_mutex_unlock(&vol_mutex);
-            srcdat.src_ratio = bf_playback_rate;
-            src_process(src, &srcdat);
-            assert(srcdat.input_frames_used == FRAME_BYTES);
-            src_float_to_short_array(outframe, outbuf, FRAME_BYTES*2);
-            play_samples = srcdat.output_frames_gen;
-        } else
+		if (fancy_resampling) {
+			int i;
+			pthread_mutex_lock(&vol_mutex);
+			for (i=0; i<2*FRAME_BYTES; i++) {
+				frame[i] = (float)inbuf[i] / 32768.0;
+				frame[i] *= volume;
+			}
+			pthread_mutex_unlock(&vol_mutex);
+			srcdat.src_ratio = bf_playback_rate;
+			src_process(src, &srcdat);
+			assert(srcdat.input_frames_used == FRAME_BYTES);
+			src_float_to_short_array(outframe, outbuf, FRAME_BYTES*2);
+			play_samples = srcdat.output_frames_gen;
+		} else
 #endif
 
-        play_samples = stuff_buffer(bf_playback_rate, inbuf, outbuf);
-        
-		if (http_status == 1000) {
-			ssize_t sent = send(http_connection, outbuf, play_samples * 4, 0);
+		play_samples = stuff_buffer(bf_playback_rate, inbuf, outbuf);
+		sent = send(http_connection, outbuf, play_samples * 4, 0);
 
-			if (sent != (play_samples * 4)) {
-				_fprintf(stderr, "HTTP send() unexpected response: %li (data=%i): %s\n", (long int)sent, play_samples * 4, strerror(errno));
-			}
-        }
-    }
+		if (sent != (play_samples * 4)) {
+			_fprintf(stderr, "HTTP send() unexpected response: %li (data=%i): %s\n", (long int)sent, play_samples * 4, strerror(errno));
+		}
+	}
 
-    return 0;
+	return 0;
 }
 
-int http_on_headers_complete(http_parser* parser) 
+int http_on_headers_complete(http_parser* parser)
 {
     ssize_t sent;
     

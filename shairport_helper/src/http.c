@@ -1590,7 +1590,7 @@ size_t http_parser_execute (http_parser *parser,
 
         parser->state = s_headers_done;
 
-        /* Set this here so that on_headers_complete() callbacks can see it */
+		/* Set this here so that on_headers_complete() callbacks can see it */
         parser->upgrade =
           (parser->flags & F_UPGRADE || parser->method == HTTP_CONNECT);
 
@@ -1604,7 +1604,7 @@ size_t http_parser_execute (http_parser *parser,
          * we have to simulate it by handling a change in errno below.
          */
         if (settings->on_headers_complete) {
-          switch (settings->on_headers_complete(parser)) {
+		  switch (settings->on_headers_complete(parser)) {
             case 0:
               break;
 
