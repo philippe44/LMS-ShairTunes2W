@@ -1,7 +1,8 @@
 This is a fork from https://github.com/disaster123/shairport2_plugin with the following changes
 - works under Windows as well
 - has a build-in mDNS server (the part below related to avahi does not appli anymore, or at least is not needed)
-- Allow audio to be sent to LMS sync'd players 
+- allows audio to be sent to LMS sync'd players 
+- caches artwork for LMS < 7.8 as well
 
 Need to rebuild https://github.com/philippe44/TinySVCmDNS
 
