@@ -79,7 +79,7 @@ int in_sd = -1, out_sd = -1, err_sd = -1;
 int create_socket(int port);
 int close_socket(int sd);
 
-const char *version = "0.3";
+const char *version = "0.31";
 
 // default buffer size
 #define START_FILL    64
@@ -100,11 +100,18 @@ static int sampling_rate;
 static int frame_size;
 
 static int http_listener = -1;
+static int http_image = -1;
 static int http_status = 0;
+static int http_imagestatus = 0;
 static int http_connection = -1;
+static int http_imageconnection = -1;
 static char http_buffer[4096];
 
 static int http_on_headers_complete(http_parser* parser);
+static int http_on_imageheaders_complete(http_parser* parser);
+int http_on_imagebody(http_parser*, const char *at, size_t length);
+char *http_imagebuffer = NULL;
+int	http_imagesize = 0;
 
   http_cb      on_message_begin;
   http_data_cb on_url;
@@ -120,7 +127,14 @@ http_parser_settings http_settings = { NULL, NULL, NULL, NULL, NULL,
 									   NULL, NULL,
 };
 
+http_parser_settings http_imagesettings = { NULL, NULL, NULL, NULL, NULL,
+									   http_on_imageheaders_complete,
+									   http_on_imagebody,
+									   NULL,
+};
+
 http_parser *http_parser_ctx = NULL;
+http_parser *http_imageparser_ctx = NULL;
 
 
 static int buffer_start_fill;
@@ -727,6 +741,11 @@ static int init_http(void)
 		die("init_http() failed.");
 	}
 
+	if (0 > (http_image = socket(AF_INET, SOCK_STREAM, 0))) {
+		_fprintf(stderr, "init_http: Could not create http imageproxy socket (%s)\n", strerror(errno));
+		die("init_http() failed.");
+	}
+
 	while (port < 8100) {
 		/*  Populate socket address structure  */
 		memset(&servaddr, 0, sizeof(servaddr));
@@ -735,7 +754,16 @@ static int init_http(void)
 		servaddr.sin_port        = htons(port);
 
 		if (0 > bind(http_listener, (struct sockaddr*) &servaddr, sizeof(servaddr))) {
-			// _fprintf(stderr, "init_http: Could not bind http listening socket to port %i (%s)\n", port, strerror(errno));
+			_fprintf(stderr, "init_http: Could not bind http listening socket to port %i (%s)\n", port, strerror(errno));
+			port++;
+			continue;
+		}
+
+		servaddr.sin_port        = htons(++port);
+
+		if (0 > bind(http_image, (struct sockaddr*) &servaddr, sizeof(servaddr))) {
+			_fprintf(stderr, "init_http: Could not bind http imageproxy socket to port %i (%s)\n", port, strerror(errno));
+			close(http_listener);
 			port++;
 			continue;
 		}
@@ -745,11 +773,18 @@ static int init_http(void)
 
 	/*  Make socket a listening socket  */
 	if (0 > listen(http_listener, 1)) {
-		_fprintf(stderr, "init_http: Could not listen on http socket (%s)\n", strerror(errno));
+		_fprintf(stderr, "init_http: Could not listen on http listener socket (%s)\n", strerror(errno));
 		die("init_http: failed");
 	}
 
-	_printf("hport: %d\n", port);
+	/*  Make socket a listening socket  */
+	if (0 > listen(http_image, 1)) {
+		_fprintf(stderr, "init_http: Could not listen on http image proxy socket (%s)\n", strerror(errno));
+		die("init_http: failed");
+	}
+
+	_printf("hport: %d\n", port-1);
+	_printf("iport: %d\n", port);
 
 	return port;
 }
@@ -1035,7 +1070,7 @@ static void *audio_thread_func(void *arg) {
 			} else {
 #endif
 				if (recvd <= 0) {
-					close(http_connection);
+					close_socket(http_connection);
 					http_connection = -1;
 					free (http_parser_ctx);
 					http_parser_ctx = 0;
@@ -1093,37 +1128,150 @@ static void *audio_thread_func(void *arg) {
 
 int http_on_headers_complete(http_parser* parser)
 {
-    ssize_t sent;
-    
+	ssize_t sent;
+
 	const char* response = "HTTP/1.1 200 OK\r\nServer: HairTunes\r\nConnection: close\r\nContent-Type: audio/L16;rate=44100;channels=2\r\n\r\n";
-    
-    if (debug)
-        _fprintf(stderr, "http_on_headers_complete\n");
-    
-    sent = send(http_connection, response, strlen(response), 0);    
-    
-    if (sent != strlen(response)) {
-        _fprintf(stderr, "HTTP send() unexpected response: %li (strlen=%lu)\n", (long int)sent, (long unsigned int)strlen(response));
-    }
-    
+
+	if (debug)
+		_fprintf(stderr, "http_on_headers_complete\n");
+
+	sent = send(http_connection, response, strlen(response), 0);
+
+	if (sent != strlen(response)) {
+		_fprintf(stderr, "HTTP send() unexpected response: %li (strlen=%lu)\n", (long int)sent, (long unsigned int)strlen(response));
+	}
+
 	http_status = 1000;
-    
-    return 0;
+
+	return 0;
+}
+
+
+static void *image_thread_func(void *arg) {
+	char buffer[4096];
+
+	while (1) {
+		ssize_t sent, recvd;
+
+		if (http_imageconnection == -1) {
+			http_imageconnection = accept(http_image, NULL, NULL);
+
+			if (http_imageconnection != -1) {
+				if (debug)
+					_fprintf(stderr, "image_thread_func: got HTTP connection %i\n", http_imageconnection);
+
+				http_imagestatus = 1;
+				http_imageparser_ctx = malloc(sizeof(http_parser));
+				http_parser_init(http_imageparser_ctx, HTTP_REQUEST);
+			}
+		}
+
+		if (http_imageconnection < 0) continue;
+
+		recvd = recv(http_imageconnection, buffer, sizeof(buffer), 0);
+		if (recvd <= 0) {
+			close_socket(http_imageconnection);
+			http_imageconnection = -1;
+			free (http_imageparser_ctx);
+			http_imageparser_ctx = 0;
+			http_imagestatus = 0;
+		} else {
+			if (debug) {
+				_fprintf(stderr, "image_thread_func: HTTP recvd %d:\n", recvd);
+				fwrite(buffer, recvd, 1, stderr);
+				_fflush(stderr);
+			}
+			http_parser_execute(http_imageparser_ctx, &http_imagesettings, buffer, recvd);
+		}
+	}
+
+	return 0;
+}
+
+int http_on_imageheaders_complete(http_parser* parser)
+{
+	switch (parser->method) {
+	case HTTP_POST:
+	case HTTP_PUT: {
+		if (http_imagebuffer) free(http_imagebuffer);
+		http_imagebuffer = malloc(parser->content_length);
+		http_imagesize = 0;
+
+		break;
+	}
+	case HTTP_GET: {
+		ssize_t sent = 0, expected = 0;
+		char response[256];
+
+		snprintf(response, 256, "HTTP/1.1 200 OK\r\nServer: HairTunes\r\n"
+						  "Connection: close\r\nContent-Type: image/jpeg\r\n"
+						  "Content-Length: %d" "\r\n\r\n",
+						  http_imagesize);
+
+		if (debug)
+			_fprintf(stderr, "http_on_imageheaders_complete\n");
+
+		expected = strlen(response) + http_imagesize;
+		sent = send(http_imageconnection, response, strlen(response), 0);
+		if (http_imagebuffer) sent += send(http_imageconnection, http_imagebuffer, http_imagesize, 0);
+
+		if (sent != expected) {
+		_fprintf(stderr, "HTTP image send() unexpected response: %li (strlen=%lu)\n",
+					(long int)sent, expected);
+	}
+
+
+		break;
+	}
+	default:
+		_fprintf(stderr, "HTTP image unexpected method %d\n", parser->method);
+		break;
+	}
+
+
+	return 0;
+}
+
+
+int http_on_imagebody(http_parser* parser, const char *at, size_t length)
+{
+	ssize_t sent;
+
+	if (!http_imagebuffer) return 0;
+
+	memcpy(http_imagebuffer + http_imagesize, at, length);
+	http_imagesize += length;
+
+	if (http_imagesize >= parser->content_length) {
+		const char* response = "HTTP/1.1 204 OK\r\nServer: HairTunes\r\n\r\n";
+
+		if (debug)
+			_fprintf(stderr, "http_on_imagebody_complete %d\n", http_imagesize);
+
+		sent = send(http_imageconnection, response, strlen(response), 0);
+
+		if (sent != strlen(response)) {
+			_fprintf(stderr, "HTTP image received unexpected response: %d \n", sent);
+		}
+	}
+
+	return 0;
 }
 
 static int init_output(void) {
-    void* arg = 0;
+	void* arg = 0;
+	pthread_t audio_thread, image_thread;
 
 #ifdef FANCY_RESAMPLING
-    int err;
-    if (fancy_resampling)
-        src = src_new(SRC_SINC_MEDIUM_QUALITY, 2, &err);
-    else
-        src = 0;
+	int err;
+	if (fancy_resampling)
+		src = src_new(SRC_SINC_MEDIUM_QUALITY, 2, &err);
+	else
+		src = 0;
 #endif
 
-    pthread_t audio_thread;
 	pthread_create(&audio_thread, NULL, audio_thread_func, arg);
+	pthread_create(&image_thread, NULL, image_thread_func, arg);
 
     return 0;
 }

@@ -16,7 +16,7 @@ my $prefs = preferences( 'plugin.airplay' );
 
 sub isRemote { 1 }
 
-sub bufferThreshold { 20 }
+sub bufferThreshold { 80 }
 
 sub new { undef }
 

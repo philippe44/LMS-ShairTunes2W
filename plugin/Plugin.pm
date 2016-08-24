@@ -35,8 +35,6 @@ use Net::SDP;
 use IPC::Open3;
 use IO::Handle;
 
-use constant CAN_IMAGEPROXY => ( Slim::Utils::Versions->compareVersions( $::VERSION, '7.8.0' ) >= 0 );
-
 # create log categogy before loading other modules
 my $log = Slim::Utils::Log->addLogCategory(
     {
@@ -66,7 +64,8 @@ my %sockets     = (); # ( [ LMSclient ]      => [masterINETsock], ...)
 my %players     = (); # ( [ masterINETsock ] => [LMSclient],      ...)
 my %connections = (); # ( [ slaveINETSock ]  => ('socket' => [MasterINETSock], 'player' => [LMSclient],
 					  #							 'decoder_fh' => [INETSockIn], decoder_fhout' => [INETSockOut], 
-					  #							 'decoder_ferr' => [INETSockErr], 'decoder_pid' => [helper]
+					  #							 'decoder_ferr' => [INETSockErr], 'decoder_pid' => [helper],
+					  #							 'poweroff', 'iport' => [image proxy]
 
 sub getAirTunesMetaData {
 	my $class  = shift;
@@ -92,18 +91,6 @@ sub initPlugin {
     # Subscribe to player connect/disconnect messages
     Slim::Control::Request::subscribe( \&playerSubscriptionChange,
         [ ['client'], [ 'new', 'reconnect', 'disconnect' ] ] );
-
-    if ( CAN_IMAGEPROXY ) {
-        require Slim::Web::ImageProxy;
-        Slim::Web::ImageProxy->import();
-        Slim::Web::ImageProxy->registerHandler(
-            match => qr/shairtunes:image:/,
-            func  => \&_getcover,
-        );
-    }
-    else {
-        $log->error( "Imageproxy not supported! Covers disabled!" );
-    }
 
     return 1;
 }
@@ -585,7 +572,7 @@ sub conn_handle_request {
 			closeSockets($h_in, $h_out, $h_err);
 
 			$sel->add( $helper_out, $helper_err);
-			my %helper_ports = ( cport => '', hport => '', port => '', tport => '' );
+			my %helper_ports = ( cport => '', hport => '', port => '', tport => '', iport => '' );
 
 			my @ready;
             while ( @ready = $sel->can_read( 5 ) ) {
@@ -597,7 +584,7 @@ sub conn_handle_request {
                             $log->error( "Helper error: " . $line );
 							next;
                         }
-						if ( $line =~ /^([cht]?port):\s*(\d+)/ ) {
+						if ( $line =~ /^([chti]?port):\s*(\d+)/ ) {
                             $helper_ports{$1} = $2;
                             next;
                         }
@@ -611,13 +598,14 @@ sub conn_handle_request {
             $sel->remove( $helper_err );
        
 			$log->info(
-                "launched decoder: $helper_pid on ports: $helper_ports{port}/$helper_ports{cport}/$helper_ports{tport}/$helper_ports{hport}"
+                "launched decoder: $helper_pid on ports: $helper_ports{port}/$helper_ports{cport}/$helper_ports{tport}/$helper_ports{hport}/$helper_ports{iport}"
             );
 
 			$conn->{decoder_pid}   = $helper_pid;
             $conn->{decoder_fh}    = $helper_in;
             $conn->{decoder_fherr} = $helper_err;
 			$conn->{decoder_fhout} = $helper_out;
+			$conn->{iport}		   = $helper_ports{iport};	
 			
 			# Add out to the select loop so we get notified of play after flush (pause)
 			Slim::Networking::Select::addRead( $helper_out, \&handleHelperOut );
@@ -711,31 +699,7 @@ sub conn_handle_request {
                 $metaData->{title}  = $dmapData{title};
 
                 $log->debug( "DMAP DATA found. Length: " . length( $req->content ) . " " . Dumper( \%dmapData ) );
-
-                my $hashkey       = Plugins::ShairTunes2::Utils::imagekeyfrommeta( $metaData );
-                my $imagefilepath = File::Spec->catdir( $cachedir, 'shairtunes', $hashkey . "_cover.jpg" );
-                my $imageurl      = "/imageproxy/shairtunes:image:" . $hashkey . "/cover.jpg";
-                if ( length $cover_cache ) {
-                    open( my $imgFH, '>' . $imagefilepath );
-                    binmode( $imgFH );
-                    print $imgFH $cover_cache;
-                    close( $imgFH );
-
-                    $log->debug( "IMAGE DATA COVER_CACHE found. " . $imagefilepath . " " . $imageurl );
-
-                    $metaData->{cover}        = $imageurl;
-                    $cover_cache                    = '';
-                    $metaData->{waitforcover} = 0;
-                }
-                elsif ( -e $imagefilepath ) {
-                    $metaData->{cover}        = $imageurl;
-                    $metaData->{waitforcover} = 0;
-                }
-                else {
-                    $metaData->{waitforcover} = 1;
-                    $metaData->{cover}        = '';
-                }
-
+                
                 my $client = $conn->{player};
 				$client->currentPlaylistUpdateTime( Time::HiRes::time() );
 				$metaData->{offset} = $client->songElapsedSeconds();
@@ -743,31 +707,22 @@ sub conn_handle_request {
             }
             elsif ( $req->header( 'Content-Type' ) eq "image/jpeg" ) {
 				my $metaData = $conn->{metaData};
-                if ( $metaData->{waitforcover} && length $metaData->{title} ) {
-                    $cover_cache = '';
-                    $metaData->{waitforcover} = 0;
-
-                    my $hashkey       = Plugins::ShairTunes2::Utils::imagekeyfrommeta( $metaData );
-                    my $imagefilepath = File::Spec->catdir( $cachedir, 'shairtunes', $hashkey . "_cover.jpg" );
-                    my $imageurl      = "/imageproxy/shairtunes:image:" . $hashkey . "/cover.jpg";
-
-                    open( my $imgFH, '>' . $imagefilepath );
-                    binmode( $imgFH );
-                    print $imgFH $req->content;
-                    close( $imgFH );
-
-                    $log->debug( "IMAGE DATA found. " . $imagefilepath . " " . $imageurl );
-
-                    $metaData->{cover} = $imageurl;
-
-                    my $client = $conn->{player};
-					$client->currentPlaylistUpdateTime( Time::HiRes::time() );
-                    Slim::Control::Request::notifyFromArray( $client, ['newmetadata'] );
-                }
-                else {
-                    $log->debug( "IMAGE DATA CACHED" );
-                    $cover_cache = $req->content;
-                }
+                                
+                my $host = Slim::Utils::Network::serverAddr();
+				my $url  = "http://$host:$conn->{iport}/cover" . md5_hex($req->content) . "/image.jpeg";
+				$metaData->{cover} = $url;
+				
+				$log->debug( "IMAGE DATA received, sending to: ", $url );
+			
+				my $http = Slim::Networking::SimpleAsyncHTTP->new( sub {
+																	my $client = $conn->{player};
+																	$client->currentPlaylistUpdateTime( Time::HiRes::time() );
+																	Slim::Control::Request::notifyFromArray( $client, ['newmetadata'] );  
+																	$log->debug("call done: $conn->{iport}");
+																   },
+																   sub { $log->error( "image callback problem: $conn->{iport}" ); },
+																 );
+				$http->post( $url, $req->content);   
             }
             else {
                 $log->error( "Unknown content-type: \"" . $req->header( 'Content-Type' ) . "\"" );
