@@ -1151,7 +1151,7 @@ static void *image_thread_func(void *arg) {
 	char buffer[4096];
 
 	while (1) {
-		ssize_t sent, recvd;
+		ssize_t recvd;
 
 		if (http_imageconnection == -1) {
 			http_imageconnection = accept(http_image, NULL, NULL);
@@ -1243,7 +1243,9 @@ int http_on_imagebody(http_parser* parser, const char *at, size_t length)
 	http_imagesize += length;
 
 	if (http_imagesize >= parser->content_length) {
-		const char* response = "HTTP/1.1 204 OK\r\nServer: HairTunes\r\n\r\n";
+		const char* response = "HTTP/1.1 204 OK\r\n"
+							   "Server: HairTunes\r\n"
+							   "Connection: close\r\n\r\n";
 
 		if (debug)
 			_fprintf(stderr, "http_on_imagebody_complete %d\n", http_imagesize);

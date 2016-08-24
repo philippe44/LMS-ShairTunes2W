@@ -44,12 +44,6 @@ my $log = Slim::Utils::Log->addLogCategory(
     }
 );
 
-my $cover_cache = '';
-my $cachedir    = preferences( 'server' )->get( 'cachedir' );
-if ( !-d File::Spec->catdir( $cachedir, "shairtunes" ) ) {
-    mkdir( File::Spec->catdir( $cachedir, "shairtunes" ) );
-}
-
 my $prefs         = preferences( 'plugin.shairtunes' );
 my $hairtunes_cli = "";
 
@@ -67,17 +61,19 @@ my %connections = (); # ( [ slaveINETSock ]  => ('socket' => [MasterINETSock], '
 					  #							 'decoder_ferr' => [INETSockErr], 'decoder_pid' => [helper],
 					  #							 'poweroff', 'iport' => [image proxy]
 
+
 sub getAirTunesMetaData {
 	my $class  = shift;
-	my $client = shift;
+	my $url = shift;
 	
-	my ($slave) = grep { $connections{$_}->{player} == $client } keys %connections;
+	my ($slave) = grep { $connections{$_}->{url} eq $url } keys %connections;
 	
 	return undef if !defined $slave;
 	
 	return $connections{$slave}->{metaData};
 }
-
+					  
+					  
 sub initPlugin {
     my $class = shift;
 
@@ -102,23 +98,6 @@ sub getDisplayName {
 sub shutdownPlugin {
     revoke_publishPlayer();
     return;
-}
-
-sub _getcover {
-    my ( $url, $spec, $cb ) = @_;
-
-    # $url is aforementioned image URL
-    # $spec we don't need (yet)
-    # $cb is the callback to be called with the URL
-
-    my ( $track_id ) = $url =~ m|shairtunes:image:(.*?)$|i;
-
-    my $imagefilepath = File::Spec->catdir( $cachedir, 'shairtunes', $track_id . "_cover.jpg" );
-
-    $log->debug( "_getcover called for $imagefilepath" );
-
-    # now return the URLified file path
-    return Slim::Utils::Misc::fileURLFromPath( $imagefilepath );
 }
 
 sub playerSubscriptionChange {
@@ -606,20 +585,21 @@ sub conn_handle_request {
             $conn->{decoder_fherr} = $helper_err;
 			$conn->{decoder_fhout} = $helper_out;
 			$conn->{iport}		   = $helper_ports{iport};	
-			
+		
+			my $host = Slim::Utils::Network::serverAddr();
+			$conn->{url}  = "airplay://$host:$helper_ports{hport}/stream.wav";
+					
 			# Add out to the select loop so we get notified of play after flush (pause)
 			Slim::Networking::Select::addRead( $helper_out, \&handleHelperOut );
 
 			#$resp->header( 'Transport', $req->header( 'Transport' ) . ";server_port=$helper_ports{port}" );
 			$resp->header( 'Transport', "RTP/AVP/UDP;unicast;mode=record;control_port=$helper_ports{cport};timing_port=$helper_ports{tport};server_port=$helper_ports{port}" );
 			
-            my $host         = Slim::Utils::Network::serverAddr();
-            my $url          = "airplay://$host:$helper_ports{hport}/stream.wav";
-			my $client       = $conn->{player};
-            
-            $conn->{poweredoff} = !$client->power;
+			$log->debug( "Playing url: $conn->{url}" );
+			
+            $conn->{poweredoff} = !$conn->{player}->power;
 			$conn->{metaData}->{offset} = 0;
-			$conn->{player}->execute( [ 'playlist', 'play', $url ] );
+			$conn->{player}->execute( [ 'playlist', 'play', $conn->{url} ] );
 			
             last;
         };
@@ -679,7 +659,7 @@ sub conn_handle_request {
 
                     $metaData->{duration} = $durationRealTime;
                     $metaData->{position} = $positionRealTime;
-
+					
                     my $client = $conn->{player};
 					$client->currentPlaylistUpdateTime( Time::HiRes::time() );
                     Slim::Control::Request::notifyFromArray( $client, ['newmetadata'] );
@@ -711,7 +691,7 @@ sub conn_handle_request {
                 my $host = Slim::Utils::Network::serverAddr();
 				my $url  = "http://$host:$conn->{iport}/cover" . md5_hex($req->content) . "/image.jpeg";
 				$metaData->{cover} = $url;
-				
+								
 				$log->debug( "IMAGE DATA received, sending to: ", $url );
 			
 				my $http = Slim::Networking::SimpleAsyncHTTP->new( sub {
@@ -720,7 +700,14 @@ sub conn_handle_request {
 																	Slim::Control::Request::notifyFromArray( $client, ['newmetadata'] );  
 																	$log->debug("call done: $conn->{iport}");
 																   },
-																   sub { $log->error( "image callback problem: $conn->{iport}" ); },
+																   sub { 
+																    $log->error( "image callback problem: $conn->{iport}" );
+																    # MUST REMOVE
+																    my $client = $conn->{player};
+																    $client->currentPlaylistUpdateTime( Time::HiRes::time() );
+																    Slim::Control::Request::notifyFromArray( $client, ['newmetadata'] );  
+																    $log->debug("call done: $conn->{iport}");
+																   },
 																 );
 				$http->post( $url, $req->content);   
             }
