@@ -62,7 +62,7 @@ sub helperBinary {
     }
 	
 	if (Slim::Utils::OSDetect::details()->{'os'} ne 'Windows') {
-		my $exec = catdir(Slim::Utils::PluginManager->allPlugins->{'ShairTunes2'}->{'basedir'}, 'helperBinaries', $bin);
+		my $exec = catdir(Slim::Utils::PluginManager->allPlugins->{'ShairTunes2'}->{'basedir'}, 'Bin', $bin);
 		$exec = Slim::Utils::OSDetect::getOS->decodeExternalHelperPath($exec);
 			
 		if (!((stat($exec))[2] & 0100)) {
