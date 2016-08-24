@@ -68,7 +68,15 @@ sub getAirTunesMetaData {
 	
 	my ($slave) = grep { $connections{$_}->{url} eq $url } keys %connections;
 	
-	return undef if !defined $slave;
+	return  { artist   => "ShairTunes Artist",
+			  title    => "ShairTunes Title",
+			  album    => "ShairTunes Album",
+			  bitrate  => 44100 . " Hz",
+			  cover    => "",
+			  icon	   => "",	
+			  type     => 'ShairTunes Stream',
+			  duration => undef,
+			} if !defined $slave;
 	
 	return $connections{$slave}->{metaData};
 }
@@ -87,6 +95,11 @@ sub initPlugin {
     # Subscribe to player connect/disconnect messages
     Slim::Control::Request::subscribe( \&playerSubscriptionChange,
         [ ['client'], [ 'new', 'reconnect', 'disconnect' ] ] );
+		
+	Slim::Formats::RemoteMetadata->registerProvider(
+		match => qr/airplay\:/,
+		func  => \&getAirTunesMetaData,
+	);		
 
     return 1;
 }
@@ -587,7 +600,7 @@ sub conn_handle_request {
 			$conn->{iport}		   = $helper_ports{iport};	
 		
 			my $host = Slim::Utils::Network::serverAddr();
-			$conn->{url}  = "airplay://$host:$helper_ports{hport}/stream.wav";
+			$conn->{url}  = "airplay://$host:$helper_ports{hport}/" . md5_hex($conn) . "_stream.wav";
 					
 			# Add out to the select loop so we get notified of play after flush (pause)
 			Slim::Networking::Select::addRead( $helper_out, \&handleHelperOut );
@@ -599,6 +612,7 @@ sub conn_handle_request {
 			
             $conn->{poweredoff} = !$conn->{player}->power;
 			$conn->{metaData}->{offset} = 0;
+			$conn->{metaData}->{type}   = 'ShairTunes Stream';
 			$conn->{player}->execute( [ 'playlist', 'play', $conn->{url} ] );
 			
             last;
@@ -691,7 +705,8 @@ sub conn_handle_request {
                 my $host = Slim::Utils::Network::serverAddr();
 				my $url  = "http://$host:$conn->{iport}/cover" . md5_hex($req->content) . "/image.jpeg";
 				$metaData->{cover} = $url;
-								
+				$metaData->{icon} = $url;
+				      								
 				$log->debug( "IMAGE DATA received, sending to: ", $url );
 			
 				my $http = Slim::Networking::SimpleAsyncHTTP->new( sub {
@@ -706,7 +721,6 @@ sub conn_handle_request {
 																    my $client = $conn->{player};
 																    $client->currentPlaylistUpdateTime( Time::HiRes::time() );
 																    Slim::Control::Request::notifyFromArray( $client, ['newmetadata'] );  
-																    $log->debug("call done: $conn->{iport}");
 																   },
 																 );
 				$http->post( $url, $req->content);   

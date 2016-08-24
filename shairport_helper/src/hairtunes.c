@@ -581,7 +581,8 @@ static void *rtp_thread_func(void *arg) {
 			} else {
 				// resync?
 				if (type == 0x56 && seqno == 0) {
-					_fprintf(stderr, "rtp_thread_func: Suspected resync request packet received. Initiating resync.\n");
+					if (debug)
+						_fprintf(stderr, "rtp_thread_func: Suspected resync request packet received. Initiating resync.\n");
 					pthread_mutex_lock(&ab_mutex);
 					ab_resync();
 					pthread_mutex_unlock(&ab_mutex);
@@ -591,7 +592,8 @@ static void *rtp_thread_func(void *arg) {
 		// 1st sync packet received (signals a restart of playback)
 		else if (type == 0x54 && (packet[0] & 0x10)) {
 			_printf("play\n");
-			_fprintf(stderr, "1st frame play received\n");
+			if (debug)
+				_fprintf(stderr, "1st frame play received\n");
 		}
 	}
 

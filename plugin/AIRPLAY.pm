@@ -97,35 +97,19 @@ sub contentType {
 sub getMetadataFor {
     my ( $class, $client, $url, $forceCurrent, $song ) = @_;
 
-	my $metaData     = Plugins::ShairTunes2::Plugin->getAirTunesMetaData($url);
+	my $metaData = Plugins::ShairTunes2::Plugin->getAirTunesMetaData($url);
 	
-	return  { artist   => "ShairTunes Artist",
-			  title    => "ShairTunes Title",
-			  album    => "ShairTunes Album",
-			  bitrate  => 44100 . " Hz",
-			  cover    => "",
-			  icon	   => "",	
-			  type    => 'ShairTunes Stream',
-			} if !defined $metaData;
-	
-	if ($song) {
+	if ( $song && defined $metaData->{duration} ) {
 		$song->track->secs( $metaData->{duration} ) ;
 		$song->startOffset( $metaData->{position} -  $metaData->{offset} );
 	}	
 		
-    $client->streamingSong->duration( $metaData->{duration} );
-	$client->playingSong()->startOffset( $metaData->{position} -  $metaData->{offset} );
+	if ( $client->isPlaying && defined $metaData->{duration} )	{ 
+		$client->streamingSong->duration( $metaData->{duration} ) if $client->streamingSong;
+		$client->playingSong()->startOffset( $metaData->{position} -  $metaData->{offset} );
+	}	
 	    	
-    return {
-        artist  => $metaData->{artist},
-        title   => $metaData->{title},
-        album   => $metaData->{album},
-        bitrate => $metaData->{bitrate},
-        cover   => $metaData->{cover},
-        icon    => $metaData->{cover},
-        type    => 'ShairTunes Stream',
-      }
-
+    return $metaData;
 }
 
 1;
