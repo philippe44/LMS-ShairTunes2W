@@ -52,7 +52,7 @@ sub helperBinary {
         }
     }
     elsif ( $Config{'archname'} =~ /linux/ && $Config{'archname'} =~ /arm/ ) {
-        $bin = "shairport_helper-arm5hf";
+        $bin = "shairport_helper-armhf";
     }
     elsif ( $Config{'archname'} =~ /darwin/ ) {
         $bin = "shairport_helper-osx";

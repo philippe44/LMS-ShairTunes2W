@@ -122,7 +122,7 @@ sub playerSubscriptionChange {
 
     $log->debug( "request=$reqstr client=$clientname" );
 	
-	return if ($client->modelName() =~ /Squeeze2Raop/);
+	return if ($client->modelName() !~ /Squeezebox/);
 
     if ( ( $reqstr eq "client new" ) || ( $reqstr eq "client reconnect" ) ) {
         $sockets{$client} = createListenPort();
@@ -226,7 +226,7 @@ sub publishPlayer {
     $log->info( "mDNSPublish not in path" ) if (!$@);
         
     my $shairtunes_helper = Plugins::ShairTunes2::Utils::helperBinary();
-	$log->error("SHAIRTUNES2 helper: $shairtunes_helper");
+	$log->info("using built-in helper: $shairtunes_helper");
 	eval { $proc = Proc::Background->new( $shairtunes_helper, "-dns", $id, "_raop._tcp", @params ); };
 	return $proc unless ($@);
 	$log->error( "start $shairtunes_helper failed" ) if (!$@);
