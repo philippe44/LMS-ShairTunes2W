@@ -108,7 +108,7 @@ sub getMetadataFor {
 		$client->streamingSong->duration( $metaData->{duration} ) if $client->streamingSong;
 		$client->playingSong()->startOffset( $metaData->{position} -  $metaData->{offset} );
 	}	
-	    	
+		
     return $metaData;
 }
 
