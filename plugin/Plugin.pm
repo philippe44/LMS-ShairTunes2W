@@ -45,8 +45,9 @@ my $log = Slim::Utils::Log->addLogCategory(
 );
 
 my $prefs         = preferences( 'plugin.shairtunes' );
-my $hairtunes_cli = "";
 my $shairtunes_helper;
+my $DACPfqdn = "_dacp._tcp.local";
+my $mDNSsock;
 
 my $airport_pem = _airport_pem();
 my $rsa         = Crypt::OpenSSL::RSA->new_private_key( $airport_pem )
@@ -109,6 +110,16 @@ sub initPlugin {
 		match => qr/airplay\:/,
 		func  => \&getAirTunesMetaData,
 	);		
+	
+    $mDNSsock = new IO::Socket::INET(
+        LocalAddr 	=> '0.0.0.0',
+        ReuseAddr 	=> 1,
+		#ReusePort 	=> 1,
+		Proto     	=> 'udp',
+    );
+	
+	Slim::Utils::Network::blocking( $mDNSsock, 0 );
+	Slim::Networking::Select::addRead( $mDNSsock, \&mDNSlistener );
 
     return 1;
 }
@@ -119,6 +130,8 @@ sub getDisplayName {
 
 sub shutdownPlugin {
     revoke_publishPlayer();
+	Slim::Networking::Select::removeRead( $mDNSsock );
+	close($mDNSsock) if defined $mDNSsock;
     return;
 }
 
@@ -585,6 +598,10 @@ sub conn_handle_request {
             $conn->{aesiv}  = $aesiv;
             $conn->{aeskey} = $aeskey;
             $conn->{fmtp}   = $audio->attribute( 'fmtp' );
+	
+			my $mDNSdata = AnyEvent::DNS::dns_pack { rd => 1, qd => [[$DACPfqdn, "ptr"]] };	
+			send $mDNSsock, $mDNSdata, 0, sockaddr_in(5353, Socket::inet_aton('224.0.0.251'));
+			
             last;
         };
 
@@ -800,6 +817,29 @@ sub conn_handle_request {
 
 }
 
+sub mDNSlistener {
+	recv $mDNSsock, my $buf, 4096, 0;
+		
+	my $res = AnyEvent::DNS::dns_unpack $buf;
+	$log->debug("RAW response: ", Dumper($res));
+	my @rr  = grep { lc $_->[0] eq $DACPfqdn && $_->[1] eq 'ptr' } @{ $res->{an} };
+    my @srv = grep { $_->[1] eq 'srv' } @{$res->{ar}};
+
+    if (@rr == 1 && @srv == 1) {
+         my $name = $rr[0]->[4];
+         $name =~ s/\.$DACPfqdn$//;
+
+        my $service = {
+            name => $name,
+            host => $srv[0]->[7],
+            port => $srv[0]->[6],
+        };
+		
+		$log->debug("service: ", Dumper($service));
+    }
+}
+
+
 sub _airport_pem {
     return q|-----BEGIN RSA PRIVATE KEY-----
 MIIEpQIBAAKCAQEA59dE8qLieItsH1WgjrcFRKj6eUWqi+bGLOX1HL3U3GhC/j0Qg90u3sG/1CUt
@@ -828,13 +868,6 @@ LAuE4Pu13aKiJnfft7hIjbK+5kyb3TysZvoyDnb3HOKvInK7vXbKuU4ISgxB2bB3HcYzQMGsz1qJ
 
 1;
 
-package Tie::Restore;
-
-our $VERSION = 0.11;
-
-sub TIESCALAR { $_[1] }
-sub TIEARRAY  { $_[1] }
-sub TIEHASH   { $_[1] }
-sub TIEHANDLE { $_[1] }
+our $VERSION = 0.32;
 
 1;
