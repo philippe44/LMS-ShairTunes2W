@@ -11,8 +11,8 @@ use Slim::Utils::Prefs;
 
 Slim::Player::ProtocolHandlers->registerHandler( 'airplay', __PACKAGE__ );
 
-my $log   = logger( 'plugin.airplay' );
-my $prefs = preferences( 'plugin.airplay' );
+my $log   = logger( 'plugin.shairtunes' );
+my $prefs = preferences( 'plugin.shairtunes' );
 
 sub isRemote { 1 }
 
@@ -20,7 +20,8 @@ sub bufferThreshold { 80 }
 
 sub canDoAction {
     my ( $class, $client, $url, $action ) = @_;
-    $log->info( "Action=$action" );
+    
+	$log->info( "Action=$action" );
 
     #if (($action eq 'pause') && $prefs->get('pausestop') ) {
     #	$log->info("Stopping track because pref is set yo stop");

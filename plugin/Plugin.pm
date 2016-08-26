@@ -46,6 +46,7 @@ my $log = Slim::Utils::Log->addLogCategory(
 
 my $prefs         = preferences( 'plugin.shairtunes' );
 my $hairtunes_cli = "";
+my $shairtunes_helper;
 
 my $airport_pem = _airport_pem();
 my $rsa         = Crypt::OpenSSL::RSA->new_private_key( $airport_pem )
@@ -89,7 +90,13 @@ sub initPlugin {
 
     $log->info( "Initialising " . $class->_pluginDataFor( 'version' ) . " on " . $Config{'archname'} );
 	
-	my $shairtunes_helper = Plugins::ShairTunes2::Utils::helperBinary();
+	$shairtunes_helper = Plugins::ShairTunes2::Utils::helperBinary();
+	if ( !$shairtunes_helper || !-x $shairtunes_helper ) {
+        $log->error( "I'm sorry your platform \"" . $Config{archname}
+                      . "\" is unsupported or nobody has compiled a binary for it! Can't work." );
+        return 0;        
+    }
+	
 	$log->info($shairtunes_helper);
 
     revoke_publishPlayer();
@@ -228,8 +235,7 @@ sub publishPlayer {
     }
     $log->info( "mDNSPublish not in path" ) if (!$@);
         
-    my $shairtunes_helper = Plugins::ShairTunes2::Utils::helperBinary();
-	$log->info("using built-in helper: $shairtunes_helper");
+    $log->info("using built-in helper: $shairtunes_helper");
 	eval { $proc = Proc::Background->new( $shairtunes_helper, "-dns", $id, "_raop._tcp", @params ); };
 	return $proc unless ($@);
 	$log->error( "start $shairtunes_helper failed" ) if (!$@);
@@ -589,15 +595,6 @@ sub conn_handle_request {
             $transport =~ s/;timing_port=(\d+)//;
             my $tport = $1;
             $resp->header( 'Session', 'DEADBEEF' );
-
-            my $shairtunes_helper = Plugins::ShairTunes2::Utils::helperBinary();
-
-            if ( !$shairtunes_helper || !-x $shairtunes_helper ) {
-                $log->error( "I'm sorry your platform \""
-                      . $Config{archname}
-                      . "\" is unsupported or nobody has compiled a binary for it! Can't work." );
-                last;
-            }
 
             my %socket_params = (   Listen    => 1,
 						ReuseAddr => 1,
