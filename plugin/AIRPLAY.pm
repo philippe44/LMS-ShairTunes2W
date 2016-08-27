@@ -23,12 +23,7 @@ sub canDoAction {
     
 	$log->info( "Action=$action" );
 
-    #if (($action eq 'pause') && $prefs->get('pausestop') ) {
-    #	$log->info("Stopping track because pref is set yo stop");
-    #	return 0;
-    #}
-
-    return 1;
+    return Plugins::ShairTunes2::Plugin->sendAction($client, $action);
 }
 
 sub canHandleTranscode {

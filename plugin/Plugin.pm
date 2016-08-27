@@ -63,6 +63,8 @@ my %connections = (); # ( [ slaveINETSock ]  => ('socket' => [MasterINETSock], '
 					  #							 'decoder_ferr' => [INETSockErr], 'decoder_pid' => [helper],
 					  #							 'poweroff', 'iport' => [image proxy]
 					  #							 'cover_fh' => [INETSockIn], 'cover' => [jpeg blob]
+					  #							 'DACPid' => [DACP ID], 'activeRemote' => [remote ID], 
+					  #						     'remote' => [IP::port of remote]	
 
 
 sub getAirTunesMetaData {
@@ -84,8 +86,50 @@ sub getAirTunesMetaData {
 	
 	return $connections{$slave}->{metaData};
 }
-					  
-					  
+
+sub sendAction {
+	my $class = shift;
+	my $client = shift;
+	my $action = shift;
+	
+	foreach my $master (keys %connections) {
+		my $conn = $connections{$master};
+		$log->debug("Player matching: p: $conn->{player}, c: $client");
+	}
+	
+	my ($slave) = grep { $connections{$_}->{player} == $client } keys %connections;
+	return 0 if !defined $slave || !defined $connections{$slave}->{remote};
+	
+	my $conn = $connections{$slave};
+	
+	my $http = Slim::Networking::SimpleAsyncHTTP->new(
+					sub { 
+						my $reponse = shift;
+						$log->debug( "Action response: $reponse" );
+					},
+					sub { 
+						my $error = shift;
+						$log->error( "Action error: ", Dumper($error) );
+					} );
+
+	my $command;
+	my $doAction = 0;
+			
+	if ($action eq 'rew') { $command = 'previtem'; }
+	elsif ($action eq 'stop') { $command = 'nextitem'; }
+	elsif ($action eq 'play') { $command = 'play'; }
+	elsif ($action eq 'pause') { $command = 'pause'; }
+	
+	return 1 if !defined $command;
+	
+	my $url = "http://$conn->{remote}/ctrl-int/1/$command";
+	$log->debug("Sending action: $url");
+	
+	$http->get($url, 'Active-Remote' => $conn->{activeRemote} );			
+	
+	return $doAction;
+}	
+				  					  
 sub initPlugin {
     my $class = shift;
 
@@ -112,7 +156,7 @@ sub initPlugin {
 	);		
 	
     $mDNSsock = new IO::Socket::INET(
-        LocalAddr 	=> '0.0.0.0',
+        #LocalAddr 	=> '0.0.0.0',
         ReuseAddr 	=> 1,
 		#ReusePort 	=> 1,
 		Proto     	=> 'udp',
@@ -277,8 +321,8 @@ sub handleSocketConnect {
 										 offset   => 0,
 										}, 
 							cover_fh => createListenPort(5),	
-							cover => '',
-							url => '',
+							cover => '', url => '',
+							remote => undef, DACPid => 'none',
 						};
 	
     # Add us to the select loop so we get notified
@@ -581,6 +625,16 @@ sub conn_handle_request {
             # OPTIONS is called every 2s so ideal to read all errors on a regular basis
 	        my $derr = $conn->{decoder_fherr};
 			while ( my $err = _readline($derr) ) { $log->error( "Decoder error: " . $err ); }
+			
+			if ( !defined $conn->{remote} ) {
+				$conn->{DACPid} = $req->header( 'DACP-ID' );
+				$conn->{activeRemote} = $req->header( 'Active-Remote' );
+				my $mDNSdata = AnyEvent::DNS::dns_pack { rd => 1, qd => [[$DACPfqdn, "ptr"]] };	
+				send $mDNSsock, $mDNSdata, 0, sockaddr_in(5353, Socket::inet_aton('224.0.0.251'));
+				
+				$log->info("DACP-ID: $conn->{DACPid}, Active Remote: $conn->{activeRemote}");
+				$log->debug("Send mDNS data: $DACPfqdn, ", Dumper($mDNSdata));
+			}	
 
             last;
         };
@@ -598,11 +652,8 @@ sub conn_handle_request {
             $conn->{aesiv}  = $aesiv;
             $conn->{aeskey} = $aeskey;
             $conn->{fmtp}   = $audio->attribute( 'fmtp' );
-	
-			my $mDNSdata = AnyEvent::DNS::dns_pack { rd => 1, qd => [[$DACPfqdn, "ptr"]] };	
-			send $mDNSsock, $mDNSdata, 0, sockaddr_in(5353, Socket::inet_aton('224.0.0.251'));
-			
-            last;
+						
+			last;
         };
 
         /^SETUP$/ && do {
@@ -818,25 +869,29 @@ sub conn_handle_request {
 }
 
 sub mDNSlistener {
+
 	recv $mDNSsock, my $buf, 4096, 0;
 		
 	my $res = AnyEvent::DNS::dns_unpack $buf;
-	$log->debug("RAW response: ", Dumper($res));
-	my @rr  = grep { lc $_->[0] eq $DACPfqdn && $_->[1] eq 'ptr' } @{ $res->{an} };
-    my @srv = grep { $_->[1] eq 'srv' } @{$res->{ar}};
-
-    if (@rr == 1 && @srv == 1) {
-         my $name = $rr[0]->[4];
-         $name =~ s/\.$DACPfqdn$//;
-
-        my $service = {
-            name => $name,
-            host => $srv[0]->[7],
-            port => $srv[0]->[6],
-        };
+	$log->debug("DNSListener: ", Dumper($res));
+	 
+	my @answers = (@{$res->{an}}, @{$res->{ar}});
+	
+	foreach my $socket (keys %connections) {
+		my $conn = $connections{$socket};
+		next if defined $conn->{remote};
 		
-		$log->debug("service: ", Dumper($service));
-    }
+		my $DACPid = $conn->{DACPid};
+		
+		my ($service) = grep { $_->[1] eq 'srv' && $_->[0] =~ /$DACPid/ } @answers;
+		return if !defined $service;
+		
+		my ($addr) = grep { $_->[1] eq 'a' && $_->[0] eq $service->[6] } @answers;
+		return if !defined $addr;
+		
+		$conn->{remote} = "$addr->[3]:$service->[5]";
+		$log->info("Found remote: $DACPid, $conn->{remote}");
+	}	
 }
 
 
@@ -868,6 +923,6 @@ LAuE4Pu13aKiJnfft7hIjbK+5kyb3TysZvoyDnb3HOKvInK7vXbKuU4ISgxB2bB3HcYzQMGsz1qJ
 
 1;
 
-our $VERSION = 0.32;
+our $VERSION = 0.33;
 
 1;

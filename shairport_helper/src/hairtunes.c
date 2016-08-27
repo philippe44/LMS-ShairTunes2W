@@ -79,7 +79,7 @@ int in_sd = -1, out_sd = -1, err_sd = -1;
 int create_socket(int port);
 int close_socket(int sd);
 
-const char *version = "0.32";
+const char *version = "0.33";
 
 // default buffer size
 #define START_FILL    64
@@ -466,16 +466,22 @@ static void alac_decode(short *dest, char *buf, int len) {
 	assert(outsize == FRAME_BYTES);
 }
 
-static void buffer_put_packet(seq_t seqno, char *data, int len) {
+static void buffer_put_packet(seq_t seqno, char *data, int len, int first) {
 	abuf_t *abuf = 0;
 	short buf_fill;
 
 	pthread_mutex_lock(&ab_mutex);
 	if (!ab_synced) {
-		ab_write = seqno;
-		ab_read = seqno-1;
-		ab_synced = 1;
+		if (first) {
+			ab_write = seqno;
+			ab_read = seqno-1;
+			ab_synced = 1;
+		} else {
+			pthread_mutex_unlock(&ab_mutex);
+			return;
+	   }
 	}
+
 	if(debug)
 		_fprintf(stderr, "buffer_put_packet: [%i]\n", seqno);
 
@@ -562,7 +568,7 @@ static void *rtp_thread_func(void *arg) {
 
 			// check if packet contains enough content to be reasonable
 			if (plen >= 16) {
-				buffer_put_packet(seqno, pktp, plen);
+				buffer_put_packet(seqno, pktp, plen, packet[1] & 0x80);
 			} else {
 				// resync?
 				if (type == 0x56 && seqno == 0) {
@@ -885,7 +891,7 @@ static short *buffer_get_frame(void) {
     buf_fill = ab_write - ab_read;
 
 	if (buf_fill < MIN_FILL || !ab_synced) {    // init or underrun
-	ab_buffering = 1;
+		ab_buffering = 1;
         pthread_mutex_unlock(&ab_mutex);
         return 0;
 	}
