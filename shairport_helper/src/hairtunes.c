@@ -148,7 +148,7 @@ static void ab_resync(void);
 static double volume = 1.0;
 static int fix_volume = 0x10000;
 static pthread_mutex_t vol_mutex = PTHREAD_MUTEX_INITIALIZER;
-
+int flush_seqno = -1;
 
 
 typedef struct audio_buffer_entry {   // decoded audio packets
@@ -279,10 +279,12 @@ int hairtunes_init(char *pAeskey, char *pAesiv, char *fmtpstr, int pCtrlPort, in
 		if (!strcmp(line, "exit\n")) {
 			return (0);
 		}
-		if (!strcmp(line, "flush\n")) {
+		if (strstr(line, "flush")) {
 			pthread_mutex_lock(&ab_mutex);
 			ab_resync();
 			pthread_mutex_unlock(&ab_mutex);
+			sscanf(line, "flush %d", &flush_seqno);
+			_printf("flushed %d\n", flush_seqno);
 			if (debug)
 				_fprintf(stderr, "FLUSH\n", NULL);
 		}
@@ -471,16 +473,24 @@ static void buffer_put_packet(seq_t seqno, char *data, int len, int first) {
 	short buf_fill;
 
 	pthread_mutex_lock(&ab_mutex);
+#if 1
 	if (!ab_synced) {
-		if (first) {
+		if (first || ((flush_seqno != -1) && ((seqno > flush_seqno) || seqno + 8192 < flush_seqno))) {
 			ab_write = seqno;
 			ab_read = seqno-1;
 			ab_synced = 1;
+			flush_seqno = -1;
 		} else {
 			pthread_mutex_unlock(&ab_mutex);
 			return;
 	   }
 	}
+#else
+	if (!ab_synced) {
+			pthread_mutex_unlock(&ab_mutex);
+			return;
+	}
+#endif
 
 	if(debug)
 		_fprintf(stderr, "buffer_put_packet: [%i]\n", seqno);

@@ -762,12 +762,10 @@ sub conn_handle_request {
 		
         /^FLUSH$/ && do {
 
-            # this is pause at airplay - but only stop also flushed the buffer at the player
-            # so if you press skip you won't hear the old song
-            # also double FLUSH won't result in play again (like on skip)
-            # 
-			my $dfh = $conn->{decoder_fh};
-            send ($dfh, "flush\n", 0);
+            my $dfh = $conn->{decoder_fh};
+			my ($seqno, $rtptime) = $req->header('RTP-Info') =~ m|seq=([^;]+);rtptime=([^;]+)|i;
+			$log->debug("Flush up to $seqno, $rtptime");
+            send ($dfh, "flush $seqno $rtptime\n", 0);
 
 			$conn->{metaData}->{offset} = 0;
 			$conn->{player}->execute( ['stop'] );
