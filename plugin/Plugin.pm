@@ -188,7 +188,7 @@ sub playerSubscriptionChange {
 
     $log->debug( "request=$reqstr client=$clientname" );
 	
-	return if ($client->modelName() !~ /Squeezebox/);
+	return if ($client->modelName() =~ /SqueezeLite/ && !$client->firmware);
 
     if ( ( $reqstr eq "client new" ) || ( $reqstr eq "client reconnect" ) ) {
         $sockets{$client} = createListenPort(1);
@@ -251,7 +251,6 @@ sub createListenPort {
 
     if ( !$listen ) {
         $log->error( "Socket creation failed!: $!" );
-
     }
 
     return $listen;
@@ -381,10 +380,23 @@ sub handleCoverRequest {
 	$resp->header( 'Connection' => 'close');
 	$resp->content( $connections{$slave}->{cover} );
 	
-	send ($socket, $resp->as_string(), 0);
-		
+	my $data = $resp->as_string();
+	my $sent = 0;
+	while ($sent < length $data) {
+		my $bytes = send ($socket, substr($data, $sent), 0);
+		last if !defined $bytes && $! != EAGAIN && $! != EWOULDBLOCK;
+		$sent += $bytes;
+	}
+			
 	Slim::Networking::Select::removeRead( $socket );
-	$socket->shutdown(2);
+	$socket->shutdown(1);
+	while (1) {
+		my $bytes = sysread($socket, my $c, 16);
+		next if !defined $bytes && ($! == EAGAIN || $! == EWOULDBLOCK);
+		last if !$bytes;
+	}	
+	
+	$log->debug("Coverart sent $sent over ", length $data);
 	close $socket;
 }
 
@@ -886,7 +898,7 @@ sub mDNSlistener {
 	recv $mDNSsock, my $buf, 4096, 0;
 		
 	my $res = AnyEvent::DNS::dns_unpack $buf;
-	$log->debug("DNSListener: ", Dumper($res));
+	#$log->debug("DNSListener: ", Dumper($res));
 	 
 	my @answers = (@{$res->{an}}, @{$res->{ar}});
 	
@@ -936,6 +948,6 @@ LAuE4Pu13aKiJnfft7hIjbK+5kyb3TysZvoyDnb3HOKvInK7vXbKuU4ISgxB2bB3HcYzQMGsz1qJ
 
 1;
 
-our $VERSION = 0.33;
+our $VERSION = 0.34;
 
 1;
