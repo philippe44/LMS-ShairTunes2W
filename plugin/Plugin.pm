@@ -211,6 +211,22 @@ sub playerSubscriptionChange {
         $log->info( "publisher for $clientname PID $clients{$client} will be terminated." );
         $clients{$client}->die();
         Slim::Networking::Select::removeRead( $sockets{$client} );
+		my ($slave) = grep { $connections{$_}->{player} eq $client } keys %connections;
+		if (defined $slave) {
+			my $conn = $connections{$slave};
+			
+			$log->debug("Cleaning connection: $conn->{self}");
+			cleanHelper( $conn );
+			Slim::Networking::Select::removeRead( $conn->{self} );
+			Slim::Networking::Select::removeRead( $conn->{cover_fh} );
+			close $conn->{self};
+			close $conn->{cover_fh};
+			delete $connections{$slave};
+		}	
+		delete $players{ $sockets{$client} };
+		close $sockets{$client};
+		delete $sockets{$client};
+		delete $clients{$client};
     }
 }
 
@@ -310,7 +326,8 @@ sub handleSocketConnect {
 	
     # set socket to unblocking mode => 0
     Slim::Utils::Network::blocking( $new, 0 );
-    $connections{$new} = { socket => $socket, player => $player,
+    $connections{$new} = { self => $new, 
+						   socket => $socket, player => $player,
 						   metaData => { artist   => "ShairTunes Artist",
 										 title    => "ShairTunes Title",
 										 album    => "ShairTunes Album",
@@ -393,10 +410,8 @@ sub handleSocketRead {
     my $socket = shift;
 
     my $conn = $connections{$socket};
-
-    my $contentLength = 0;
+	my $contentLength = 0;
     my $buffer        = "";
-
     my $bytesToRead = 1024;
 	
 	# read header
