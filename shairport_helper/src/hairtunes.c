@@ -79,7 +79,7 @@ int in_sd = -1, out_sd = -1, err_sd = -1;
 int create_socket(int port);
 int close_socket(int sd);
 
-const char *version = "0.34";
+const char *version = "0.35";
 
 // default buffer size
 #define START_FILL    64
