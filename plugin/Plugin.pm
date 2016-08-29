@@ -62,15 +62,22 @@ my %connections = (); # ( [ slaveINETSock ]  => ('socket' => [MasterINETSock], '
 					  #							 'decoder_fh' => [INETSockIn], decoder_fhout' => [INETSockOut], 
 					  #							 'decoder_ferr' => [INETSockErr], 'decoder_pid' => [helper],
 					  #							 'poweroff', 'iport' => [image proxy]
-					  #							 'cover_fh' => [INETSockIn], 'cover' => [jpeg blob]
+					  #							 'cover_fh' => [INETSockCover], 'cover' => [jpeg blob] },		
 					  #							 'DACPid' => [DACP ID], 'activeRemote' => [remote ID], 
 					  #						     'remote' => [IP::port of remote]	
+my %covers		= (); # ( [ coverINETSock ]	 =>	 [jpeg blob]
 
 
 sub getAirTunesMetaData {
 	my $class  = shift;
 	my $url = shift;
 	my $slave;
+	
+	foreach my $s (keys %connections) {
+		if (!defined $connections{$s}->{url}) {
+			$log->debug($s, $connections{$s});
+		}	
+	}
 	
 	($slave) = grep { $connections{$_}->{url} eq $url } keys %connections;
 	
@@ -231,7 +238,7 @@ sub playerSubscriptionChange {
 }
 
 sub createListenPort {
-	my $max = shift;
+	my $max = shift || 1;
     my $listen;
 
 =comment	
@@ -243,9 +250,10 @@ sub createListenPort {
     );
 =cut	
 
+	$log->debug("MAX:", $max);
     $listen = new IO::Socket::INET(
-        Listen    => $max || 1,
-        ReuseAddr => 1,
+        Listen    => $max,
+	    ReuseAddr => 1,
 		Proto     => 'tcp',
     );
 
@@ -336,8 +344,7 @@ sub handleSocketConnect {
 										 position => 0,
 										 offset   => 0,
 										}, 
-							cover_fh => createListenPort(5),	
-							cover => '', url => '',
+							cover => '', cover_fh => createListenPort(5),	
 							remote => undef, DACPid => 'none',
 						};
 	
@@ -350,14 +357,13 @@ sub handleSocketConnect {
 
 sub handleCoverConnect {
     my $socket = shift;
-    #my $player = $players{$socket};
-
+    
     my $new = $socket->accept;
 	Slim::Utils::Network::blocking( $new, 0 );
 	
 	my ($slave) = grep { $connections{$_}->{cover_fh} == $socket } keys %connections;
-	$connections{$slave}->{cover_fhd} = $new;
-	
+	$covers{$new} = $connections{$slave}->{cover};
+				
     $log->info( "New cover proxy connection from " . $new->peerhost );
 	
 	Slim::Networking::Select::addRead( $new, \&handleCoverRequest);
@@ -370,21 +376,22 @@ sub handleCoverRequest {
 		$log->debug("Image proxy request: $line");
 	}
 	
-	my ($slave) = grep { $connections{$_}->{cover_fhd} == $socket } keys %connections;
-	my $resp = HTTP::Response->new( 200 );
+	return if !defined $covers{$socket};
 	
+	my $resp = HTTP::Response->new( 200 );
 	$resp->protocol('HTTP/1.1');
 	$resp->user_agent('ShairTunes2');
 	$resp->content_type('image/jpeg');
-    $resp->header( 'Content-Length' => length $connections{$slave}->{cover} );
+    $resp->header( 'Content-Length' => length $covers{$socket} );
 	$resp->header( 'Connection' => 'close');
-	$resp->content( $connections{$slave}->{cover} );
+	$resp->content( $covers{$socket} );
 	
 	my $data = $resp->as_string();
 	my $sent = 0;
 	while ($sent < length $data) {
 		my $bytes = send ($socket, substr($data, $sent), 0);
 		last if !defined $bytes && $! != EAGAIN && $! != EWOULDBLOCK;
+		$log->debug("sent $bytes");
 		$sent += $bytes;
 	}
 			
@@ -396,8 +403,10 @@ sub handleCoverRequest {
 		last if !$bytes;
 	}	
 	
-	$log->debug("Coverart sent $sent over ", length $data);
 	close $socket;
+	delete $covers{$socket};
+
+	$log->debug("Coverart sent $sent over ", length $data);
 }
 
 sub handleHelperOut {
@@ -585,16 +594,17 @@ sub notifyUpdate {
 	my $client = shift;
 	my $metaData = shift;
 	
-	$client->master->playingSong->pluginData( wmaMeta => {
+	my $master = $client->master;
+	$master->playingSong->pluginData( wmaMeta => {
 										cover  => $metaData->{cover},
 										icon   => $metaData->{icon},
 										artist => $metaData->{artist},
 										title  => $metaData->{title},
 											} );
 											
-	$client->currentPlaylistUpdateTime( Time::HiRes::time() );
-	Slim::Control::Request::notifyFromArray( $client, ['newmetadata'] );  											
-	$client->execute( ['play'] );
+	$master->currentPlaylistUpdateTime( Time::HiRes::time() );
+	Slim::Control::Request::notifyFromArray( $master, ['newmetadata'] );  											
+	$master->execute( ['play'] );
 }											
 
 sub conn_handle_request {
@@ -856,7 +866,7 @@ sub conn_handle_request {
 				my $metaData = $conn->{metaData};
                                 
                 my $host = Slim::Utils::Network::serverAddr();
-				my $url  = "http://$host:$conn->{iport}/cover" . md5_hex($req->content) . "/image.jpeg";
+				my $url  = "http://$host:$conn->{iport}/" . md5_hex($req->content) . "/cover.jpg";
 				$metaData->{cover} = $url;
 				$metaData->{icon} = $url;
 				$conn->{cover} = $req->content;
@@ -865,6 +875,15 @@ sub conn_handle_request {
 				
 				notifyUpdate($conn->{player}, $metaData);
 			}
+			elsif ( $req->header( 'Content-Type' ) eq "image/none" ) {
+				my $metaData = $conn->{metaData};
+                                
+            	$metaData->{cover} = '';
+				$metaData->{icon} = '';
+				
+				notifyUpdate($conn->{player}, $metaData);
+			}
+			
             else {
                 $log->error( "Unknown content-type: \"" . $req->header( 'Content-Type' ) . "\"" );
             }

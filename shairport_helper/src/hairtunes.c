@@ -473,7 +473,6 @@ static void buffer_put_packet(seq_t seqno, char *data, int len, int first) {
 	short buf_fill;
 
 	pthread_mutex_lock(&ab_mutex);
-#if 1
 	if (!ab_synced) {
 		if (first || ((flush_seqno != -1) && ((seqno > flush_seqno) || seqno + 8192 < flush_seqno))) {
 			ab_write = seqno;
@@ -485,12 +484,6 @@ static void buffer_put_packet(seq_t seqno, char *data, int len, int first) {
 			return;
 	   }
 	}
-#else
-	if (!ab_synced) {
-			pthread_mutex_unlock(&ab_mutex);
-			return;
-	}
-#endif
 
 	if(debug)
 		_fprintf(stderr, "buffer_put_packet: [%i]\n", seqno);

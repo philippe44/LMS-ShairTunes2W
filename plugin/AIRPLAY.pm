@@ -16,7 +16,7 @@ my $prefs = preferences( 'plugin.shairtunes' );
 
 sub isRemote { 1 }
 
-sub bufferThreshold { 80 }
+sub bufferThreshold { 20 }
 
 sub canDoAction {
     my ( $class, $client, $url, $action ) = @_;
