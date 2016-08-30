@@ -250,8 +250,7 @@ sub createListenPort {
     );
 =cut	
 
-	$log->debug("MAX:", $max);
-    $listen = new IO::Socket::INET(
+	$listen = new IO::Socket::INET(
         Listen    => $max,
 	    ReuseAddr => 1,
 		Proto     => 'tcp',
@@ -967,6 +966,6 @@ LAuE4Pu13aKiJnfft7hIjbK+5kyb3TysZvoyDnb3HOKvInK7vXbKuU4ISgxB2bB3HcYzQMGsz1qJ
 
 1;
 
-our $VERSION = 0.34;
+our $VERSION = 0.35.1;
 
 1;

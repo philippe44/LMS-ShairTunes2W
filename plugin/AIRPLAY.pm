@@ -52,7 +52,7 @@ sub canDirectStream {
 	
 	return 0 if $client->isSynced(1);
 	
-    $log->info( "canDirectStream $url" );
+    $log->debug( "canDirectStream $url" );
 
     $url =~ s{^airplay://}{http://};
 	
