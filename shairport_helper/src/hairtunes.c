@@ -79,7 +79,7 @@ int in_sd = -1, out_sd = -1, err_sd = -1;
 int create_socket(int port);
 int close_socket(int sd);
 
-const char *version = "0.35";
+const char *version = "0.35.1";
 
 // default buffer size
 #define START_FILL    64
@@ -556,7 +556,6 @@ static void *rtp_thread_func(void *arg) {
 		type = packet[1] & ~0x80;
 		if(debug)
 			_fprintf(stderr, "rtp_thread_func: {%02X}\n", type);
-		_fflush(stderr);
 		if (type == 0x60 || type == 0x56) {   // audio data / resend
 			pktp = packet;
 			if (type==0x56) {
@@ -905,7 +904,7 @@ static short *buffer_get_frame(void) {
 
     read = ab_read;
     ab_read++;
-    buf_fill = ab_write - ab_read;
+   	buf_fill = ab_write - ab_read;
     bf_est_update(buf_fill);
 
     // check if t+16, t+32, t+64, t+128, ... (buffer_start_fill / 2)
