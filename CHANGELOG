@@ -1,0 +1,2 @@
+0.35.2
+ - For doAction, LMS alwasy sends the master player, even if the skip/prev is made on a slave

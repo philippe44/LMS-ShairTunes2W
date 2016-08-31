@@ -101,10 +101,10 @@ sub sendAction {
 	
 	foreach my $master (keys %connections) {
 		my $conn = $connections{$master};
-		$log->debug("Player matching: p: $conn->{player}, c: $client");
+		$log->debug("Player matching: p: $conn->{player}, c: $client, m: ", $conn->{player}->master);
 	}
 	
-	my ($slave) = grep { $connections{$_}->{player} == $client } keys %connections;
+	my ($slave) = grep { $connections{$_}->{player}->master == $client } keys %connections;
 	return 0 if !defined $slave || !defined $connections{$slave}->{remote};
 	
 	my $conn = $connections{$slave};
@@ -966,6 +966,6 @@ LAuE4Pu13aKiJnfft7hIjbK+5kyb3TysZvoyDnb3HOKvInK7vXbKuU4ISgxB2bB3HcYzQMGsz1qJ
 
 1;
 
-our $VERSION = 0.35.1;
+our $VERSION = 0.35.2;
 
 1;
