@@ -79,7 +79,7 @@ int in_sd = -1, out_sd = -1, err_sd = -1;
 int create_socket(int port);
 int close_socket(int sd);
 
-const char *version = "0.35.1";
+const char *version = "0.35.3";
 
 // default buffer size
 #define START_FILL    64
@@ -210,7 +210,7 @@ static int init_decoder(void) {
     alac->setinfo_sample_size = sample_size;
     alac->setinfo_rice_historymult = fmtp[4];
     alac->setinfo_rice_initialhistory = fmtp[5];
-    alac->setinfo_rice_kmodifier = fmtp[6];
+	alac->setinfo_rice_kmodifier = fmtp[6];
 	alac->setinfo_7f =      fmtp[7];
 	alac->setinfo_80 =      fmtp[8];
 	alac->setinfo_82 =      fmtp[9];
@@ -415,6 +415,7 @@ int main(int argc, char **argv) {
 	}
 	else {
 		_fprintf(stderr, "Cannot start, check parameters");
+		ret = 1;
 	}
 
 	if (in_sd != -1) close_socket(in_sd);
@@ -510,7 +511,7 @@ static void buffer_put_packet(seq_t seqno, char *data, int len, int first) {
 		abuf->ready = 1;
     }
 
-    pthread_mutex_lock(&ab_mutex);
+	pthread_mutex_lock(&ab_mutex);
     if (ab_buffering && buf_fill >= buffer_start_fill) {
         ab_buffering = 0;
         pthread_cond_broadcast(&ab_buffer_ready);
@@ -604,7 +605,7 @@ static void rtp_request_resend(seq_t first, seq_t last) {
 
 	req[0] = 0x80;
 	req[1] = 0x55|0x80;  // Apple 'resend'
-    *(unsigned short *)(req+2) = htons(1);  // our seqnum
+	*(unsigned short *)(req+2) = htons(1);  // our seqnum
     *(unsigned short *)(req+4) = htons(first);  // missed seqnum
 	*(unsigned short *)(req+6) = htons(last-first+1);  // count
 
@@ -780,7 +781,7 @@ static inline short dithered_vol(short sample) {
         rand_a = lcg_rand();
         out += rand_a;
         out -= rand_b;
-    }
+	}
     return out>>16;
 }
 
@@ -840,7 +841,7 @@ static void bf_est_reset(short fill) {
     biquad_lpf(&bf_drift_lpf, 1.0/180.0, 0.3);
     biquad_lpf(&bf_err_lpf, 1.0/10.0, 0.25);
     biquad_lpf(&bf_err_deriv_lpf, 1.0/2.0, 0.2);
-    fill_count = 0;
+	fill_count = 0;
     bf_playback_rate = 1.0;
     bf_est_err = bf_last_err = 0;
     desired_fill = fill_count = 0;
@@ -870,7 +871,7 @@ static void bf_est_update(short fill) {
 
     if (debug)
         _fprintf(stderr, "bf_est_update: bf %d err %f drift %f desiring %f ed %f estd %f\n",
-                fill, bf_est_err, bf_est_drift, desired_fill, err_deriv, err_deriv + adj_error);
+				fill, bf_est_err, bf_est_drift, desired_fill, err_deriv, err_deriv + adj_error);
     bf_playback_rate = 1.0 + adj_error + bf_est_drift;
 
     bf_last_err = bf_est_err;
@@ -897,13 +898,14 @@ static short *buffer_get_frame(void) {
         pthread_mutex_unlock(&ab_mutex);
         return 0;
 	}
-    if (buf_fill >= BUFFER_FRAMES) {   // overrunning! uh-oh. restart at a sane distance
-        _fprintf(stderr, "buffer_get_frame: overrun. buf_fill: %i, buffer_frames: %i\n" , buf_fill, BUFFER_FRAMES);
-        ab_read = ab_write - buffer_start_fill;
-    }
+	if (buf_fill >= BUFFER_FRAMES) {   // overrunning! uh-oh. restart at a sane distance
+		_fprintf(stderr, "buffer_get_frame: overrun. buf_fill: %i, buffer_frames: %i\n" , buf_fill, BUFFER_FRAMES);
+		//ab_read = ab_write - buffer_start_fill;
+		ab_read = ab_write - BUFFER_FRAMES + buffer_start_fill;
+	}
 
     read = ab_read;
-    ab_read++;
+	ab_read++;
    	buf_fill = ab_write - ab_read;
     bf_est_update(buf_fill);
 
@@ -963,7 +965,7 @@ static int stuff_buffer(double playback_rate, short *inptr, short *outptr) {
         }
         for (i=stuffsamp; i<frame_size + stuff; i++) {
             *outptr++ = dithered_vol(*inptr++);
-            *outptr++ = dithered_vol(*inptr++);
+			*outptr++ = dithered_vol(*inptr++);
         }
     }
     pthread_mutex_unlock(&vol_mutex);
@@ -989,7 +991,7 @@ static void *audio_thread_func(void *arg) {
 
 #ifdef FANCY_RESAMPLING
     float *frame, *outframe;
-    SRC_DATA srcdat;
+	SRC_DATA srcdat;
 	if (fancy_resampling) {
         frame = malloc(frame_size*2*sizeof(float));
         outframe = malloc(2*frame_size*2*sizeof(float));
@@ -1248,8 +1250,8 @@ int _fprintf(FILE *file, ...)
 
 	n = send(file == stdout ? out_sd : err_sd, p, n, 0);
 
-	fprintf(stderr, p);
-	fflush(stderr);
+	//fprintf(stderr, p);
+	//fflush(stderr);
 
 	free(p);
 
