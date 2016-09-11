@@ -1,16 +1,16 @@
-package Plugins::ShairTunes2::Plugin;
+package Plugins::ShairTunes2W::Plugin;
 
 use strict;
 use warnings;
 
-use Plugins::ShairTunes2::AIRPLAY;
-use Plugins::ShairTunes2::Utils;
+use Plugins::ShairTunes2W::AIRPLAY;
+use Plugins::ShairTunes2W::Utils;
 
 use base qw(Slim::Plugin::OPMLBased);
 
 use File::Spec::Functions;
 use FindBin qw($Bin);
-use lib catdir($Bin, 'Plugins', 'ShairTunes2', 'lib');
+use lib catdir($Bin, 'Plugins', 'ShairTunes2W', 'lib');
 
 use Slim::Utils::Log;
 use Slim::Utils::Prefs;
@@ -142,7 +142,7 @@ sub initPlugin {
 
     $log->info( "Initialising " . $class->_pluginDataFor( 'version' ) . " on " . $Config{'archname'} );
 	
-	$shairtunes_helper = Plugins::ShairTunes2::Utils::helperBinary();
+	$shairtunes_helper = Plugins::ShairTunes2W::Utils::helperBinary();
 	if ( !$shairtunes_helper || !-x $shairtunes_helper ) {
         $log->error( "I'm sorry your platform \"" . $Config{archname}
                       . "\" is unsupported or nobody has compiled a binary for it! Can't work." );
@@ -390,17 +390,20 @@ sub handleCoverRequest {
 	while ($sent < length $data) {
 		my $bytes = send ($socket, substr($data, $sent), 0);
 		last if !defined $bytes && $! != EAGAIN && $! != EWOULDBLOCK;
+		next if !$bytes;
 		$log->debug("sent $bytes");
 		$sent += $bytes;
 	}
 			
 	Slim::Networking::Select::removeRead( $socket );
+=comment	
 	$socket->shutdown(1);
 	while (1) {
 		my $bytes = sysread($socket, my $c, 16);
 		next if !defined $bytes && ($! == EAGAIN || $! == EWOULDBLOCK);
 		last if !$bytes;
 	}	
+=cut	
 	
 	close $socket;
 	delete $covers{$socket};
@@ -626,7 +629,7 @@ sub conn_handle_request {
             $data .= join '', map { chr } split( /\./, $1 );
         }
         else {
-            $data .= Plugins::ShairTunes2::Utils::ip6bin( $ip );
+            $data .= Plugins::ShairTunes2W::Utils::ip6bin( $ip );
         }
 
         my @hw_addr = +( map( ord, split( //, md5( $conn->{player}->name() ) ) ) )[ 0 .. 5 ];
@@ -641,7 +644,7 @@ sub conn_handle_request {
     }
 
     if ( defined $conn->{password} && length $conn->{password} ) {
-        if ( !Plugins::ShairTunes2::Utils::digest_ok( $req, $conn ) ) {
+        if ( !Plugins::ShairTunes2W::Utils::digest_ok( $req, $conn ) ) {
             my $nonce = md5_hex( map { rand } 1 .. 20 );
             $conn->{nonce} = $nonce;
             my $apname = $conn->{player}->name();
@@ -851,7 +854,7 @@ sub conn_handle_request {
             }
             elsif ( $req->header( 'Content-Type' ) eq "application/x-dmap-tagged" ) {
 				my $metaData = $conn->{metaData};
-                my %dmapData = Plugins::ShairTunes2::Utils::getDmapData( $req->content );
+                my %dmapData = Plugins::ShairTunes2W::Utils::getDmapData( $req->content );
                 $metaData->{artist} = $dmapData{artist};
                 $metaData->{album}  = $dmapData{album};
                 $metaData->{title}  = $dmapData{title};

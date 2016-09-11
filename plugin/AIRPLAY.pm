@@ -1,4 +1,4 @@
-package Plugins::ShairTunes2::AIRPLAY;
+package Plugins::ShairTunes2W::AIRPLAY;
 
 use strict;
 use warnings;
@@ -23,7 +23,7 @@ sub canDoAction {
     
 	$log->info( "Action=$action" );
 
-    return Plugins::ShairTunes2::Plugin->sendAction($client, $action);
+    return Plugins::ShairTunes2W::Plugin->sendAction($client, $action);
 }
 
 sub canHandleTranscode {
@@ -93,7 +93,7 @@ sub contentType {
 sub getMetadataFor {
     my ( $class, $client, $url, $forceCurrent, $song ) = @_;
 
-	my $metaData = Plugins::ShairTunes2::Plugin->getAirTunesMetaData($url);
+	my $metaData = Plugins::ShairTunes2W::Plugin->getAirTunesMetaData($url);
 	
 	if ( $song && defined $metaData->{duration} ) {
 		$song->track->secs( $metaData->{duration} ) ;

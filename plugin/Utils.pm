@@ -1,4 +1,4 @@
-package Plugins::ShairTunes2::Utils;
+package Plugins::ShairTunes2W::Utils;
 
 use strict;
 use warnings;
@@ -62,7 +62,7 @@ sub helperBinary {
     }
 	
 	if (Slim::Utils::OSDetect::details()->{'os'} ne 'Windows') {
-		my $exec = catdir(Slim::Utils::PluginManager->allPlugins->{'ShairTunes2'}->{'basedir'}, 'Bin', $bin);
+		my $exec = catdir(Slim::Utils::PluginManager->allPlugins->{'ShairTunes2W'}->{'basedir'}, 'Bin', $bin);
 		$exec = Slim::Utils::OSDetect::getOS->decodeExternalHelperPath($exec);
 			
 		if (!((stat($exec))[2] & 0100)) {
