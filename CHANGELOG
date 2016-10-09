@@ -1,7 +1,11 @@
+0.36.0
+ - Remove buffering in helper ==> was conflicting with LMS buffer, creating shuttering
+ - Remove some packet retransmission which did not seem necessary (tbc)
+ 
 0.35.3
  - Close image proxy socket w/o waiting for the other end to respond
  - helper: when overrun happens, keep the largest amount of buffered audio
  - change name to avoid conflict with original version
  
 0.35.2
- - For doAction, LMS alwasy sends the master player, even if the skip/prev is made on a slave
+ - For doAction, LMS always sends the master player, even if the skip/prev is made on a slave
