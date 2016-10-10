@@ -58,11 +58,6 @@ char* strsep(char** stringp, const char* delim);
 
 #include "hairtunes.h"
 
-
-#ifdef FANCY_RESAMPLING
-#include <samplerate.h>
-#endif
-
 #include <assert.h>
 static int debug = 0;
 
@@ -102,6 +97,9 @@ static int http_status = 0;
 static int http_connection = -1;
 static char http_buffer[4096];
 
+static int resend_count = 0;
+seq_t	resend_first;
+
 static int http_on_headers_complete(http_parser* parser);
 
   http_cb      on_message_begin;
@@ -127,11 +125,6 @@ http_parser *http_parser_ctx = NULL;
 
 
 static alac_file *decoder_info;
-
-#ifdef FANCY_RESAMPLING
-static int fancy_resampling = 1;
-static SRC_STATE *src;
-#endif
 
 static int  init_rtp(void);
 static int  init_http(void);
@@ -326,19 +319,11 @@ int main(int argc, char **argv) {
 		if (!strcmp(argv[1], "-h")) {
 			printf("MDNS mode:\n\t-dns ");
 			mdns_server(argc, argv);
-#ifdef FANCY_RESAMPLING
-			printf("AIRPORT mode:\n\tiv <n> key <n> [socket <in>,<out>,<err>] "
-				   "[ipv4_only] [fmtp <n>] [cport <n>] "
-				   "[tport <n>] [host <n>] "
-				   "[resamp] [log <file>]"
-				   "\n");
-#else
 			printf("AIRPORT mode:\n\tiv <n> key <n> [socket <in>,<out>,<err>] "
 				   "[ipv4_only] [fmtp <n>] [cport <n>] "
 				   "[tport <n>] [host <n>] "
 				   "[log <file>]"
 				   "\n");
-#endif
 		}
 		else mdns_server(argc - 1, argv + 1);
 		exit (0);
@@ -377,11 +362,6 @@ int main(int argc, char **argv) {
 			logfile = *++argv;
 			argc--;
 		}
-#ifdef FANCY_RESAMPLING
-		else if (!strcasecmp(arg, "resamp")) {
-			fancy_resampling = atoi(*++argv);
-		}
-#endif
 	}
 
 	if (logfile && !freopen(logfile, "w", stderr))
@@ -471,6 +451,7 @@ static void buffer_put_packet(seq_t seqno, char *data, int len, int first) {
 			ab_read = seqno-1;
 			ab_synced = 1;
 			flush_seqno = -1;
+			resend_count = 0;
 		} else {
 			pthread_mutex_unlock(&ab_mutex);
 			return;
@@ -499,7 +480,7 @@ static void buffer_put_packet(seq_t seqno, char *data, int len, int first) {
 	if (abuf) {
 		alac_decode(abuf->data, data, len);
 		abuf->ready = 1;
-    }
+	}
 
 	pthread_mutex_lock(&ab_mutex);
 	pthread_cond_signal(&ab_buffer_ready);
@@ -512,13 +493,13 @@ static struct sockaddr_storage rtp_client;
 static socklen_t rtp_client_len;
 
 static void *rtp_thread_func(void *arg) {
-    char packet[MAX_PACKET];
+	char packet[MAX_PACKET];
 	char *pktp;
-    seq_t seqno;
-    ssize_t plen;
-    int sock = rtp_sockets[0]; 
-    int csock = rtp_sockets[1];
-    int readsock;
+	seq_t seqno;
+	ssize_t plen;
+	int sock = rtp_sockets[0];
+	int csock = rtp_sockets[1];
+	int readsock;
 	char type;
 	fd_set fds;
 
@@ -549,6 +530,7 @@ static void *rtp_thread_func(void *arg) {
 			if (type==0x56) {
 				pktp += 4;
 				plen -= 4;
+				if (resend_count) resend_count--;
 			}
 			seqno = ntohs(*(unsigned short *)(pktp+2));
 
@@ -590,13 +572,16 @@ static void rtp_request_resend(seq_t first, seq_t last) {
 	if (debug)
 		_fprintf(stderr, "\nRR[W:%i R:%i first=%i last=%i\n", ab_write, ab_read, first, last);
 
+	if (!resend_count) resend_first = first;
+	resend_count += last - first + 1;
+
 	req[0] = 0x80;
 	req[1] = 0x55|0x80;  // Apple 'resend'
 	*(unsigned short *)(req+2) = htons(1);  // our seqnum
-    *(unsigned short *)(req+4) = htons(first);  // missed seqnum
+	*(unsigned short *)(req+4) = htons(first);  // missed seqnum
 	*(unsigned short *)(req+6) = htons(last-first+1);  // count
 
-    if (ipv4_only) {
+	if (ipv4_only) {
 	((struct sockaddr_in *)&rtp_client)->sin_port = htons(controlport);
 	}
 #ifdef AF_INET6
@@ -751,143 +736,34 @@ static int init_http(void)
 	return port;
 }
 
-static short lcg_rand(void) {
-	static unsigned long lcg_prev = 12345;
-	lcg_prev = lcg_prev * 69069 + 3;
-	return lcg_prev & 0xffff;
-}
-
-static inline short dithered_vol(short sample) {
-    static short rand_a; 
-    static short rand_b;
-    long out;
-
-    out = (long)sample * fix_volume;
-    if (fix_volume < 0x10000) {
-        rand_b = rand_a;
-        rand_a = lcg_rand();
-        out += rand_a;
-        out -= rand_b;
-	}
-    return out>>16;
-}
-
-typedef struct {
-    double hist[2];
-    double a[2];
-    double b[3];
-} biquad_t;
-
-/*
-static void biquad_init(biquad_t *bq, double a[], double b[]) {
-    bq->hist[0] = bq->hist[1] = 0.0;
-    memcpy(bq->a, a, 2*sizeof(double));
-    memcpy(bq->b, b, 3*sizeof(double));
-}
-*/
-
-/*
-static void biquad_lpf(biquad_t *bq, double freq, double Q) {
-    double w0 = 2.0 * M_PI * freq * frame_size / (double)sampling_rate;
-    double alpha = sin(w0)/(2.0*Q);
-
-    double a_0 = 1.0 + alpha;
-    double b[3], a[2];
-    b[0] = (1.0-cos(w0))/(2.0*a_0);
-    b[1] = (1.0-cos(w0))/a_0;
-    b[2] = b[0];
-    a[0] = -2.0*cos(w0)/a_0;
-    a[1] = (1-alpha)/a_0;
-
-    biquad_init(bq, a, b);
-}
-*/
-
-static double biquad_filt(biquad_t *bq, double in) {
-    double w = in - bq->a[0]*bq->hist[0] - bq->a[1]*bq->hist[1];
-    double out = bq->b[1]*bq->hist[0] + bq->b[2]*bq->hist[1] + bq->b[0]*w;
-    bq->hist[1] = bq->hist[0];
-    bq->hist[0] = w;
-
-    return out;
-}
-
-static double bf_playback_rate = 1.0;
-
-static double bf_est_drift = 0.0;   // local clock is slower by
-static biquad_t bf_drift_lpf;
-static double bf_est_err = 0.0;
-static double bf_last_err;
-static biquad_t bf_err_lpf; 
-static biquad_t bf_err_deriv_lpf;
-static double desired_fill;
-static int fill_count;
-
-/*
-static void bf_est_reset(short fill) {
-    biquad_lpf(&bf_drift_lpf, 1.0/180.0, 0.3);
-    biquad_lpf(&bf_err_lpf, 1.0/10.0, 0.25);
-    biquad_lpf(&bf_err_deriv_lpf, 1.0/2.0, 0.2);
-	fill_count = 0;
-    bf_playback_rate = 1.0;
-    bf_est_err = bf_last_err = 0;
-    desired_fill = fill_count = 0;
-}
-*/
-
-static void bf_est_update(short fill) {
-	double buf_delta;
-	double err_deriv;
-	double adj_error;
-
-	if (fill_count < 1000) {
-		desired_fill += (double)fill/1000.0;
-		fill_count++;
-		return;
-	}
-
-#define CONTROL_A   (1e-4)
-#define CONTROL_B   (1e-1)
-
-	buf_delta = fill - desired_fill;
-	bf_est_err = biquad_filt(&bf_err_lpf, buf_delta);
-	err_deriv = biquad_filt(&bf_err_deriv_lpf, bf_est_err - bf_last_err);
-	adj_error = CONTROL_A * bf_est_err;
-
-    bf_est_drift = biquad_filt(&bf_drift_lpf, CONTROL_B*(adj_error + err_deriv) + bf_est_drift);
-
-    if (debug)
-        _fprintf(stderr, "bf_est_update: bf %d err %f drift %f desiring %f ed %f estd %f\n",
-				fill, bf_est_err, bf_est_drift, desired_fill, err_deriv, err_deriv + adj_error);
-    bf_playback_rate = 1.0 + adj_error + bf_est_drift;
-
-    bf_last_err = bf_est_err;
-}
-
 // get the next frame, when available. return 0 if underrun/stream reset.
 static short *buffer_get_frame(void) {
-    short buf_fill;
+	short buf_fill;
 	seq_t read;
-    abuf_t *curframe = 0;
+	abuf_t *curframe = 0;
 
 	pthread_mutex_lock(&ab_mutex);
 
 	buf_fill = ab_write - ab_read;
 
-	if (!buf_fill || !ab_synced) {    // init or underrun
+	// can't wait too much for resend frames
+	if (resend_count && ab_write > resend_first + 64) resend_count = 0;
+
+	if (resend_count || !buf_fill || !ab_synced) {
+	// if (!buf_fill || !ab_synced) {    // init or underrun
 		pthread_mutex_unlock(&ab_mutex);
 		return NULL;
 	}
+
 	if (buf_fill >= BUFFER_FRAMES) {   // overrunning! uh-oh. restart at a sane distance
 		_fprintf(stderr, "buffer_get_frame: overrun. buf_fill: %i, buffer_frames: %i\n" , buf_fill, BUFFER_FRAMES);
 		//ab_read = ab_write - buffer_start_fill;
 		ab_read = ab_write - BUFFER_FRAMES;
 	}
 
-    read = ab_read;
+	read = ab_read;
 	ab_read++;
-   	buf_fill = ab_write - ab_read;
-    bf_est_update(buf_fill);
+	buf_fill = ab_write - ab_read;
 
 	curframe = audio_buffer + BUFIDX(read);
 	if (!curframe->ready) {
@@ -900,78 +776,14 @@ static short *buffer_get_frame(void) {
 	return curframe->data;
 }
 
-static int stuff_buffer(double playback_rate, short *inptr, short *outptr) {
-	int i;
-	int stuffsamp = frame_size;
-	int stuff = 0;
-	double p_stuff;
-
-	p_stuff = 1.0 - pow(1.0 - fabs(playback_rate-1.0), frame_size);
-
-	if (rand() < p_stuff * RAND_MAX) {
-		stuff = playback_rate > 1.0 ? -1 : 1;
-		stuffsamp = rand() % (frame_size - 1);
-	}
-
-	pthread_mutex_lock(&vol_mutex);
-	for (i=0; i<stuffsamp; i++) {   // the whole frame, if no stuffing
-		*outptr++ = dithered_vol(*inptr++);
-		*outptr++ = dithered_vol(*inptr++);
-	};
-	if (stuff) {
-		if (stuff==1) {
-			if (debug)
-				_fprintf(stderr, "stuff_buffer: +++++++++\n");
-			// interpolate one sample
-			*outptr++ = dithered_vol(((long)inptr[-2] + (long)inptr[0]) >> 1);
-			*outptr++ = dithered_vol(((long)inptr[-1] + (long)inptr[1]) >> 1);
-		} else if (stuff==-1) {
-			if (debug)
-				_fprintf(stderr, "stuff_buffer: ---------\n");
-			inptr++;
-			inptr++;
-		}
-		for (i=stuffsamp; i<frame_size + stuff; i++) {
-			*outptr++ = dithered_vol(*inptr++);
-			*outptr++ = dithered_vol(*inptr++);
-		}
-	}
-	pthread_mutex_unlock(&vol_mutex);
-
-	return frame_size + stuff;
-}
 
 static void *audio_thread_func(void *arg) {
-	int play_samples = 0;
-	int i;
 #ifdef WIN32
 	signed short buf_fill;
 #else
 	signed short buf_fill __attribute__((unused));
 #endif
-	signed short *inbuf, *outbuf, *silence;
-	outbuf = malloc(OUTFRAME_BYTES);
-	silence = malloc(OUTFRAME_BYTES);
-
-	for (i=0; i<OUTFRAME_BYTES/2; i++) {
-		silence[i] = 0;
-	}
-
-#ifdef FANCY_RESAMPLING
-	float *frame, *outframe;
-	SRC_DATA srcdat;
-	if (fancy_resampling) {
-		frame = malloc(frame_size*2*sizeof(float));
-		outframe = malloc(2*frame_size*2*sizeof(float));
-
-		srcdat.data_in = frame;
-		srcdat.data_out = outframe;
-		srcdat.input_frames = FRAME_BYTES;
-		srcdat.output_frames = 2*FRAME_BYTES;
-		srcdat.src_ratio = 1.0;
-		srcdat.end_of_input = 0;
-	}
-#endif
+	signed short *inbuf;
 
 	while (1) {
 		ssize_t sent;
@@ -1042,28 +854,10 @@ static void *audio_thread_func(void *arg) {
 			inbuf = buffer_get_frame();
 		}
 
-#ifdef FANCY_RESAMPLING
-		if (fancy_resampling) {
-			int i;
-			pthread_mutex_lock(&vol_mutex);
-			for (i=0; i<2*FRAME_BYTES; i++) {
-				frame[i] = (float)inbuf[i] / 32768.0;
-				frame[i] *= volume;
-			}
-			pthread_mutex_unlock(&vol_mutex);
-			srcdat.src_ratio = bf_playback_rate;
-			src_process(src, &srcdat);
-			assert(srcdat.input_frames_used == FRAME_BYTES);
-			src_float_to_short_array(outframe, outbuf, FRAME_BYTES*2);
-			play_samples = srcdat.output_frames_gen;
-		} else
-#endif
+		sent = send(http_connection, (void*) inbuf, FRAME_BYTES, 0);
 
-		play_samples = stuff_buffer(bf_playback_rate, inbuf, outbuf);
-		sent = send(http_connection, outbuf, play_samples * 4, 0);
-
-		if (sent != (play_samples * 4)) {
-			_fprintf(stderr, "HTTP send() unexpected response: %li (data=%i): %s\n", (long int)sent, play_samples * 4, strerror(errno));
+		if (sent != FRAME_BYTES) {
+			_fprintf(stderr, "HTTP send() unexpected response: %li (data=%i): %s\n", (long int)sent, FRAME_BYTES, strerror(errno));
 		}
 	}
 
@@ -1093,14 +887,6 @@ int http_on_headers_complete(http_parser* parser)
 static int init_output(void) {
 	void* arg = 0;
 	pthread_t audio_thread;
-
-#ifdef FANCY_RESAMPLING
-	int err;
-	if (fancy_resampling)
-		src = src_new(SRC_SINC_MEDIUM_QUALITY, 2, &err);
-	else
-		src = 0;
-#endif
 
 	pthread_create(&audio_thread, NULL, audio_thread_func, arg);
 
