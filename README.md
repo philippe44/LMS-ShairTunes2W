@@ -5,7 +5,7 @@ This is a fork from https://github.com/disaster123/shairport2_plugin with the fo
 - caches artwork for LMS < 7.8 as well
 - does not require (normally) any extra installation of Perl addons 
 
-Needed packages to rebuild:
+Required packages to rebuild:
 - https://github.com/philippe44/TinySVCmDNS
 
 
