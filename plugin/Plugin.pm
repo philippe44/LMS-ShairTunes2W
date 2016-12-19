@@ -795,6 +795,7 @@ sub conn_handle_request {
 			$client->currentPlaylistUpdateTime( Time::HiRes::time() );
             Slim::Control::Request::notifyFromArray( $conn->{player}, ['newmetadata'] );
             $conn->{player}->execute( ['play'] );
+			$resp->header( 'Audio-Latency', '44100' );
 
             last;
         };

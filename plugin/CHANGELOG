@@ -1,3 +1,9 @@
+0.37.0
+ - Add debug capabilities in helper
+ - RTP resent counter was not mutex protected
+ - When creating socket, do not set timeout!
+ - in RECORD, Audio-Latency set to 44100
+
 0.36.0
  - Remove buffering in helper ==> was conflicting with LMS buffer, creating shuttering
  - Remove some packet retransmission which did not seem necessary (tbc)

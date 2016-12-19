@@ -71,10 +71,10 @@ sub new {
 	$url =~ s/airplay/http/;
 	
 	my $sock = $class->SUPER::new( {
-        url     => $url,
+		url     => $url,
         song    => $song,
         client  => $client,
-		timeout => 20,
+		bitrate => 1_411_200,
     } ) || return;
 	
 	$log->debug("NEW: $url");

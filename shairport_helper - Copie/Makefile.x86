@@ -1,0 +1,8 @@
+CFLAGS  ?= -Wall -fPIC -ggdb -O2 $(OPTS) $(INCLUDE) $(DEFINES)
+LDFLAGS ?= -lpthread -lcrypto -ldl -lm -lrt -lz -L. -static
+
+OBJ			= bin/x86
+EXECUTABLE 	= bin/shairport_helper-i386-linux
+
+include Makefile
+
