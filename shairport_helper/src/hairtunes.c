@@ -46,7 +46,6 @@ char* strsep(char** stringp, const char* delim);
 #include "hairtunes.h"
 
 #include <assert.h>
-static int debug = 0;
 
 #include "alac.h"
 #include "http.h"
@@ -61,9 +60,9 @@ int in_sd = -1, out_sd = -1, err_sd = -1;
 int create_socket(int port);
 int close_socket(int sd);
 
-const char *version = "0.37.0";
+const char *version = "0.40.0";
 
-static log_level 	main_loglevel = lERROR;
+static log_level 	main_loglevel = lSDEBUG;
 static log_level 	*loglevel = &main_loglevel;
 
 #ifdef __RTP_STORE
@@ -137,7 +136,8 @@ int flush_seqno = -1;
 
 
 typedef struct audio_buffer_entry {   // decoded audio packets
-    int ready;
+	int ready;
+	seq_t seqno;
 	signed short *data;
 } abuf_t;
 static abuf_t audio_buffer[BUFFER_FRAMES];
@@ -155,6 +155,7 @@ static void die(char *why) {
 	if (out_sd != -1) close_socket(out_sd);
 	if (err_sd != -1) close_socket(err_sd);
 	_fprintf(stderr, "FATAL: %s\n", why);
+	LOG_ERROR("FATAL ERROR: %s", why);
 	exit(1);
 }
 
@@ -252,8 +253,7 @@ int hairtunes_init(char *pAeskey, char *pAesiv, char *fmtpstr, int pCtrlPort, in
 		}
 		if (sscanf(line, "vol: %lf\n", &f)) {
 			assert(f<=0);
-			if (debug)
-				_fprintf(stderr, "VOL: %lf\n", f);
+			LOG_DEBUG("VOL: %lf", f);
 			pthread_mutex_lock(&vol_mutex);
 			volume = pow(10.0,0.05*f);
 			fix_volume = 65536.0 * volume;
@@ -319,7 +319,7 @@ int main(int argc, char **argv) {
 			printf("AIRPORT mode:\n\tiv <n> key <n> [socket <in>,<out>,<err>] "
 				   "[ipv4_only] [fmtp <n>] [cport <n>] "
 				   "[tport <n>] [host <n>] "
-				   "[log <file>]"
+			   	   "[log <file>] [dbg <error|warn|info|debug|sdebug>]"
 				   "\n");
 		}
 		else mdns_server(argc - 1, argv + 1);
@@ -357,6 +357,15 @@ int main(int argc, char **argv) {
 		}
 		if (!strcasecmp(arg, "log")) {
 			logfile = *++argv;
+			argc--;
+		}
+		if (!strcasecmp(arg, "dbg")) {
+			++argv;
+			if (!strcmp(*argv, "error"))  *loglevel = lERROR;
+			if (!strcmp(*argv, "warn"))   *loglevel = lWARN;
+			if (!strcmp(*argv, "info"))   *loglevel = lINFO;
+			if (!strcmp(*argv, "debug"))  *loglevel = lDEBUG;
+			if (!strcmp(*argv, "sdebug")) *loglevel = lSDEBUG;
 			argc--;
 		}
 	}
@@ -409,8 +418,10 @@ static void init_buffer(void) {
 
 static void ab_resync(void) {
 	int i;
-	for (i = 0; i < BUFFER_FRAMES; i++)
+	for (i = 0; i < BUFFER_FRAMES; i++) {
 		audio_buffer[i].ready = 0;
+		audio_buffer[i].seqno = 0;
+    }
 	ab_synced = 0;
 }
 
@@ -474,6 +485,7 @@ static void buffer_put_packet(seq_t seqno, char *data, int len, bool first) {
 	if (abuf) {
 		alac_decode(abuf->data, data, len);
 		abuf->ready = 1;
+		abuf->seqno = seqno;
 #ifdef __RTP_STORE
 		fwrite(abuf->data, FRAME_BYTES, 1, rtpFP);
 #endif
@@ -519,8 +531,7 @@ static void *rtp_thread_func(void *arg) {
 		assert(plen<=MAX_PACKET);
 
 		type = packet[1] & ~0x80;
-		if(debug)
-			_fprintf(stderr, "rtp_thread_func: {%02X}\n", type);
+		LOG_SDEBUG("packet:%u", type);
 		if (type == 0x60 || type == 0x56) {   // audio data / resend
 			pktp = packet;
 			if (type == 0x56) {
@@ -542,8 +553,7 @@ static void *rtp_thread_func(void *arg) {
 		// 1st sync packet received (signals a restart of playback)
 		else if (type == 0x54 && (packet[0] & 0x10)) {
 			_printf("play\n");
-			if (debug)
-				_fprintf(stderr, "1st frame play received\n");
+			LOG_DEBUG("1st frame play received\n", NULL);
 		}
 	}
 
@@ -577,7 +587,7 @@ static void rtp_request_resend(seq_t first, seq_t last) {
 #endif
 
 	if (sizeof(req) != sendto(rtp_sockets[1], req, sizeof(req), 0, (struct sockaddr*) &rtp_client, sizeof(struct sockaddr_storage))) {
-		_fprintf(stderr, "rtp_request_resend: SENDTO failed (%s)\n", strerror(errno));
+		LOG_WARN("SENDTO failed (%s)", strerror(errno));
 	}
 }
 
@@ -704,6 +714,7 @@ static int init_http(void)
 
 		if (0 > bind(http_listener, (struct sockaddr*) &servaddr, sizeof(servaddr))) {
 			_fprintf(stderr, "init_http: Could not bind http listening socket to port %i (%s)\n", port, strerror(errno));
+			LOG_WARN("Could not bind http listening socket to port %i (%s)", port, strerror(errno));
 			port++;
 			continue;
 		}
@@ -733,7 +744,7 @@ static short *buffer_get_frame(void) {
 	buf_fill = ab_write - ab_read;
 
 	// can't wait too much for resend frames
-	if (resend_count && ab_write > resend_first + 64) {
+	if (resend_count && ab_write > resend_first + 32) {
 		LOG_ERROR("resend request too old, restarting rcount:%u rfirst:%u", resend_count, resend_first);
 		resend_count = 0;
 	}
@@ -759,8 +770,15 @@ static short *buffer_get_frame(void) {
 
 	curframe = audio_buffer + BUFIDX(read);
 	if (!curframe->ready) {
-		LOG_DEBUG("created zero frame at:%u fill:%u (W:%u R:%u)", read, buf_fill, ab_write, ab_read);
-		memset(curframe->data, 0, FRAME_BYTES);
+		abuf_t *prevframe = audio_buffer + BUFIDX(read - 1);
+		if (prevframe->seqno == BUFIDX(read - 1)) {
+			LOG_DEBUG("repeating previous frame at:%u fill:%u (W:%u R:%u)", read, buf_fill, ab_write, ab_read);
+			memcpy(curframe->data, prevframe->data, FRAME_BYTES);
+		}
+		else {
+			LOG_DEBUG("created zero frame at:%u fill:%u (W:%u R:%u)", read, buf_fill, ab_write, ab_read);
+			memset(curframe->data, 0, FRAME_BYTES);
+        }
 	}
 	else {
 		LOG_SDEBUG("prepared frame at:%u fill:%u (W:%u R:%u)", read, buf_fill, ab_write, ab_read);
@@ -788,8 +806,7 @@ static void *audio_thread_func(void *arg) {
 			http_connection = accept(http_listener, NULL, NULL);
 
 			if (http_connection != -1) {
-				if (debug)
-					_fprintf(stderr, "audio_thread_func: got HTTP connection %i\n", http_connection);
+				LOG_INFO("audio_thread_func: got HTTP connection %u", http_connection);
 
 				http_status = 1;
 				http_parser_ctx = malloc(sizeof(http_parser));
@@ -811,6 +828,7 @@ static void *audio_thread_func(void *arg) {
 			if (n <= 0) {
 				if (n < 0 && (errno != EAGAIN) && (errno != WSAEWOULDBLOCK)) {
 					_fprintf(stderr, "audio_thread_func: HTTP recv failed %d (%s)\n", n, strerror(errno));
+					LOG_WARN("HTTP recv failed %d (%s)", n, strerror(errno));
 				}
 			} else {
 				recvd = recv(http_connection, http_buffer, sizeof(http_buffer), 0);
@@ -818,6 +836,7 @@ static void *audio_thread_func(void *arg) {
 			if (0 > (recvd = recv(http_connection, http_buffer, sizeof(http_buffer), MSG_DONTWAIT))) {
 				if ((errno != EAGAIN) && (errno != EWOULDBLOCK)) {
 					_fprintf(stderr, "audio_thread_func: HTTP recv failed %d (%s)\n", errno, strerror(errno));
+					LOG_ERROR("audio_thread_func: HTTP recv failed %d (%s)", errno, strerror(errno));
 				}
 			} else {
 #endif
@@ -829,10 +848,9 @@ static void *audio_thread_func(void *arg) {
 					http_parser_ctx = 0;
 					http_status = 0;
 				} else {
-					if (debug) {
-						_fprintf(stderr, "audio_thread_func: HTTP recvd %d:\n", recvd);
+					if (*loglevel == lDEBUG) {
+						LOG_DEBUG("HTTP recvd %d:", recvd);
 						fwrite(http_buffer, recvd, 1, stderr);
-						_fflush(stderr);
 					}
 
 					http_parser_execute(http_parser_ctx, &http_settings, http_buffer, recvd);
@@ -851,12 +869,12 @@ static void *audio_thread_func(void *arg) {
 			inbuf = buffer_get_frame();
 		}
 
-		LOG_SDEBUG("HTTP sending frame count:%u (W:%u R:%u)", frame_count, ab_write, ab_read);
 		sent = send(http_connection, (void*) inbuf, FRAME_BYTES, 0);
 		LOG_SDEBUG("HTTP sent frame count:%u (W:%u R:%u)", frame_count++, ab_write, ab_read);
 
 		if (sent != FRAME_BYTES) {
 			_fprintf(stderr, "HTTP send() unexpected response: %li (data=%i): %s\n", (long int)sent, FRAME_BYTES, strerror(errno));
+			LOG_ERROR("HTTP send() unexpected response: %li (data=%i): %s", (long int)sent, FRAME_BYTES, strerror(errno));
 		}
 	}
 
@@ -869,13 +887,12 @@ int http_on_headers_complete(http_parser* parser)
 
 	const char* response = "HTTP/1.1 200 OK\r\nServer: HairTunes\r\nConnection: close\r\nContent-Type: audio/L16;rate=44100;channels=2\r\n\r\n";
 
-	if (debug)
-		_fprintf(stderr, "http_on_headers_complete\n");
-
+	LOG_INFO("HTTP header received", NULL);
 	sent = send(http_connection, response, strlen(response), 0);
 
 	if (sent != strlen(response)) {
 		_fprintf(stderr, "HTTP send() unexpected response: %li (strlen=%lu)\n", (long int)sent, (long unsigned int)strlen(response));
+		LOG_ERROR("HTTP send() unexpected response: %li (strlen=%lu)", (long int)sent, (long unsigned int)strlen(response));
 	}
 
 	http_status = 1000;

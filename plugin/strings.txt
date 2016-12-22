@@ -2,10 +2,28 @@
 
 PLUGIN_SHAIRTUNES2
 	EN	ShairTunes2 (fork)
-
+	
 PLUGIN_SHAIRTUNES2_DESC
 	EN	ShairTunes2 Integration (w/Windows)
 
-SHAIRTUNES2
-	EN	ShairTunes2 (fork)
+PLUGIN_SHAIRTUNES2_WARNING
+	EN	WARNING: Either LMS or the enabled/disabled players must be restarted for modifications to be taken into account
+	
+PLUGIN_SHAIRTUNES2_LOGLEVEL
+	EN	Enable logging 
+	
+PLUGIN_SHAIRTUNES2_LOGLEVEL_DESC
+	EN	Set various log level
 
+PLUGIN_SHAIRTUNES2_BUFFER
+	EN	Buffer level (KB)
+	
+PLUGIN_SHAIRTUNES2_BUFFER_DESC
+	EN	Set the amount of buffering LMS does before playing. Low value means faster start but more shuttering
+	
+PLUGIN_SHAIRTUNES2_SQUEEZELITE
+	EN	Allow all Squeezelite-based Players
+	
+PLUGIN_SHAIRTUNES2_SQUEEZELITE_DESC
+	EN	Allow Squeezelite version lower than 1.8 and AirPlay, ChromeCast and UPnP bridge "virtual" players to be used
+	

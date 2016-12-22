@@ -45,6 +45,13 @@ my $log = Slim::Utils::Log->addLogCategory(
 );
 
 my $prefs         = preferences( 'plugin.shairtunes' );
+
+$prefs->init({ 
+	squeezelite => 0, 
+	loglevel => '',
+	bufferThreshold => 255,
+});
+
 my $shairtunes_helper;
 my $DACPfqdn = "_dacp._tcp.local";
 my $mDNSsock;
@@ -67,6 +74,11 @@ my %connections = (); # ( [ slaveINETSock ]  => ('socket' => [MasterINETSock], '
 					  #						     'remote' => [IP::port of remote]	
 my %covers		= (); # ( [ coverINETSock ]	 =>	 [jpeg blob]
 
+
+sub logFile {
+	my $id = shift;
+	return catdir(Slim::Utils::OSDetect::dirsFor('log'), "shairtunes2-$id.log");
+}
 
 sub getAirTunesMetaData {
 	my $class  = shift;
@@ -142,6 +154,11 @@ sub initPlugin {
 
     $log->info( "Initialising " . $class->_pluginDataFor( 'version' ) . " on " . $Config{'archname'} );
 	
+	if ( main::WEBUI ) {
+		require Plugins::ShairTunes2W::Settings;
+		Plugins::ShairTunes2W::Settings->new;
+	}
+		
 	$shairtunes_helper = Plugins::ShairTunes2W::Utils::helperBinary();
 	if ( !$shairtunes_helper || !-x $shairtunes_helper ) {
         $log->error( "I'm sorry your platform \"" . $Config{archname}
@@ -195,8 +212,9 @@ sub playerSubscriptionChange {
 
     $log->debug( "request=$reqstr client=$clientname" );
 	
-	return if ($client->modelName() =~ /SqueezeLite/ && !$client->firmware);
-
+	return if !($prefs->get($client->id) // 1);
+	return if $client->modelName() =~ /SqueezeLite/ && !$client->firmware && !$prefs->get('squeezelite');
+		
     if ( ( $reqstr eq "client new" ) || ( $reqstr eq "client reconnect" ) ) {
         $sockets{$client} = createListenPort(1);
         $players{ $sockets{$client} } = $client;
@@ -722,6 +740,12 @@ sub conn_handle_request {
                 cport => $cport,
                 tport => $tport,
                 );
+
+			if (my $loglevel = $prefs->get('loglevel')) {
+				my $id = $conn->{player}->id;
+				$id =~ s/:/-/g;
+				push @dec_args, ("log", logFile($id), "dbg", $loglevel);
+			}	
 			
 			$log->debug( "decode command: ", Dumper(@dec_args));
     
@@ -841,8 +865,14 @@ sub conn_handle_request {
                     my $positionRealTime = ( $curr - $start ) / $samplingRate;
                     my $durationRealTime = ( $end - $start ) / $samplingRate;
 
-                    $metaData->{duration} = $durationRealTime;
-                    $metaData->{position} = $positionRealTime;
+					# this is likely a bridge, so duration shall be set to 0 (live stream)
+					if ($conn->{player}->model =~ /squeezelite/ && !$conn->{player}->firmware) {
+						$metaData->{duration} = 0;
+					} else {
+						$metaData->{duration} = $durationRealTime;
+					}	
+					
+					$metaData->{position} = $positionRealTime;
 					
 					notifyUpdate ($conn->{player}, $metaData);
                     $conn->{player}->execute( ['play'] );

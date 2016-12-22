@@ -1,0 +1,37 @@
+[% PROCESS settings/header.html %]
+
+	<div class="prefDesc">
+	
+	[% WRAPPER setting title="PLUGIN_SHAIRTUNES2_LOGLEVEL" desc="PLUGIN_SHAIRTUNES2_LOGLEVEL_DESC" %]
+		<select class="stdedit" name="pref_loglevel" id="pref_loglevel">
+		[% FOREACH entry IN [ ['none',''], ['error','error'], ['warning','warn'], ['info','info'], ['debug','debug'], ['extra debug','sdebug'] ] %]
+			<option [% IF entry.1 == prefs.pref_loglevel %] selected [% END %] value="[% entry.1 %]"> [% entry.0 %] </option>
+		[% END %]</select>
+		&nbsp&nbsp[% logdir %]
+	[% END %]
+	
+	[% WRAPPER setting title="PLUGIN_SHAIRTUNES2_BUFFER" desc="PLUGIN_SHAIRTUNES2_BUFFER_DESC" %]
+		<input name="pref_bufferThreshold" id="pref_bufferThreshold" type="stdedit" value="[% prefs.pref_bufferThreshold %]" size="3" >
+	[% END %]
+		
+	[% WRAPPER setting title="PLUGIN_SHAIRTUNES2_SQUEEZELITE" desc="PLUGIN_SHAIRTUNES2_SQUEEZELITE_DESC" %]
+		<input name="pref_squeezelite" id="pref_squeezelite" type="checkbox" [% IF prefs.pref_squeezelite %] checked [% END %] onchange="form.submit()" >
+	[% END %]
+
+	<hr>
+	<table>
+	[% FOREACH entry IN players %]	
+		<tr>
+		<td><input name="enabled.[% entry.mac %]" type="checkbox" [% IF entry.enabled %] checked [% END %]></td>
+		<th>&nbsp&nbsp[% entry.name %]</th><th>&nbsp[% entry.mac %]</th>
+		</tr>
+	[% END %]
+	</table>
+	
+	[% WRAPPER settingSection %]
+			<b><font color=red>[% "PLUGIN_SHAIRTUNES2_WARNING" | string %]</font></b>
+	[% END %]	
+	
+	</div>
+
+[% PROCESS settings/footer.html %]

@@ -16,7 +16,7 @@ my $prefs = preferences( 'plugin.shairtunes' );
 
 sub isRemote { 1 }
 
-sub bufferThreshold { 20 }
+sub bufferThreshold { $prefs->get('bufferThreshold') // 255; }
 
 sub canDoAction {
     my ( $class, $client, $url, $action ) = @_;
@@ -34,8 +34,11 @@ sub canHandleTranscode {
 
 sub getStreamBitrate {
     my ( $self, $maxRate ) = @_;
-
-    return Slim::Player::Song::guessBitrateFromFormat( ${*$self}{'contentType'}, $maxRate );
+	
+	my $rate = Slim::Player::Song::guessBitrateFromFormat( ${*$self}{'contentType'}, $maxRate );
+	$log->info("bitrate: $rate");
+	
+	return $rate;
 }
 
 sub isAudioURL { 1 }
