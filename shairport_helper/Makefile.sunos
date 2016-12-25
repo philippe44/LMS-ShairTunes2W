@@ -1,0 +1,9 @@
+CC	= gcc
+CFLAGS  = -Wall -fPIC -O2 $(OPTS) $(INCLUDE) $(DEFINES)
+LDFLAGS = -lpthread -lcrypto -ldl -lm -lrt -lsocket -lnsl -lz -L. 
+
+OBJ		= bin/i86pc-solaris
+EXECUTABLE 	= bin/shairport_helper-i86pc-solaris
+
+include Makefile
+
