@@ -825,9 +825,9 @@ static void *audio_thread_func(void *arg) {
 			FD_SET(http_connection, &rfds);
 
 			n = select(http_connection + 1, &rfds, NULL, NULL, &timeout);
-			if (n <= 0) {
-				if (n < 0 && (errno != EAGAIN) && (errno != WSAEWOULDBLOCK)) {
-					_fprintf(stderr, "audio_thread_func: HTTP recv failed %d (%s)\n", n, strerror(errno));
+			if (n <= 0) {
+				if (n < 0 && (errno != EAGAIN) && (errno != WSAEWOULDBLOCK)) {
+					_fprintf(stderr, "audio_thread_func: HTTP recv failed %d (%s)\n", n, strerror(errno));
 					LOG_WARN("HTTP recv failed %d (%s)", n, strerror(errno));
 				}
 			} else {

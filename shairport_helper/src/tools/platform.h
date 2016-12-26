@@ -26,21 +26,31 @@
 #define OSX       0
 #define WIN       0
 #define FREEBSD   0
+#define SUNOS     0
 #elif defined (__APPLE__)
 #define LINUX     0
 #define OSX       1
 #define WIN       0
 #define FREEBSD   0
+#define SUNOS     0
 #elif defined (_MSC_VER) || defined(__BORLANDC__)
 #define LINUX     0
 #define OSX       0
 #define WIN       1
 #define FREEBSD   0
+#define SUNOS     0
 #elif defined(__FreeBSD__)
 #define LINUX     0
 #define OSX       0
 #define WIN       0
 #define FREEBSD   1
+#define SUNOS     0
+#elif defined(sun)
+#define LINUX     0
+#define OSX       0
+#define WIN       0
+#define FREEBSD   0
+#define SUNOS     1
 #else
 #error unknown target
 #endif
@@ -86,6 +96,43 @@ char *GetTempPath(u16_t size, char *path);
 
 #endif
 
+#if SUNOS
+#include <sys/types.h>
+#include <unistd.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <sys/time.h>
+#include <sys/socket.h>
+#include <netdb.h>
+#include <sys/poll.h>
+#include <poll.h>
+#include <dlfcn.h>
+#include <pthread.h>
+#include <errno.h>
+
+#define min(a,b) (((a) < (b)) ? (a) : (b))
+#define max(a,b) (((a) > (b)) ? (a) : (b))
+
+typedef uint8_t  u8_t;
+typedef uint16_t u16_t;
+typedef uint32_t u32_t;
+typedef uint64_t u64_t;
+typedef int16_t   s16_t;
+typedef int32_t   s32_t;
+typedef int64_t   s64_t;
+
+#define last_error() errno
+#define ERROR_WOULDBLOCK EWOULDBLOCK
+
+int SendARP(in_addr_t src, in_addr_t dst, u8_t mac[], u32_t *size);
+#define fresize(f,s) ftruncate(fileno(f), s)
+char *strlwr(char *str);
+#define _random(x) random()
+char *GetTempPath(u16_t size, char *path);
+
+#endif
+
+
 #if WIN
 
 #include <winsock2.h>
@@ -106,7 +153,7 @@ typedef __int64 s64_t;
 int gettimeofday(struct timeval *tv, struct timezone *tz);
 
 //#define poll(fds,numfds,timeout) WSAPoll(fds,numfds,timeout)
-#define usleep(x) Sleep((x)/1000)
+#define usleep(x) Sleep((x)/1000)
 #define sleep(x) Sleep((x)*1000)
 #define last_error() WSAGetLastError()
 #define ERROR_WOULDBLOCK WSAEWOULDBLOCK
@@ -126,6 +173,7 @@ int gettimeofday(struct timeval *tv, struct timezone *tz);
 
 #endif
 
+#if LINUX || FREEBSD || OSX
 typedef u8_t  __u8;
 typedef u16_t __u16;
 typedef u32_t __u32;
@@ -136,14 +184,35 @@ typedef s64_t __s64;
 
 typedef struct ntp_s {
 	__u32 seconds;
-	__u32 fraction;
-} ntp_t;
+	__u32 fraction;
+} ntp_t;
 
-u64_t timeval_to_ntp(struct timeval tv, struct ntp_s *ntp);
-u64_t get_ntp(struct ntp_s *ntp);
+u64_t timeval_to_ntp(struct timeval tv, struct ntp_s *ntp);
+u64_t get_ntp(struct ntp_s *ntp);
 u32_t gettime_ms(void);
 u64_t gettime_ms64(void);
 
 #define SL_LITTLE_ENDIAN (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
+#elif SUNOS
+typedef u8_t  __u8;
+typedef u16_t __u16;
+typedef u32_t __u32;
+typedef u64_t __u64;
+typedef s16_t __s16;
+typedef s32_t __s32;
+typedef s64_t __s64;
 
-#endif     // __PLATFORM
+typedef struct ntp_s {
+        __u32 seconds;
+        __u32 fraction;
+} ntp_t;
+
+u64_t timeval_to_ntp(struct timeval tv, struct ntp_s *ntp);
+u64_t get_ntp(struct ntp_s *ntp);
+u32_t gettime_ms(void);
+u64_t gettime_ms64(void);
+
+#define SL_LITTLE_ENDIAN (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
+#endif
+
+#endif     // __PLATFORM
