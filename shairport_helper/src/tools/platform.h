@@ -21,12 +21,15 @@
 #ifndef __PLATFORM_H
 #define __PLATFORM_H
 
+<<<<<<< HEAD
 #if defined(unix)
 #define UNIX 1
 #else
 #define UNIX 0
 #endif
 
+=======
+>>>>>>> refs/remotes/origin/pr/4
 #if defined(linux)
 #define LINUX     1
 #define OSX       0
@@ -65,7 +68,11 @@
 #include <signal.h>
 #include <sys/stat.h>
 
+<<<<<<< HEAD
 #if UNIX
+=======
+#if LINUX || OSX || FREEBSD
+>>>>>>> refs/remotes/origin/pr/4
 #include <sys/types.h>
 #include <unistd.h>
 #include <netinet/in.h>
@@ -78,15 +85,22 @@
 #include <dlfcn.h>
 #include <pthread.h>
 #include <errno.h>
+<<<<<<< HEAD
 /* Workaround if memcheck.h is missing on sunos. How about a define... */
 #if LINUX || FREEBSD || OSX
 #include <memcheck.h>
 #endif
+=======
+#include <memcheck.h>
+>>>>>>> refs/remotes/origin/pr/4
 
 #define min(a,b) (((a) < (b)) ? (a) : (b))
 #define max(a,b) (((a) > (b)) ? (a) : (b))
 
+<<<<<<< HEAD
 #if LINUX || FREEBSD || OSX
+=======
+>>>>>>> refs/remotes/origin/pr/4
 typedef u_int8_t  u8_t;
 typedef u_int16_t u16_t;
 typedef u_int32_t u32_t;
@@ -94,15 +108,9 @@ typedef u_int64_t u64_t;
 typedef int16_t   s16_t;
 typedef int32_t   s32_t;
 typedef int64_t   s64_t;
+<<<<<<< HEAD
 #elif SUNOS
-typedef uint8_t  u8_t;
-typedef uint16_t u16_t;
-typedef uint32_t u32_t;
-typedef uint64_t u64_t;
-typedef int16_t   s16_t;
-typedef int32_t   s32_t;
-typedef int64_t   s64_t;
-#endif
+=======
 
 #define last_error() errno
 #define ERROR_WOULDBLOCK EWOULDBLOCK
@@ -115,6 +123,51 @@ char *GetTempPath(u16_t size, char *path);
 
 #endif
 
+#if SUNOS
+#include <sys/types.h>
+#include <unistd.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <sys/time.h>
+#include <sys/socket.h>
+#include <netdb.h>
+#include <sys/poll.h>
+#include <poll.h>
+#include <dlfcn.h>
+#include <pthread.h>
+#include <errno.h>
+
+#define min(a,b) (((a) < (b)) ? (a) : (b))
+#define max(a,b) (((a) > (b)) ? (a) : (b))
+
+>>>>>>> refs/remotes/origin/pr/4
+typedef uint8_t  u8_t;
+typedef uint16_t u16_t;
+typedef uint32_t u32_t;
+typedef uint64_t u64_t;
+typedef int16_t   s16_t;
+typedef int32_t   s32_t;
+typedef int64_t   s64_t;
+<<<<<<< HEAD
+#endif
+=======
+>>>>>>> refs/remotes/origin/pr/4
+
+#define last_error() errno
+#define ERROR_WOULDBLOCK EWOULDBLOCK
+
+int SendARP(in_addr_t src, in_addr_t dst, u8_t mac[], u32_t *size);
+#define fresize(f,s) ftruncate(fileno(f), s)
+char *strlwr(char *str);
+#define _random(x) random()
+char *GetTempPath(u16_t size, char *path);
+
+#endif
+
+<<<<<<< HEAD
+=======
+
+>>>>>>> refs/remotes/origin/pr/4
 #if WIN
 
 #include <winsock2.h>
@@ -155,6 +208,10 @@ int gettimeofday(struct timeval *tv, struct timezone *tz);
 
 #endif
 
+<<<<<<< HEAD
+=======
+#if LINUX || FREEBSD || OSX
+>>>>>>> refs/remotes/origin/pr/4
 typedef u8_t  __u8;
 typedef u16_t __u16;
 typedef u32_t __u32;
@@ -170,9 +227,33 @@ typedef struct ntp_s {
 
 u64_t timeval_to_ntp(struct timeval tv, struct ntp_s *ntp);
 u64_t get_ntp(struct ntp_s *ntp);
+<<<<<<< HEAD
+=======
 u32_t gettime_ms(void);
 u64_t gettime_ms64(void);
 
 #define SL_LITTLE_ENDIAN (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
+#elif SUNOS
+typedef u8_t  __u8;
+typedef u16_t __u16;
+typedef u32_t __u32;
+typedef u64_t __u64;
+typedef s16_t __s16;
+typedef s32_t __s32;
+typedef s64_t __s64;
+
+typedef struct ntp_s {
+        __u32 seconds;
+        __u32 fraction;
+} ntp_t;
+
+u64_t timeval_to_ntp(struct timeval tv, struct ntp_s *ntp);
+u64_t get_ntp(struct ntp_s *ntp);
+>>>>>>> refs/remotes/origin/pr/4
+u32_t gettime_ms(void);
+u64_t gettime_ms64(void);
+
+#define SL_LITTLE_ENDIAN (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
+#endif
 
 #endif     // __PLATFORM
