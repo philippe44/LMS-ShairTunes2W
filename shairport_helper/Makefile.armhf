@@ -2,7 +2,7 @@ CFLAGS  ?= -Wall -fPIC -O2 $(OPTS) $(INCLUDE) $(DEFINES)
 LDFLAGS ?= -lgomp -lpthread -lssl -lcrypto -ldl -lm -lrt -lz -L. -static
 
 OBJ			= bin/armhf
-EXECUTABLE	= bin/shairport_helper-arm-gnueabihf-multi-64int
+EXECUTABLE	= bin/shairport_helper-armhf
 
 include Makefile
 
