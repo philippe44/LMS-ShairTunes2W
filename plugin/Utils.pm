@@ -39,7 +39,7 @@ sub helperBinary {
     my $bin;
 	
 	if ( $Config{'archname'} =~ /solaris/ ) {
-        #$bin = "shairport_helper-i86pc-solaris";
+        $bin = "shairport_helper-i86pc-solaris";
     }
     elsif ( $Config{'archname'} =~ /linux/ && $Config{'archname'} !~ /arm/ ) {
 
