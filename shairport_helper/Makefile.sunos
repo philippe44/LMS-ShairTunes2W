@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-CC      = gcc
-=======
 CC	= gcc
->>>>>>> refs/remotes/origin/pr/4
 CFLAGS  = -Wall -fPIC -O2 $(OPTS) $(INCLUDE) $(DEFINES)
 LDFLAGS = -lpthread -lcrypto -ldl -lm -lrt -lsocket -lnsl -lz -L. 
 
