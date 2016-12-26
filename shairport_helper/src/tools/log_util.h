@@ -22,8 +22,6 @@
 #ifndef __LOG_UTIL_H
 #define __LOG_UTIL_H
 
-#include "platform.h"
-
 typedef enum { lERROR = 0, lWARN, lINFO, lDEBUG, lSDEBUG } log_level;
 
 const char *logtime(void);
