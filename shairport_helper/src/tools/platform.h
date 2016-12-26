@@ -106,7 +106,7 @@ typedef __int64 s64_t;
 int gettimeofday(struct timeval *tv, struct timezone *tz);
 
 //#define poll(fds,numfds,timeout) WSAPoll(fds,numfds,timeout)
-#define usleep(x) Sleep((x)/1000)
+#define usleep(x) Sleep((x)/1000)
 #define sleep(x) Sleep((x)*1000)
 #define last_error() WSAGetLastError()
 #define ERROR_WOULDBLOCK WSAEWOULDBLOCK
@@ -136,14 +136,14 @@ typedef s64_t __s64;
 
 typedef struct ntp_s {
 	__u32 seconds;
-	__u32 fraction;
-} ntp_t;
+	__u32 fraction;
+} ntp_t;
 
-u64_t timeval_to_ntp(struct timeval tv, struct ntp_s *ntp);
-u64_t get_ntp(struct ntp_s *ntp);
+u64_t timeval_to_ntp(struct timeval tv, struct ntp_s *ntp);
+u64_t get_ntp(struct ntp_s *ntp);
 u32_t gettime_ms(void);
 u64_t gettime_ms64(void);
 
 #define SL_LITTLE_ENDIAN (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
 
-#endif     // __PLATFORM
+#endif     // __PLATFORM
