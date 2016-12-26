@@ -76,19 +76,19 @@
 #define min(a,b) (((a) < (b)) ? (a) : (b))
 #define max(a,b) (((a) > (b)) ? (a) : (b))
 
-#if LINUX || OSX || FREEBSD
-typedef u_int8_t  u8_t;
-typedef u_int16_t u16_t;
-typedef u_int32_t u32_t;
-typedef u_int64_t u64_t;
-typedef int16_t   s16_t;
-typedef int32_t   s32_t;
-typedef int64_t   s64_t;
-#elif SUNOS
+#if SUNOS
 typedef uint8_t  u8_t;
 typedef uint16_t u16_t;
 typedef uint32_t u32_t;
 typedef uint64_t u64_t;
+typedef int16_t   s16_t;
+typedef int32_t   s32_t;
+typedef int64_t   s64_t;
+#else
+typedef u_int8_t  u8_t;
+typedef u_int16_t u16_t;
+typedef u_int32_t u32_t;
+typedef u_int64_t u64_t;
 typedef int16_t   s16_t;
 typedef int32_t   s32_t;
 typedef int64_t   s64_t;
@@ -103,7 +103,7 @@ char *strlwr(char *str);
 #define _random(x) random()
 char *GetTempPath(u16_t size, char *path);
 
-#endif
+#endif // LINUX || OSX || FREEBSD || SUNOS
 
 #if WIN
 
@@ -143,7 +143,7 @@ int gettimeofday(struct timeval *tv, struct timezone *tz);
 
 #define RTLD_NOW 0
 
-#endif
+#endif // WIN
 
 typedef u8_t  __u8;
 typedef u16_t __u16;
