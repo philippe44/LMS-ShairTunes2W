@@ -1,7 +1,7 @@
-BASE		= ../..
+BASE		= ..
 
 TOOLS		= ./src/tools
-VALGRIND	= 
+VALGRIND	= ../valgrind
 SRC 		= ./src
 LIBRARY 	=
 DEFINES 	= -DHAIRTUNES_STANDALONE -DHTTP_PARSER_STRICT=0 -D_POSIX_PTHREAD_SEMANTICS -D_REENTRANT -DMDNS_SVC -DNDEBUG
@@ -11,14 +11,15 @@ TINYMDNS	= $(BASE)/tinysvcmdns.git
 vpath %.c $(TOOLS):$(SRC):$(TINYMDNS)
 
 INCLUDE = -I. \
-	  -I$(TINYMDNS) \
-	  -I$(SRC) \
-	  -I$(TOOLS)
+		  -I$(VALGRIND)/memcheck -I$(VALGRIND)/include \
+		  -I$(TINYMDNS) \
+		  -I$(SRC) \
+		  -I$(TOOLS)
 
 SOURCES = alac.c hairtunes.c http.c \
-	  mdns.c mdnsd.c tinysvcmdns.c \
-	  log_util.c
-		
+		  mdns.c mdnsd.c tinysvcmdns.c \
+		  log_util.c
+      
 OBJECTS = $(patsubst %.c,$(OBJ)/%.o,$(SOURCES)) 
 
 all: $(EXECUTABLE)
