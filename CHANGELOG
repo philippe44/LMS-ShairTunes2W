@@ -1,3 +1,6 @@
+0.41.0
+ - Add Solaris support
+ 
 0.40.0
  - Clean debug in helper
  - BufferThreshold set to 255KB by default
