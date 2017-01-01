@@ -8,4 +8,6 @@ This is a fork from https://github.com/disaster123/shairport2_plugin with the fo
 Required packages to rebuild:
 - https://github.com/philippe44/TinySVCmDNS
 
+It can be installed automatically in LMS, see support thread here
+http://forums.slimdevices.com/showthread.php?106289-announce-ShairTunes2W-Airtunes-on-LMS-(forked-version-with-Windows-support)&p=865036&viewfull=1#post865036
 
