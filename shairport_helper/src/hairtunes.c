@@ -133,7 +133,7 @@ static double volume = 1.0;
 static int fix_volume = 0x10000;
 static pthread_mutex_t vol_mutex = PTHREAD_MUTEX_INITIALIZER;
 int flush_seqno = -1;
-
+bool rtp_first = false;
 
 typedef struct audio_buffer_entry {   // decoded audio packets
 	int ready;
@@ -449,15 +449,16 @@ static void alac_decode(short *dest, char *buf, int len) {
 	assert(outsize == FRAME_BYTES);
 }
 
-static void buffer_put_packet(seq_t seqno, char *data, int len, bool first) {
+static void buffer_put_packet(seq_t seqno, char *data, int len) {
 	abuf_t *abuf = 0;
 
 	pthread_mutex_lock(&ab_mutex);
 	if (!ab_synced) {
-		if (first || ((flush_seqno != -1) && ((seqno > flush_seqno) || seqno + 8192 < flush_seqno))) {
+		if (rtp_first || ((flush_seqno != -1) && ((seqno > flush_seqno) || seqno + 8192 < flush_seqno))) {
 			ab_write = seqno;
 			ab_read = seqno-1;
 			ab_synced = 1;
+			rtp_first = false;
 			flush_seqno = -1;
 			resend_count = 0;
 		} else {
@@ -547,12 +548,14 @@ static void *rtp_thread_func(void *arg) {
 			LOG_SDEBUG("seqno: %u (type: %x, first: %u)", seqno, type, packet[1] & 0x80);
 			// check if packet contains enough content to be reasonable
 			if (plen >= 16) {
-				buffer_put_packet(seqno, pktp, plen, (packet[1] & 0x80) && (type != 0x56));
+				if ((packet[1] & 0x80) && (type != 0x56)) rtp_first = true;
+				buffer_put_packet(seqno, pktp, plen);
 			}
 		}
 		// 1st sync packet received (signals a restart of playback)
 		else if (type == 0x54 && (packet[0] & 0x10)) {
 			_printf("play\n");
+			rtp_first = true;
 			LOG_DEBUG("1st frame play received\n", NULL);
 		}
 	}
