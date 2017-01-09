@@ -1,5 +1,6 @@
+CC=armv6j-cross-linux-gnueabihf-gcc
 CFLAGS  ?= -Wall -fPIC -O2 $(OPTS) $(INCLUDE) $(DEFINES)
-LDFLAGS ?= -lgomp -lpthread -lssl -lcrypto -ldl -lm -lrt -lz -L. -static
+LDFLAGS ?= -s -lpthread -lssl -lcrypto -ldl -lm -lrt -L. -static
 
 OBJ			= bin/armhf
 EXECUTABLE	= bin/shairport_helper-armhf

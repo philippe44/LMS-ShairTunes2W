@@ -60,7 +60,7 @@ int in_sd = -1, out_sd = -1, err_sd = -1;
 int create_socket(int port);
 int close_socket(int sd);
 
-const char *version = "0.41.1";
+const char *version = "0.42.0";
 
 static log_level 	main_loglevel = lSDEBUG;
 static log_level 	*loglevel = &main_loglevel;

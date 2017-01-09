@@ -19,7 +19,7 @@ INCLUDE = -I. \
 SOURCES = alac.c hairtunes.c http.c \
 		  mdns.c mdnsd.c tinysvcmdns.c \
 		  log_util.c
-      
+		
 OBJECTS = $(patsubst %.c,$(OBJ)/%.o,$(SOURCES)) 
 
 all: $(EXECUTABLE)

@@ -1,3 +1,6 @@
+0.42.0
+ - Use cross-compiling to support pi-1
+ 
 0.41.1
  - Add Solaris support
  - Stream must start if first flag in sync or audio

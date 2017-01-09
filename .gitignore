@@ -49,7 +49,7 @@ Temporary Items
 # C++ builder related
 test/
 misc/
-shairport_helper/*bin/
+shairport_helper/bin/
 __history
 /repo*.xml
 /package*.*
