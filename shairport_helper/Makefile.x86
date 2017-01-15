@@ -1,5 +1,5 @@
 CFLAGS  ?= -Wall -fPIC -ggdb -O2 $(OPTS) $(INCLUDE) $(DEFINES)
-LDFLAGS ?= -s -lpthread -lcrypto -ldl -lm -lrt -L. -static
+LDFLAGS ?= -lpthread -lcrypto -ldl -lm -lrt -L. -static
 
 OBJ			= bin/x86
 EXECUTABLE 	= bin/shairport_helper-i386-linux

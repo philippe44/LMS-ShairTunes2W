@@ -49,7 +49,7 @@ my $prefs         = preferences( 'plugin.shairtunes' );
 $prefs->init({ 
 	squeezelite => 0, 
 	loglevel => '',
-	bufferThreshold => 255,
+	bufferThreshold => int( 44100*4*0.75/1024 ),
 });
 
 my $shairtunes_helper;
@@ -593,7 +593,7 @@ sub cleanHelper {
 	if (defined $conn->{decoder_fh} && $conn->{decoder_fh}->connected) { 
         close $conn->{decoder_fh};
 		$conn->{player}->execute( ['stop'] );
-
+		
         # read all left errors
         my $derr = $conn->{decoder_fherr};
         while ( my $err = _readline($derr) ) { $log->error( "Decoder error: " . $err ); }
@@ -730,7 +730,8 @@ sub conn_handle_request {
 			my $h_in  = new IO::Socket::INET(%socket_params);
 			my $h_out = new IO::Socket::INET(%socket_params);
 			my $h_err = new IO::Socket::INET(%socket_params);
-			
+			my @fmtp = split( / /, $conn->{fmtp} );
+					
 			my @dec_args = (
 				'ipv4_only',
 				socket => join( ',', $h_in->sockport, $h_out->sockport, $h_err->sockport ),
@@ -802,6 +803,13 @@ sub conn_handle_request {
 
 			#$resp->header( 'Transport', $req->header( 'Transport' ) . ";server_port=$helper_ports{port}" );
 			$resp->header( 'Transport', "RTP/AVP/UDP;unicast;mode=record;control_port=$helper_ports{cport};timing_port=$helper_ports{tport};server_port=$helper_ports{port}" );
+						
+            last;
+        };
+
+        /^RECORD$/ && do {
+
+			my $client = $conn->{player};
 			
 			$log->debug( "Playing url: $conn->{url}" );
 			
@@ -809,16 +817,9 @@ sub conn_handle_request {
 			$conn->{metaData}->{offset} = 0;
 			$conn->{metaData}->{type}   = 'ShairTunes Stream';
 			$conn->{player}->execute( [ 'playlist', 'play', $conn->{url} ] );
-			
-            last;
-        };
-
-        /^RECORD$/ && do {
-
-			my $client = $conn->{player};
 			$client->currentPlaylistUpdateTime( Time::HiRes::time() );
             Slim::Control::Request::notifyFromArray( $conn->{player}, ['newmetadata'] );
-            $conn->{player}->execute( ['play'] );
+			
 			$resp->header( 'Audio-Latency', '44100' );
 
             last;

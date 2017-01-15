@@ -6,10 +6,11 @@ use Encode;
 
 use Config;
 
-use Slim::Utils::Unicode;
+use Data::Dumper;
 use Digest::MD5 qw(md5 md5_hex);
 use File::Spec::Functions;
 
+use Slim::Utils::Unicode;
 use Slim::Utils::Log;
 
 my $log   = logger('plugin.shairtunes');
@@ -37,31 +38,42 @@ my %dmaptypeToUnpack = (
 
 sub helperBinary {
     my $bin;
+	my $os = Slim::Utils::OSDetect::details();
 	
-	if ( $Config{'archname'} =~ /solaris/ ) {
-        $bin = "shairport_helper-i86pc-solaris";
-    }
-    elsif ( $Config{'archname'} =~ /linux/ && $Config{'archname'} !~ /arm/ ) {
+	$log->debug(Dumper($os));
+	
+	if ($os->{'os'} eq 'Linux') {
 
-        # x86_64-linux-gnu-thread-multi
-        if ( $Config{'archname'} =~ /x86_64/ ) {
-            $bin = "shairport_helper-x64-linux";
+		if ($os->{'osArch'} =~ /x86_64/) {
+			$bin = "shairport_helper-x64-linux";
         }
-        else {
-            $bin = "shairport_helper-i386-linux";
-        }
-    }
-    elsif ( $Config{'archname'} =~ /linux/ && $Config{'archname'} =~ /arm/ ) {
-        $bin = "shairport_helper-armhf";
-    }
-    elsif ( $Config{'archname'} =~ /darwin/ ) {
-        $bin = "shairport_helper-osx";
-    }
-	elsif ( $Config{'archname'} =~ /MSWin32/ ) {
-        $bin = "shairport_helper-win.exe";
-    }
+        
+		if ($os->{'binArch'} =~ /i386/) {
+		    $bin = "shairport_helper-i386-linux";
+		}
+		
+		if ($os->{'binArch'} =~ /armhf/) {
+			$bin = "shairport_helper-armv6hf";
+		}
+		elsif ($os->{'binArch'} =~ /arm/) {
+			$bin = "shairport_helper-armv5el";
+		}	
+		
+	}
 	
-	if (Slim::Utils::OSDetect::details()->{'os'} ne 'Windows') {
+	if ($os->{'os'} eq 'Darwin') {
+		$bin = "shairport_helper-osx";
+	}
+	
+	if ($os->{'os'} eq 'Windows') {
+		$bin = "shairport_helper-win.exe";
+	}	
+	
+	if ($os->{'os'} eq 'Solaris') {
+		$bin = "shairport_helper-i86pc-solaris";
+	}	
+	
+	if ($os->{'os'} ne 'Windows') {
 		my $exec = catdir(Slim::Utils::PluginManager->allPlugins->{'ShairTunes2W'}->{'basedir'}, 'Bin', $bin);
 		$exec = Slim::Utils::OSDetect::getOS->decodeExternalHelperPath($exec);
 			
