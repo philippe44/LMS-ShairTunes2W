@@ -1,0 +1,9 @@
+/usr/perl5/5.12/man/man3/Crypt::OpenSSL::RSA.3
+/usr/perl5/site_perl/5.12/i86pc-solaris-64int/Crypt/OpenSSL/RSA.pm
+/usr/perl5/site_perl/5.12/i86pc-solaris-64int/auto/Crypt/OpenSSL/RSA/RSA.bs
+/usr/perl5/site_perl/5.12/i86pc-solaris-64int/auto/Crypt/OpenSSL/RSA/RSA.so
+/usr/perl5/site_perl/5.12/i86pc-solaris-64int/auto/Crypt/OpenSSL/RSA/autosplit.ix
+/usr/perl5/site_perl/5.12/i86pc-solaris-64int/auto/Crypt/OpenSSL/RSA/get_key_parameters.al
+/usr/perl5/site_perl/5.12/i86pc-solaris-64int/auto/Crypt/OpenSSL/RSA/import_random_seed.al
+/usr/perl5/site_perl/5.12/i86pc-solaris-64int/auto/Crypt/OpenSSL/RSA/new_key_from_parameters.al
+/usr/perl5/site_perl/5.12/i86pc-solaris-64int/auto/Crypt/OpenSSL/RSA/new_public_key.al
