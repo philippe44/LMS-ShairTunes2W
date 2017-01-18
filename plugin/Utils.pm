@@ -56,7 +56,7 @@ sub helperBinary {
 			$bin = "shairport_helper-armv6hf";
 		}
 		elsif ($os->{'binArch'} =~ /arm/) {
-			$bin = "shairport_helper-armv5el";
+			$bin = "shairport_helper-armv5te";
 		}	
 		
 	}
