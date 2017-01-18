@@ -72,6 +72,7 @@ my %connections = (); # ( [ slaveINETSock ]  => ('socket' => [MasterINETSock], '
 					  #							 'cover_fh' => [INETSockCover], 'cover' => [jpeg blob] },		
 					  #							 'DACPid' => [DACP ID], 'activeRemote' => [remote ID], 
 					  #						     'remote' => [IP::port of remote]	
+					  #							 'volume' => [player volume set by AirPlay]
 my %covers		= (); # ( [ coverINETSock ]	 =>	 [jpeg blob]
 
 
@@ -79,6 +80,43 @@ sub logFile {
 	my $id = shift;
 	return catdir(Slim::Utils::OSDetect::dirsFor('log'), "shairtunes2-$id.log");
 }
+
+
+sub volumeChange {
+	my $request = shift;
+	my $client = $request->client();
+	my $volume = $client->volume();
+
+	my ($slave) = grep { $connections{$_}->{player} == $client } keys %connections;
+	return 0 if !defined $slave || !defined $connections{$slave}->{remote};
+	
+	my $conn = $connections{$slave};
+	return 0 if !defined $conn->{remote};
+	
+	return 0 if $conn->{volume} == $volume;
+	$log->debug("Volume new:$volume current:$conn->{volume}");
+	
+	if (!$volume) {
+		$volume = -144;
+	} else {
+		$volume = 30 * ($volume - 100) / 99;
+	}
+	
+	my $http = Slim::Networking::SimpleAsyncHTTP->new(
+					sub { 
+						my $reponse = shift;
+						$log->debug( "Volume response: $reponse" );
+					},
+					sub { 
+						my $error = shift;
+						$log->error( "Volume error: ", Dumper($error) );
+					} );
+					
+	my $url = "http://$conn->{remote}/ctrl-int/1/setproperty?dmcp.device-volume=$volume";
+		
+	$http->get($url, 'Active-Remote' => $conn->{activeRemote} );	
+}
+
 
 sub getAirTunesMetaData {
 	my $class  = shift;
@@ -363,6 +401,7 @@ sub handleSocketConnect {
 										}, 
 							cover => '', cover_fh => createListenPort(5),	
 							remote => undef, DACPid => 'none',
+							volume => -1,
 						};
 	
     # Add us to the select loop so we get notified
@@ -370,6 +409,9 @@ sub handleSocketConnect {
 		
 	# Add us to the select loop so we get notified
     Slim::Networking::Select::addRead( $connections{$new}->{cover_fh}, \&handleCoverConnect );
+	
+	#subscribe to volume changes
+	Slim::Control::Request::subscribe( \&volumeChange, [['mixer'], ['volume']], $player );
 }
 
 sub handleCoverConnect {
@@ -607,6 +649,9 @@ sub cleanHelper {
         }
 		
 		$conn->{decoder_pid}->die;
+		
+		# disconnect from volume 
+		Slim::Control::Request::unsubscribe( \&volumeChange, $conn->{player} );
 	}	
 }
 
@@ -854,9 +899,11 @@ sub conn_handle_request {
                 my $cfh = $conn->{decoder_fh};
                 if ( exists $content{volume} ) {
                     my $volume = $content{volume};
-                    my $percent = 100 + ( $volume * 3.35 );
-
+                    my $percent = int( 100 + ( $volume * 99 / 30) + 0.5 );
+					$percent = 0 if $percent < 0;
+					
                     $conn->{player}->execute( [ 'mixer', 'volume', $percent ] );
+					$conn->{volume} = $percent;
 
                     $log->debug( "sending-> vol: " . $percent );
                 }
