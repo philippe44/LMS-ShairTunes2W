@@ -13,11 +13,19 @@
 	[% WRAPPER setting title="PLUGIN_SHAIRTUNES2_BUFFER" desc="PLUGIN_SHAIRTUNES2_BUFFER_DESC" %]
 		<input name="pref_bufferThreshold" id="pref_bufferThreshold" type="stdedit" value="[% prefs.pref_bufferThreshold %]" size="3" >
 	[% END %]
+	
+	[% WRAPPER setting title="PLUGIN_SHAIRTUNES2_USEFLAC" desc="PLUGIN_SHAIRTUNES2_USEFLAC_DESC" %]
+		<input name="pref_useFLAC" id="pref_useFLAC" type="checkbox" [% IF prefs.pref_useFLAC %] checked [% END %]>
+	[% END %]
+	
+	[% WRAPPER setting title="PLUGIN_SHAIRTUNES2_SYNCVOLUME" desc="PLUGIN_SHAIRTUNES2_SYNCVOLUME_DESC" %]
+		<input name="pref_syncVolume" id="pref_syncVolume" type="checkbox" [% IF prefs.pref_syncVolume %] checked [% END %]>
+	[% END %]
 		
 	[% WRAPPER setting title="PLUGIN_SHAIRTUNES2_SQUEEZELITE" desc="PLUGIN_SHAIRTUNES2_SQUEEZELITE_DESC" %]
 		<input name="pref_squeezelite" id="pref_squeezelite" type="checkbox" [% IF prefs.pref_squeezelite %] checked [% END %] onchange="form.submit()" >
 	[% END %]
-
+	
 	<hr>
 	<table>
 	[% FOREACH entry IN players %]	

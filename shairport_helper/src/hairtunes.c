@@ -48,6 +48,7 @@ char* strsep(char** stringp, const char* delim);
 #include <assert.h>
 
 #include "alac.h"
+#include "FLAC/stream_encoder.h"
 #include "http.h"
 #include "log_util.h"
 
@@ -61,10 +62,12 @@ int create_socket(int port);
 int close_socket(int sd);
 unsigned int gettime_ms(void);
 
-const char *version = "0.50.2";
+const char *version = "0.60.0";
 
 static log_level 	main_loglevel = lERROR;
 static log_level 	*loglevel = &main_loglevel;
+
+// #define __RTP_STORE
 
 #ifdef __RTP_STORE
 FILE *rtpFP;
@@ -74,6 +77,8 @@ char *rtpFile = "airplay.pcm";
 // default buffer size
 #define BUFFER_FRAMES 1024
 #define MAX_PACKET    2048
+#define FLAC_BLOCK_SIZE 1024
+#define MAX_FLAC_BYTES (FLAC_BLOCK_SIZE*4 + 1024)
 
 #define AB_SYNC_LEVEL	  64
 enum { AB_SYNCING, AB_BUFFERING, AB_RUNNING };
@@ -94,6 +99,10 @@ static int http_listener = -1;
 static int http_status = 0;
 static int http_connection = -1;
 static char http_buffer[4096];
+static FLAC__StreamEncoder *flac_encoder;
+static char flac_buffer[MAX_FLAC_BYTES];
+static int flac_len;
+static bool flac_ready = false;
 
 static int http_on_headers_complete(http_parser* parser);
 
@@ -124,11 +133,13 @@ static void init_buffer(void);
 static int  init_output(void);
 static bool rtp_request_resend(seq_t first, seq_t last);
 static void ab_resync(void);
+static FLAC__StreamEncoderWriteStatus flac_write_callback(const FLAC__StreamEncoder *encoder, const FLAC__byte buffer[], size_t bytes, unsigned samples, unsigned current_frame, void *client_data);
 
 // interthread variables
 // stdin->decoder
 static int flush_seqno = -1;
 static bool rtp_first = false;
+static bool use_flac = false;
 static unsigned int sync_time, sync_rtptime;
 static struct sockaddr_storage rtp_control, rtp_audio;
 static int rtp_sockets[2];  // data, control
@@ -173,6 +184,41 @@ static int hex2bin(unsigned char *buf, char *hex) {
 }
 #endif
 
+
+static void init_flac() {
+	bool ok = true;
+
+	if (flac_ready) return;
+
+	ok &= FLAC__stream_encoder_set_verify(flac_encoder, false);
+	ok &= FLAC__stream_encoder_set_compression_level(flac_encoder, 5);
+	ok &= FLAC__stream_encoder_set_channels(flac_encoder, 2);
+	ok &= FLAC__stream_encoder_set_bits_per_sample(flac_encoder, 16);
+	ok &= FLAC__stream_encoder_set_sample_rate(flac_encoder, 44100);
+	ok &= FLAC__stream_encoder_set_blocksize(flac_encoder, FLAC_BLOCK_SIZE);
+	ok &= !FLAC__stream_encoder_init_stream(flac_encoder, flac_write_callback, NULL, NULL, NULL, NULL);
+
+	flac_len = 0;
+	flac_ready = true;
+
+	if (!ok) {
+		LOG_ERROR("Cannot set FLAC parameters", NULL);
+	}
+}
+
+
+static FLAC__StreamEncoderWriteStatus flac_write_callback(const FLAC__StreamEncoder *encoder, const FLAC__byte buffer[], size_t bytes, unsigned samples, unsigned current_frame, void *client_data) {
+	if (bytes <= MAX_FLAC_BYTES) {
+		flac_len = bytes;
+		memcpy(flac_buffer, buffer, bytes);
+	} else {
+		LOG_WARN("flac coded buffer too big %u", bytes);
+	}
+
+ 	return FLAC__STREAM_ENCODER_WRITE_STATUS_OK;
+}
+ 
+
 static int init_decoder(void) {
 	alac_file *alac;
 	int sample_size = fmtp[3];
@@ -192,7 +238,7 @@ static int init_decoder(void) {
     alac->setinfo_7a =      fmtp[2];
     alac->setinfo_sample_size = sample_size;
     alac->setinfo_rice_historymult = fmtp[4];
-    alac->setinfo_rice_initialhistory = fmtp[5];
+	alac->setinfo_rice_initialhistory = fmtp[5];
 	alac->setinfo_rice_kmodifier = fmtp[6];
 	alac->setinfo_7f =      fmtp[7];
 	alac->setinfo_80 =      fmtp[8];
@@ -237,6 +283,13 @@ int hairtunes_init(char *pAeskey, char *pAesiv, char *fmtpstr, int pCtrlPort, in
 	init_buffer();
 	init_rtp();      // open a UDP listen port and start a listener; decode into ring buffer
 	init_http();
+	if (use_flac) {
+		if ((flac_encoder = FLAC__stream_encoder_new()) == NULL) {
+			LOG_ERROR("Cannot init FLAC", NULL);
+			return 0;
+		}
+		LOG_INFO("Using FLAC", NULL);
+	}	
 	_fflush(stdout);
 	init_output();              // resample and output from ring buffer
 
@@ -254,12 +307,19 @@ int hairtunes_init(char *pAeskey, char *pAesiv, char *fmtpstr, int pCtrlPort, in
 		if (strstr(line, "flush")) {
 			pthread_mutex_lock(&ab_mutex);
 			ab_resync();
+			if (use_flac) {
+				FLAC__stream_encoder_finish(flac_encoder);
+				flac_ready = false;
+			}
 			pthread_mutex_unlock(&ab_mutex);
 			sscanf(line, "flush %d", &flush_seqno);
 			_printf("flushed %d\n", flush_seqno);
 			LOG_INFO("Flushed at %u", flush_seqno);
 		}
 	}
+	
+	if (use_flac) FLAC__stream_encoder_delete(flac_encoder);
+	
 	_fprintf(stderr, "bye!\n", NULL);
 	_fflush(stderr);
 
@@ -308,6 +368,7 @@ int main(int argc, char **argv) {
 				   "[ipv4_only] [fmtp <n>] [cport <n>] "
 				   "[tport <n>] [host <n>] "
 				   "[log <file>] [dbg <error|warn|info|debug|sdebug>] "
+				   "flac [encode output using flac] "
 				   "\n");
 		} else mdns_server(argc - 1, argv + 1);
 		exit (0);
@@ -350,6 +411,9 @@ int main(int argc, char **argv) {
 			if (!strcmp(*argv, "info"))   *loglevel = lINFO;
 			if (!strcmp(*argv, "debug"))  *loglevel = lDEBUG;
 			if (!strcmp(*argv, "sdebug")) *loglevel = lSDEBUG;
+		}
+		if (!strcasecmp(arg, "flac")) {
+			use_flac = true;
 		}
 	}
 
@@ -444,6 +508,7 @@ static void buffer_put_packet(seq_t seqno, unsigned rtptime, bool resend, char *
 			sync_time = gettime_ms();
 			rtp_first = false;
 			flush_seqno = -1;
+			if (use_flac) init_flac();
 		} else {
 			pthread_mutex_unlock(&ab_mutex);
 			return;
@@ -530,6 +595,7 @@ static void *rtp_thread_func(void *arg) {
 			plen -= 12;
 
 			LOG_SDEBUG("seqno:%u rtp:%u (type: %x, first: %u)", seqno, rtptime, type, packet[1] & 0x80);
+
 			// check if packet contains enough content to be reasonable
 			if (plen >= 16) {
 				if ((packet[1] & 0x80) && (type != 0x56)) {
@@ -755,7 +821,7 @@ static short *buffer_get_frame(void) {
 		if (!audio_buffer[BUFIDX(ab_read + i)].ready) rtp_request_resend(ab_read + i, ab_read + i);
 	}
 
-	if (!curframe->ready) {
+	if (!curframe->ready) {
 		LOG_DEBUG("created zero frame (fill:%u gap:%u, W:%u R:%u)", buf_fill - 1, fpos_time - fpos_rtptime, ab_write, ab_read);
 		memset(curframe->data, 0, FRAME_BYTES);
 	}
@@ -765,6 +831,7 @@ static short *buffer_get_frame(void) {
 
 	curframe->ready = 0;
 	ab_read++;
+	
 	pthread_mutex_unlock(&ab_mutex);
 
 	return curframe->data;
@@ -774,6 +841,13 @@ static short *buffer_get_frame(void) {
 static void *audio_thread_func(void *arg) {
 	signed short *inbuf;
 	int frame_count = 0;
+	FLAC__int32 *flac_samples = NULL;
+
+	if (use_flac) {
+		if ((flac_samples = malloc(2 * frame_size * sizeof(FLAC__int32))) == NULL) {
+			LOG_ERROR("Cannot allocate FLAC sample buffer %u", frame_size);
+		}
+	}
 
 	while (1) {
 		ssize_t sent;
@@ -837,23 +911,40 @@ static void *audio_thread_func(void *arg) {
 		/*
 		When using synchronized players, LMS blocks the addRead of the player
 		until the HTTP connection is established. This means the RECORD message
-		is not responded and RTP does not start. So if here this loops blocks
-		when there is not frame received yet, this is a dead lock
+		is not responded and RTP does not start. So if this loops blocks when 
+		there is no frame received yet, this is a dead lock
 		*/
 
 		// even if the HTTP session is not established, empty the buffer queue
 		if ((inbuf = buffer_get_frame()) != NULL) {
 			if (http_status == 1000) {
-				sent = send(http_connection, (void*) inbuf, FRAME_BYTES, 0);
-				LOG_SDEBUG("HTTP sent frame count:%u (W:%u R:%u)", frame_count++, ab_write, ab_read);
+				int len;
 
-				if (sent != FRAME_BYTES) {
-					LOG_WARN("HTTP send() unexpected response: %li (data=%i): %s", (long int)sent, FRAME_BYTES, strerror(errno));
+				if (use_flac) {
+					for (len = 0; len < 2*frame_size; len++) flac_samples[len] = inbuf[len];
+					FLAC__stream_encoder_process_interleaved(flac_encoder, flac_samples, frame_size);
+					inbuf = (void*) flac_buffer;
+					len = flac_len;
+					flac_len = 0;
+				} else len = FRAME_BYTES;
+				
+				if (len) {
+					LOG_SDEBUG("HTTP sent frame count:%u bytes:%u (W:%u R:%u)", frame_count++, len, ab_write, ab_read);
+					sent = send(http_connection, (void*) inbuf, len, 0);
+					if (sent != len) {
+						LOG_WARN("HTTP send() unexpected response: %li (data=%i): %s", (long int)sent, len, strerror(errno));
+					}
+				} else {
+					LOG_SDEBUG("no encoded frame ready yet, waiting", NULL);
+					usleep(frame_size*((1000*3*1000)/(44100*2)));
 				}
 			}
-		}
-		else usleep(frame_size*((1000*3*1000)/(44100*2)));
+		} else {
+			usleep(frame_size*((1000*3*1000)/(44100*2)));
+		}	
 	}
+
+	if (use_flac && flac_samples) free(flac_samples);
 
 	return NULL;
 }
@@ -861,9 +952,11 @@ static void *audio_thread_func(void *arg) {
 int http_on_headers_complete(http_parser* parser)
 {
 	ssize_t sent;
+	const char* response;
 
-	const char* response = "HTTP/1.1 200 OK\r\nServer: HairTunes\r\nConnection: close\r\nContent-Type: audio/L16;rate=44100;channels=2\r\n\r\n";
-
+	if (use_flac) response = "HTTP/1.1 200 OK\r\nServer: HairTunes\r\nConnection: close\r\nContent-Type: audio/flac\r\n\r\n";
+	else response = "HTTP/1.1 200 OK\r\nServer: HairTunes\r\nConnection: close\r\nContent-Type: audio/L16;rate=44100;channels=2\r\n\r\n";
+	
 	LOG_INFO("HTTP header received", NULL);
 	sent = send(http_connection, response, strlen(response), 0);
 

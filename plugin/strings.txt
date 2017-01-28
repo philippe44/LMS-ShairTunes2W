@@ -20,6 +20,21 @@ PLUGIN_SHAIRTUNES2_BUFFER
 	
 PLUGIN_SHAIRTUNES2_BUFFER_DESC
 	EN	Set the amount of buffering LMS does before playing. Low value means faster start but more shuttering
+
+PLUGIN_SHAIRTUNES2_USEFLAC
+	EN	Use flac for streaming
+	
+PLUGIN_SHAIRTUNES2_USEFLAC_DESC
+	EN	Audio received from AirPlay devices are codec with ALAC, which cannot be streamed directly to LMS players.
+	EN	By default, audio is decoded and streamed in PCM, which can be a lot of network bandwidth for synchronized 
+	EN	players. Use this option to re-encode audio in FLAC, dividing bandwidth by ~2
+	
+PLUGIN_SHAIRTUNES2_SYNCVOLUME
+	EN	Change volume of sync'd players
+	
+PLUGIN_SHAIRTUNES2_SYNCGROUP_DESC
+	EN	When player used through ShairTunes2 is synchronized, changing its volume will proportionally change volume 
+	EN	of other players in the sync group
 	
 PLUGIN_SHAIRTUNES2_SQUEEZELITE
 	EN	Allow all Squeezelite-based Players

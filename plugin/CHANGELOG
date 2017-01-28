@@ -1,6 +1,10 @@
+0.60.0
+ - Option to re-encode in flac
+ - Volume synchronization
+ - Re-arrange log level
+ 
 0.50.2
  - armv5hf moved to armv5te with softfp (used FPU if available)
- - volume changes in LMS are synced on iXXX devices (only for the master)
 
 0.50.1
  - Add Crypt::OpenSSL::RSA for sunos/perl 5.12

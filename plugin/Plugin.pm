@@ -25,7 +25,7 @@ use Digest::MD5 qw(md5 md5_hex);
 use MIME::Base64;
 use File::Spec;
 use File::Which;
-use POSIX qw(:errno_h);
+use POSIX qw(ceil :errno_h);
 use Data::Dumper;
 
 #use IO::Socket::INET6;
@@ -86,16 +86,17 @@ sub volumeChange {
 	my $request = shift;
 	my $client = $request->client();
 	my $volume = $client->volume();
-
+	
+	# is there a player registered ?
 	my ($slave) = grep { $connections{$_}->{player} == $client } keys %connections;
-	return 0 if !defined $slave || !defined $connections{$slave}->{remote};
+	return 0 if !defined $slave;
 	
 	my $conn = $connections{$slave};
-	return 0 if !defined $conn->{remote};
-	
-	return 0 if $conn->{volume} == $volume;
-	$log->debug("Volume new:$volume current:$conn->{volume}");
-	
+			
+	# nothing to do if there is no remote or volume change is the result of AirPlay request		
+	return 0 if !defined $conn->{remote} || $conn->{volume} == $volume;
+	$log->info("Volume new:$volume current:$conn->{volume}");
+
 	if (!$volume) {
 		$volume = -144;
 	} else {
@@ -105,7 +106,7 @@ sub volumeChange {
 	my $http = Slim::Networking::SimpleAsyncHTTP->new(
 					sub { 
 						my $reponse = shift;
-						$log->debug( "Volume response: $reponse" );
+						$log->info( "Volume response: $reponse" );
 					},
 					sub { 
 						my $error = shift;
@@ -134,7 +135,7 @@ sub getAirTunesMetaData {
 	return  { artist   => "ShairTunes Artist",
 			  title    => "ShairTunes Title",
 			  album    => "ShairTunes Album",
-			  bitrate  => 44100 . " Hz",
+			  #bitrate  => 44100 . " Hz",
 			  cover    => "",
 			  icon	   => "",	
 			  type     => 'ShairTunes Stream',
@@ -432,7 +433,7 @@ sub handleCoverRequest {
 	my $socket = shift;
 	
 	while (my $line = _readline($socket)) {
-		$log->debug("Image proxy request: $line");
+		$log->info("Image proxy request: $line");
 	}
 	
 	return if !defined $covers{$socket};
@@ -468,7 +469,7 @@ sub handleCoverRequest {
 	close $socket;
 	delete $covers{$socket};
 
-	$log->debug("Coverart sent $sent over ", length $data);
+	$log->info("Coverart sent $sent over ", length $data);
 }
 
 sub handleHelperOut {
@@ -793,6 +794,8 @@ sub conn_handle_request {
 				push @dec_args, ("log", logFile($id), "dbg", $loglevel);
 			}	
 			
+			push @dec_args, ("flac") if $prefs->get('useFLAC');			
+			
 			$log->debug( "decode command: ", Dumper(@dec_args));
     
 			acceptChildSockets($h_in, $h_out, $h_err);
@@ -841,8 +844,8 @@ sub conn_handle_request {
             );
 					
 			my $host = Slim::Utils::Network::serverAddr();
-			$conn->{url}  = "airplay://$host:$helper_ports{hport}/" . md5_hex($conn) . "_stream.wav";
-					
+			$conn->{url}  = "airplay://$host:$helper_ports{hport}/" . md5_hex($conn) . "_stream." . ($prefs->get('useFLAC') ? "flc" : "wav");
+								
 			# Add out to the select loop so we get notified of play after flush (pause)
 			Slim::Networking::Select::addRead( $helper_out, \&handleHelperOut );
 
@@ -856,7 +859,7 @@ sub conn_handle_request {
 
 			my $client = $conn->{player};
 			
-			$log->debug( "Playing url: $conn->{url}" );
+			$log->info( "Playing url: $conn->{url}" );
 			
             $conn->{poweredoff} = !$conn->{player}->power;
 			$conn->{metaData}->{offset} = 0;
@@ -874,7 +877,7 @@ sub conn_handle_request {
 
             my $dfh = $conn->{decoder_fh};
 			my ($seqno, $rtptime) = $req->header('RTP-Info') =~ m|seq=([^;]+);rtptime=([^;]+)|i;
-			$log->debug("Flush up to $seqno, $rtptime");
+			$log->info("Flush up to $seqno, $rtptime");
             send ($dfh, "flush $seqno $rtptime\n", 0);
 
 			$conn->{metaData}->{offset} = 0;
@@ -902,11 +905,30 @@ sub conn_handle_request {
                     my $percent = int( 100 + ( $volume * 99 / 30) + 0.5 );
 					$percent = 0 if $percent < 0;
 					
-                    $conn->{player}->execute( [ 'mixer', 'volume', $percent ] );
+                   	# synchronize volume of other players, 		
+					if ($prefs->get('syncVolume')) {
+						my $client = $conn->{player};
+						
+						my @otherclients = grep { $_->name ne $client->name and $_->power } $client->syncGroupActiveMembers();
+						foreach my $otherclient ( @otherclients ) {
+							my $volume;
+							
+							if ( $client->volume) {
+								$volume = ceil( $otherclient->volume * $percent / $client->volume );
+							} else {
+								$volume = $percent; 
+							}
+							
+							$otherclient->execute( [ 'mixer', 'volume', $volume ] );
+							$log->info("Changing volume on ", $otherclient->name, " volume:$volume");
+						}
+					}	
+					
+					$log->info( "sending-> vol: " . $percent );
+					
+					$conn->{player}->execute( [ 'mixer', 'volume', $percent ] );
 					$conn->{volume} = $percent;
-
-                    $log->debug( "sending-> vol: " . $percent );
-                }
+	            }
                 elsif ( exists $content{progress} ) {
 					my $metaData = $conn->{metaData};
                     my ( $start, $curr, $end ) = split( /\//, $content{progress} );

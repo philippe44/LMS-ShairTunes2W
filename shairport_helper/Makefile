@@ -3,7 +3,7 @@ BASE		= ..
 TOOLS		= ./src/tools
 VALGRIND	= ../valgrind
 SRC 		= ./src
-LIBRARY 	=
+LIBRARY 	= $(OBJ)/libFLAC.a
 DEFINES 	= -DHAIRTUNES_STANDALONE -DHTTP_PARSER_STRICT=0 -D_POSIX_PTHREAD_SEMANTICS -D_REENTRANT -DMDNS_SVC -DNDEBUG
 
 TINYMDNS	= $(BASE)/tinysvcmdns
@@ -14,7 +14,8 @@ INCLUDE = -I. \
 		  -I$(VALGRIND)/memcheck -I$(VALGRIND)/include \
 		  -I$(TINYMDNS) \
 		  -I$(SRC) \
-		  -I$(TOOLS)
+		  -I$(TOOLS) \
+		  -I$(BASE)/flac/include
 
 SOURCES = alac.c hairtunes.c http.c \
 		  mdns.c mdnsd.c tinysvcmdns.c \
