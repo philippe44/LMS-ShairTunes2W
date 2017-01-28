@@ -1,6 +1,7 @@
 0.60.0
  - Option to re-encode in flac
- - Volume synchronization
+ - Volume synchronization w/ ratio amongst sync'd players
+ - Volume feedback from SB player to AirPlay client
  - Re-arrange log level
  
 0.50.2
