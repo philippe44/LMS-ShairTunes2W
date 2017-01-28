@@ -32,7 +32,7 @@ PLUGIN_SHAIRTUNES2_USEFLAC_DESC
 PLUGIN_SHAIRTUNES2_SYNCVOLUME
 	EN	Change volume of sync'd players
 	
-PLUGIN_SHAIRTUNES2_SYNCGROUP_DESC
+PLUGIN_SHAIRTUNES2_SYNCVOLUME_DESC
 	EN	When player used through ShairTunes2 is synchronized, changing its volume will proportionally change volume 
 	EN	of other players in the sync group
 	
