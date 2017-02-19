@@ -1,3 +1,6 @@
+0.60.1
+ - Sleeping time when no frame available was too long
+
 0.60.0
  - Option to re-encode in flac
  - Volume synchronization w/ ratio amongst sync'd players

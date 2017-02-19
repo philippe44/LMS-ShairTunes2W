@@ -62,7 +62,7 @@ int create_socket(int port);
 int close_socket(int sd);
 unsigned int gettime_ms(void);
 
-const char *version = "0.60.0";
+const char *version = "0.60.1";
 
 static log_level 	main_loglevel = lERROR;
 static log_level 	*loglevel = &main_loglevel;
@@ -496,6 +496,7 @@ static void alac_decode(short *dest, char *buf, int len) {
 
 static void buffer_put_packet(seq_t seqno, unsigned rtptime, bool resend, char *data, int len) {
 	abuf_t *abuf = NULL;
+	static int count = 0;
 
 	pthread_mutex_lock(&ab_mutex);
 
@@ -513,6 +514,10 @@ static void buffer_put_packet(seq_t seqno, unsigned rtptime, bool resend, char *
 			pthread_mutex_unlock(&ab_mutex);
 			return;
 	   }
+	}
+
+	if (!(count++ & 0x1ff)) {
+		LOG_INFO("buffer fill status [level:%u] [W:%u R:%u]", ab_write - ab_read, ab_write, ab_read);
 	}
 
 	if (ab_sync == AB_BUFFERING && (ab_write - ab_read) > AB_SYNC_LEVEL) ab_sync = AB_RUNNING;
@@ -794,10 +799,15 @@ static short *buffer_get_frame(void) {
 	abuf_t *curframe = 0;
 	unsigned now, fpos_rtptime, fpos_time ;
 	int i;
+	static int count = 0;
 
 	pthread_mutex_lock(&ab_mutex);
 
 	buf_fill = ab_write - ab_read;
+
+	if (!(count++ & 0x1ff)) {
+		LOG_INFO("buffer drain status [level:%u] [W:%u R:%u]", buf_fill, ab_write, ab_read);
+	}
 
 	if (buf_fill >= BUFFER_FRAMES) {
 		LOG_ERROR("Buffer overrun %u", buf_fill);
@@ -942,11 +952,11 @@ static void *audio_thread_func(void *arg) {
 					}
 				} else {
 					LOG_SDEBUG("no encoded frame ready yet, waiting", NULL);
-					usleep(frame_size*((1000*3*1000)/(44100*2)));
+					usleep(frame_size*((1000*2*1000)/(44100*3)));
 				}
 			}
 		} else {
-			usleep(frame_size*((1000*3*1000)/(44100*2)));
+			usleep(frame_size*((1000*2*1000)/(44100*3)));
 		}	
 	}
 
