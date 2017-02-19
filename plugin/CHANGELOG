@@ -1,5 +1,6 @@
 0.60.1
  - Sleeping time when no frame available was too long
+ - Add buffer level trace every ~5s
 
 0.60.0
  - Option to re-encode in flac
