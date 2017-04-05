@@ -1,20 +1,20 @@
 <?xml version='1.0' standalone='yes'?>
 <extensions>
-  <name>PLUGIN_SHAIRTUNES2</name>
-  <icon></icon>
-  <defaultState>enabled</defaultState>
-  <playerMenu>RADIO</playerMenu>
   <targetApplication>
+    <minVersion>7.5</minVersion>
     <id>Squeezecenter</id>
     <maxVersion>7.*</maxVersion>
-    <minVersion>7.5</minVersion>
   </targetApplication>
-  <creator>Philippe</creator>
   <type>2</type>
   <homepageURL></homepageURL>
-  <optionsURL></optionsURL>
-  <version>0.60.1</version>
-  <module>Plugins::ShairTunes2W::Plugin</module>
+  <playerMenu>RADIO</playerMenu>
   <description>PLUGIN_SHAIRTUNES2_DESC</description>
+  <module>Plugins::ShairTunes2W::Plugin</module>
+  <defaultState>enabled</defaultState>
+  <version>0.60.2</version>
+  <optionsURL></optionsURL>
+  <icon></icon>
+  <name>PLUGIN_SHAIRTUNES2</name>
   <email>philippe_44@outlook.com</email>
+  <creator>Philippe</creator>
 </extensions>

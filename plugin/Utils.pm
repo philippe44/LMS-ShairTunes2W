@@ -69,8 +69,12 @@ sub helperBinary {
 		$bin = "shairport_helper-win.exe";
 	}	
 	
-	if ($os->{'os'} eq 'Solaris') {
-		$bin = "shairport_helper-i86pc-solaris";
+	if ($os->{'os'} eq 'Unix') {
+	
+		if ($os->{'osName'} eq 'solaris') {
+			$bin = "shairport_helper-i86pc-solaris";
+		}	
+		
 	}	
 	
 	if ($os->{'os'} ne 'Windows') {
@@ -85,14 +89,14 @@ sub helperBinary {
 	
 	my $shairtunes_helper = Slim::Utils::Misc::findbin($bin) || do {
 		$log->warn("$bin not found");
-		return;
+		return undef;
 	};
 
 	$shairtunes_helper = Slim::Utils::OSDetect::getOS->decodeExternalHelperPath($shairtunes_helper);
 			
 	if (!-e $shairtunes_helper) {
 		$log->warn("$shairtunes_helper not executable");
-		return;
+		return undef;
 	}
 	
 	return $shairtunes_helper;
