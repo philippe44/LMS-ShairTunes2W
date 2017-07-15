@@ -1,7 +1,11 @@
-0.70
+0.70.1 
+ - correct log for fill buffer status
+ 
+0.70.0
  - Cleanup of most of code
  - Synchronization now based on true NTP from server/client
- - flush should be mutex protected
+ - Reception of "flush" command over socket should be mutex protected
+ - Do not wait fdor "sync" marker to start playback
  
 0.61.0
  - Statically link FLAC in Windows

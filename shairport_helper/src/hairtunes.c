@@ -74,7 +74,7 @@ int conn_socket(int port);
 int close_socket(int sd);
 unsigned int gettime_ms(void);
 
-const char *version = "0.70.0";
+const char *version = "0.70.1";
 
 static log_level 	main_loglevel = lERROR;
 static log_level 	*loglevel = &main_loglevel;
@@ -527,7 +527,7 @@ static void buffer_put_packet(seq_t seqno, unsigned rtptime, char *data, int len
 	}
 
 	if (!(count++ & 0x1ff)) {
-		LOG_INFO("buffer fill status [level:%u] [W:%u R:%u]", ab_write - ab_read, ab_write, ab_read);
+		LOG_INFO("buffer fill status [level:%u] [W:%u R:%u]", (seq_t) (ab_write - ab_read), ab_write, ab_read);
 	}
 
 	if (seqno == (seq_t)(ab_write+1)) {                  // expected packet
