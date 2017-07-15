@@ -20,7 +20,7 @@ sub page {
 }
 
 sub prefs {
-	return (preferences('plugin.shairtunes'), qw(squeezelite bufferThreshold loglevel useFLAC syncVolume));
+	return (preferences('plugin.shairtunes'), qw(squeezelite bufferThreshold loglevel useFLAC syncVolume latency));
 }
 
 my $prefs = preferences('plugin.shairtunes');

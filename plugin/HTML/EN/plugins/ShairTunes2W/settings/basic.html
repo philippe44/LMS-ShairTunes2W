@@ -14,6 +14,10 @@
 		<input name="pref_bufferThreshold" id="pref_bufferThreshold" type="stdedit" value="[% prefs.pref_bufferThreshold %]" size="3" >
 	[% END %]
 	
+	[% WRAPPER setting title="PLUGIN_SHAIRTUNES2_LATENCY" desc="PLUGIN_SHAIRTUNES2_LATENCY_DESC" %]
+		<input name="pref_latency" id="pref_latency" type="stdedit" value="[% prefs.pref_latency %]" size="4" >
+	[% END %]
+	
 	[% WRAPPER setting title="PLUGIN_SHAIRTUNES2_USEFLAC" desc="PLUGIN_SHAIRTUNES2_USEFLAC_DESC" %]
 		<input name="pref_useFLAC" id="pref_useFLAC" type="checkbox" [% IF prefs.pref_useFLAC %] checked [% END %]>
 	[% END %]

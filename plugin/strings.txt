@@ -21,6 +21,12 @@ PLUGIN_SHAIRTUNES2_BUFFER
 PLUGIN_SHAIRTUNES2_BUFFER_DESC
 	EN	Set the amount of buffering LMS does before playing. Low value means faster start but more shuttering
 
+PLUGIN_SHAIRTUNES2_LATENCY
+	EN	Airplay latency (ms)
+	
+PLUGIN_SHAIRTUNES2_LATENCY_DESC
+	EN	Set the duration of the AirPlay buffer. Low value means faster start but more shuttering 
+
 PLUGIN_SHAIRTUNES2_USEFLAC
 	EN	Use flac for streaming
 	

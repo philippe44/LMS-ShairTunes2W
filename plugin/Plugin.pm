@@ -50,6 +50,7 @@ $prefs->init({
 	squeezelite => 0, 
 	loglevel => '',
 	bufferThreshold => int( 44100*4*0.75/1024 ),
+	latency => 1000,
 });
 
 my $shairtunes_helper;
@@ -73,6 +74,7 @@ my %connections = (); # ( [ slaveINETSock ]  => ('socket' => [MasterINETSock], '
 					  #							 'DACPid' => [DACP ID], 'activeRemote' => [remote ID], 
 					  #						     'remote' => [IP::port of remote]	
 					  #							 'volume' => [player volume set by AirPlay]
+					  #							 'host' => IP of iXXX device
 my %covers		= (); # ( [ coverINETSock ]	 =>	 [jpeg blob]
 
 
@@ -678,7 +680,7 @@ sub conn_handle_request {
 
     my $req  = $conn->{req};
     my $resp = HTTP::Response->new( 200 );
-
+	
     $resp->request( $req );
     $resp->protocol( $req->protocol );
 
@@ -755,6 +757,7 @@ sub conn_handle_request {
             $conn->{aesiv}  = $aesiv;
             $conn->{aeskey} = $aeskey;
             $conn->{fmtp}   = $audio->attribute( 'fmtp' );
+			$conn->{host}   = $sdp->session_origin_address();
 						
 			last;
         };
@@ -779,13 +782,14 @@ sub conn_handle_request {
 			my @fmtp = split( / /, $conn->{fmtp} );
 					
 			my @dec_args = (
-				'ipv4_only',
+				host  => $conn->{host},
 				socket => join( ',', $h_in->sockport, $h_out->sockport, $h_err->sockport ),
                 iv    => unpack( 'H*', $conn->{aesiv} ),
                 key   => unpack( 'H*', $conn->{aeskey} ),
                 fmtp  => $conn->{fmtp},
                 cport => $cport,
                 tport => $tport,
+				latency => $prefs->get('latency'),
                 );
 
 			if (my $loglevel = $prefs->get('loglevel')) {
@@ -796,8 +800,8 @@ sub conn_handle_request {
 			
 			push @dec_args, ("flac") if $prefs->get('useFLAC');			
 			
-			$log->debug( "decode command: ", Dumper(@dec_args));
-    
+			$log->error( "decode command: ", Dumper(@dec_args));
+			    
 			acceptChildSockets($h_in, $h_out, $h_err);
 
 			my $helper_pid = Proc::Background->new( $shairtunes_helper, @dec_args );
