@@ -1,5 +1,8 @@
+0.70.2
+ - Add arm binaries for Perl 5.24
+ 
 0.70.1 
- - correct log for fill buffer status
+ - Correct log for fill buffer status
  
 0.70.0
  - Cleanup of most of code

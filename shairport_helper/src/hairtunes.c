@@ -1015,7 +1015,7 @@ static void *audio_thread_func(void *arg) {
 					sent = send(http_connection, (void*) inbuf, len, 0);
 					gap = gettime_ms() - gap;
 					if (gap > 50) {
-						LOG_ERROR("Spent %u ms in send! %u", gap);
+						LOG_ERROR("spent %u ms in send! %u", gap);
 					}
 					if (sent != len) {
 						LOG_WARN("HTTP send() unexpected response: %li (data=%i): %s", (long int)sent, len, strerror(errno));
