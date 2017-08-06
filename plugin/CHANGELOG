@@ -1,3 +1,6 @@
+0.70.3
+ - Detection of Linux x64 was faulty, x86 was selected instead
+ 
 0.70.2
  - Add arm binaries for Perl 5.24
  
