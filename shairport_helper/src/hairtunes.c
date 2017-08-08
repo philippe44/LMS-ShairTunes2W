@@ -74,7 +74,7 @@ int conn_socket(int port);
 int close_socket(int sd);
 unsigned int gettime_ms(void);
 
-const char *version = "0.70.1";
+const char *version = "0.70.4";
 
 static log_level 	main_loglevel = lERROR;
 static log_level 	*loglevel = &main_loglevel;
