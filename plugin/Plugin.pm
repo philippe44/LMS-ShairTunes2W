@@ -10,7 +10,8 @@ use base qw(Slim::Plugin::OPMLBased);
 
 use File::Spec::Functions;
 use FindBin qw($Bin);
-use lib catdir($Bin, 'Plugins', 'ShairTunes2W', 'lib');
+#use lib catdir($Bin, 'Plugins', 'ShairTunes2W', 'lib');
+BEGIN { push(@INC, catdir($Bin, 'Plugins', 'ShairTunes2W', 'lib')) }
 
 use Slim::Utils::Log;
 use Slim::Utils::Prefs;

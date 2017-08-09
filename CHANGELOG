@@ -1,6 +1,10 @@
+0.70.5 
+ - (P) Add local lib to the end of @INC, not the beginning
+
 0.70.4
  - Fix mDNS broadcaster memory allocation issue
-0.70.3
+
+ 0.70.3
  - Detection of Linux x64 was faulty, x86 was selected instead
  
 0.70.2
