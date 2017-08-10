@@ -16,7 +16,7 @@ PLUGIN_SHAIRTUNES2W_NEEDRESTART
 	EN	(restarting LMS recommended if changed)
 
 PLUGIN_SHAIRTUNES2W_BINARIES_DESC
-	EN	Choose what helper will be used. Set to blank to let plugin choose automatically
+	EN	Choose what helper will be used. Leave it empty to let plugin choose automatically
 	
 PLUGIN_SHAIRTUNES2_LOGLEVEL
 	EN	Enable logging 
