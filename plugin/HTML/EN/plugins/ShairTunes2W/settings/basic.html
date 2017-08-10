@@ -1,6 +1,15 @@
 [% PROCESS settings/header.html %]
 
 	<div class="prefDesc">
+			
+	[% WRAPPER setting title="PLUGIN_SHAIRTUNES2W_BINARIES" desc="PLUGIN_SHAIRTUNES2W_BINARIES_DESC" %]
+		<select class="stdedit" name="binary" id="binary">
+		[% FOREACH entry IN binaries %]
+			<option [% IF entry == binary %]selected[% END %] value="[% entry %]">[% entry %]</option>
+		[% END %]
+		</select>
+		&nbsp&nbsp[% "PLUGIN_SHAIRTUNES2W_NEEDRESTART" | string %]
+	[% END %]
 	
 	[% WRAPPER setting title="PLUGIN_SHAIRTUNES2_LOGLEVEL" desc="PLUGIN_SHAIRTUNES2_LOGLEVEL_DESC" %]
 		<select class="stdedit" name="pref_loglevel" id="pref_loglevel">

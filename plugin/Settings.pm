@@ -42,9 +42,9 @@ sub handler {
 		}
 		
 		$params->{pref_bufferThreshold} = min($params->{pref_bufferThreshold}, 255);
-	
-	} 
-	else {
+		$Plugins::ShairTunes2W::Utils::shairtunes_helper = Plugins::ShairTunes2W::Utils::helperPath( $params->{binary} || Plugins::ShairTunes2W::Utils::helperBinary() );
+		$prefs->set('helper', $params->{binary});
+	} else {
 		@players = grep { $_->{model} ne 'squeezelite' || $_->{FW} } @players if !$prefs->get('squeezelite');
 		foreach my $player (@players) {
 			$player->{enabled} = $prefs->get($player->{mac}) // 1;
@@ -52,6 +52,9 @@ sub handler {
 	}	
 
 	@{$params->{players}} = @players;
+	
+	$params->{'binary'} = $prefs->get('helper') || Plugins::ShairTunes2W::Utils::helperBinary();
+	$params->{'binaries'} = [ '', Plugins::ShairTunes2W::Utils::helperBinaries() ];
 	
 	$callback->($client, $params, $class->SUPER::handler($client, $params), @args);
 }

@@ -1,3 +1,6 @@
+0.71.0
+ - Let user choose helper
+ 
 0.70.5 
  - (P) Add local lib to the end of @INC, not the beginning
 

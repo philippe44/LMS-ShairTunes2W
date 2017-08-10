@@ -8,6 +8,15 @@ PLUGIN_SHAIRTUNES2_DESC
 
 PLUGIN_SHAIRTUNES2_WARNING
 	EN	WARNING: Either LMS or the enabled/disabled players must be restarted for modifications to be taken into account
+
+PLUGIN_SHAIRTUNES2W_BINARIES
+	EN	Helper binary 
+	
+PLUGIN_SHAIRTUNES2W_NEEDRESTART
+	EN	(restarting LMS recommended if changed)
+
+PLUGIN_SHAIRTUNES2W_BINARIES_DESC
+	EN	Choose what helper will be used. Set to blank to let plugin choose automatically
 	
 PLUGIN_SHAIRTUNES2_LOGLEVEL
 	EN	Enable logging 

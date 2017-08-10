@@ -42,6 +42,7 @@ my $log = Slim::Utils::Log->addLogCategory(
         'category'     => 'plugin.shairtunes',
         'defaultLevel' => 'INFO',
         'description'  => getDisplayName(),
+		'helper'	   => '',	
     }
 );
 
@@ -201,14 +202,13 @@ sub initPlugin {
 		Plugins::ShairTunes2W::Settings->new;
 	}
 		
-	$shairtunes_helper = Plugins::ShairTunes2W::Utils::helperBinary();
+	$shairtunes_helper = Plugins::ShairTunes2W::Utils::helperPath( $prefs->get('helper') || Plugins::ShairTunes2W::Utils::helperBinary() );
 	if ( !$shairtunes_helper || !-x $shairtunes_helper ) {
         $log->error( "I'm sorry your platform \"" . $Config{archname}
                       . "\" is unsupported or nobody has compiled a binary for it! Can't work." );
-        return 0;        
-    }
+     }
 	
-	$log->info($shairtunes_helper);
+	$log->info("selected helper: $shairtunes_helper");
 
     revoke_publishPlayer();
 
@@ -801,8 +801,8 @@ sub conn_handle_request {
 			
 			push @dec_args, ("flac") if $prefs->get('useFLAC');			
 			
-			$log->error( "decode command: ", Dumper(@dec_args));
-			    
+			$log->info( "decode command: ", Dumper(@dec_args));
+						    
 			acceptChildSockets($h_in, $h_out, $h_err);
 
 			my $helper_pid = Proc::Background->new( $shairtunes_helper, @dec_args );

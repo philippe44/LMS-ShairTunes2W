@@ -96,7 +96,16 @@ sub helperBinary {
 		return undef;
 	}
 	
-	return $shairtunes_helper;
+	return $bin;
+}
+
+sub helperBinaries {
+	return qw (shairport_helper-x64-linux shairport_helper-i386-linux shairport_helper-armv6hf shairport_helper-armv5te shairport_helper-osx shairport_helper-win.exe shairport_helper-i86pc-solaris);
+}
+
+sub helperPath {
+	my $bin = shift;
+	return Slim::Utils::OSDetect::getOS->decodeExternalHelperPath( Slim::Utils::Misc::findbin($bin) );
 }
 
 sub ip6bin {
