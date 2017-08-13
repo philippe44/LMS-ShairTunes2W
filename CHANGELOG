@@ -1,3 +1,9 @@
+0.71.2
+ - helperBinary must be called at least when plugin 1st run
+
+0.71.1
+ - revert change of @INC
+ 
 0.71.0
  - Let user choose helper
  

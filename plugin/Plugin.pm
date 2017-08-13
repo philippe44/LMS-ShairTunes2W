@@ -201,7 +201,10 @@ sub initPlugin {
 		Plugins::ShairTunes2W::Settings->new;
 	}
 		
-	$shairtunes_helper = Plugins::ShairTunes2W::Utils::helperPath( $prefs->get('helper') || Plugins::ShairTunes2W::Utils::helperBinary() );
+	# this must be done in 2 steps as helperBinary *must* be called for 1st plugin run	
+	$shairtunes_helper = Plugins::ShairTunes2W::Utils::helperBinary();	
+	$shairtunes_helper = Plugins::ShairTunes2W::Utils::helperPath( $prefs->get('helper') || $shairtunes_helper );
+	
 	if ( !$shairtunes_helper || !-x $shairtunes_helper ) {
         $log->error( "I'm sorry your platform \"" . $Config{archname}
                       . "\" is unsupported or nobody has compiled a binary for it! Can't work." );
