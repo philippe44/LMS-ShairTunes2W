@@ -242,7 +242,7 @@ static int count_leading_zeros(int input)
 #warning using generic count leading zeroes. You may wish to write one for your CPU / compiler
 static int count_leading_zeros(int input)
 {
-    int output = 0;
+	int output = 0;
     int curbyte = 0;
 
     curbyte = input >> 24;
@@ -289,7 +289,7 @@ found:
 
 static int32_t entropy_decode_value(alac_file* alac,
                              int readSampleSize,
-                             int k,
+							 int k,
                              int rice_kmodifier_mask)
 {
     int32_t x = 0; // decoded value
@@ -336,7 +336,7 @@ static void entropy_rice_decode(alac_file* alac,
                          int outputSize,
                          int readSampleSize,
                          int rice_initialhistory,
-                         int rice_kmodifier,
+						 int rice_kmodifier,
                          int rice_historymult,
                          int rice_kmodifier_mask)
 {
@@ -383,7 +383,7 @@ static void entropy_rice_decode(alac_file* alac,
 
             k = count_leading_zeros(history) + ((history + 16) / 64) - 24;
 
-            // note: blockSize is always 16bit
+			// note: blockSize is always 16bit
             blockSize = entropy_decode_value(alac, 16, k, rice_kmodifier_mask);
 
             // got blockSize 0s
@@ -430,7 +430,7 @@ static void predictor_decompress_fir_adapt(int32_t *error_buffer,
 
     if (predictor_coef_num == 0x1f) /* 11111 - max value of predictor_coef_num */
     { /* second-best case scenario for fir decompression,
-       * error describes a small difference from the previous sample only
+	   * error describes a small difference from the previous sample only
        */
         if (output_size <= 1) return;
         for (i = 0; i < output_size - 1; i++)
@@ -524,7 +524,7 @@ static void predictor_decompress_fir_adapt(int32_t *error_buffer,
                 }
             }
             else if (error_val < 0)
-            {
+			{
                 int predictor_num = predictor_coef_num - 1;
 
                 while (predictor_num >= 0 && error_val < 0)
@@ -571,7 +571,7 @@ static void deinterlace_16(int32_t *buffer_a, int32_t *buffer_b,
 
 
             right = midright - ((difference * interlacing_leftweight) >> interlacing_shift);
-            left = right + difference;
+			left = right + difference;
 
             /* output is always little endian */
             if (host_bigendian)
@@ -618,7 +618,7 @@ static void deinterlace_24(int32_t *buffer_a, int32_t *buffer_b,
     int i;
     if (numsamples <= 0) return;
 
-    /* weighted interlacing */
+	/* weighted interlacing */
     if (interlacing_leftweight)
     {
         for (i = 0; i < numsamples; i++)
@@ -665,7 +665,7 @@ static void deinterlace_24(int32_t *buffer_a, int32_t *buffer_b,
 
         if (uncompressed_bytes)
         {
-            uint32_t mask = ~(0xFFFFFFFF << (uncompressed_bytes * 8));
+			uint32_t mask = ~(0xFFFFFFFF << (uncompressed_bytes * 8));
             left <<= (uncompressed_bytes * 8);
             right <<= (uncompressed_bytes * 8);
 
@@ -712,7 +712,7 @@ void decode_frame(alac_file *alac,
         int ricemodifier;
 
         /* 2^result = something to do with output waiting.
-         * perhaps matters if we read > 1 frame in a pass?
+		 * perhaps matters if we read > 1 frame in a pass?
          */
         readbits(alac, 4);
 
@@ -759,7 +759,7 @@ void decode_frame(alac_file *alac,
                 predictor_coef_table[i] = (int16_t)readbits(alac, 16);
             }
 
-            if (uncompressed_bytes)
+			if (uncompressed_bytes)
             {
                 int i;
                 for (i = 0; i < outputsamples; i++)
@@ -806,7 +806,7 @@ void decode_frame(alac_file *alac,
                 int i;
                 for (i = 0; i < outputsamples; i++)
                 {
-                    int32_t audiobits = readbits(alac, alac->setinfo_sample_size);
+					int32_t audiobits = readbits(alac, alac->setinfo_sample_size);
 
                     audiobits = SIGN_EXTENDED32(audiobits, alac->setinfo_sample_size);
 
@@ -947,7 +947,7 @@ void decode_frame(alac_file *alac,
             prediction_type_b = readbits(alac, 4);
             prediction_quantitization_b = readbits(alac, 4);
 
-            ricemodifier_b = readbits(alac, 3);
+			ricemodifier_b = readbits(alac, 3);
             predictor_coef_num_b = readbits(alac, 5);
 
             /* read the predictor table */
@@ -994,7 +994,7 @@ void decode_frame(alac_file *alac,
 
             /* channel 2 */
             entropy_rice_decode(alac,
-                                alac->predicterror_buffer_b,
+								alac->predicterror_buffer_b,
                                 outputsamples,
                                 readsamplesize,
                                 alac->setinfo_rice_initialhistory,
@@ -1041,7 +1041,7 @@ void decode_frame(alac_file *alac,
                 int i;
                 for (i = 0; i < outputsamples; i++)
                 {
-                    int32_t audiobits_a, audiobits_b;
+					int32_t audiobits_a, audiobits_b;
 
                     audiobits_a = readbits(alac, 16);
                     audiobits_a = audiobits_a << (alac->setinfo_sample_size - 16);
@@ -1078,7 +1078,7 @@ void decode_frame(alac_file *alac,
         case 24:
         {
             deinterlace_24(alac->outputsamples_buffer_a,
-                           alac->outputsamples_buffer_b,
+						   alac->outputsamples_buffer_b,
                            uncompressed_bytes,
                            alac->uncompressed_bytes_buffer_a,
                            alac->uncompressed_bytes_buffer_b,
@@ -1088,7 +1088,7 @@ void decode_frame(alac_file *alac,
                            interlacing_shift,
                            interlacing_leftweight);
             break;
-        }
+		}
         case 20:
         case 32:
 			_fprintf(stderr, "FIXME: unimplemented sample size %i\n", alac->setinfo_sample_size);
@@ -1104,12 +1104,27 @@ void decode_frame(alac_file *alac,
 
 alac_file *create_alac(int samplesize, int numchannels)
 {
-    alac_file *newfile = malloc(sizeof(alac_file));
+	alac_file *newfile = malloc(sizeof(alac_file));
 
-    newfile->samplesize = samplesize;
-    newfile->numchannels = numchannels;
-    newfile->bytespersample = (samplesize / 8) * numchannels;
+	newfile->samplesize = samplesize;
+	newfile->numchannels = numchannels;
+	newfile->bytespersample = (samplesize / 8) * numchannels;
 
-    return newfile;
+	return newfile;
 }
+
+void delete_alac(alac_file *alac)
+{
+	free(alac->predicterror_buffer_a);
+	free(alac->predicterror_buffer_b);
+
+	free(alac->outputsamples_buffer_a);
+	free(alac->outputsamples_buffer_b);
+
+	free(alac->uncompressed_bytes_buffer_a);
+	free(alac->uncompressed_bytes_buffer_b);
+
+	free(alac);
+}
+
 

@@ -1,3 +1,9 @@
+0.72.1
+ - Add correct shared libs (multi, thread, 64int)
+
+0.72.0
+  Refactor to use share AirConnect code
+ 
 0.71.2
  - helperBinary must be called at least when plugin 1st run
 

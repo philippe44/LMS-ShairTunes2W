@@ -95,13 +95,13 @@ typedef int64_t   s64_t;
 #endif
 
 #define last_error() errno
+#define closesocket(s) close(s)
 #define ERROR_WOULDBLOCK EWOULDBLOCK
 
-int SendARP(in_addr_t src, in_addr_t dst, u8_t mac[], u32_t *size);
 #define fresize(f,s) ftruncate(fileno(f), s)
-char *strlwr(char *str);
 #define _random(x) random()
 char *GetTempPath(u16_t size, char *path);
+#define S_ADDR(X) X.s_addr
 
 #endif // LINUX || OSX || FREEBSD || SUNOS
 
@@ -124,18 +124,19 @@ typedef __int64 s64_t;
 
 int gettimeofday(struct timeval *tv, struct timezone *tz);
 
-//#define poll(fds,numfds,timeout) WSAPoll(fds,numfds,timeout)
 #define usleep(x) Sleep((x)/1000)
 #define sleep(x) Sleep((x)*1000)
 #define last_error() WSAGetLastError()
 #define ERROR_WOULDBLOCK WSAEWOULDBLOCK
 #define open _open
 #define read _read
+#define poll WSAPoll
 #define snprintf _snprintf
 #define fresize(f, s) chsize(fileno(f), s)
 #define strcasecmp stricmp
 #define _random(x) random(x)
 #define VALGRIND_MAKE_MEM_DEFINED(x,y)
+#define S_ADDR(X) X.S_un.S_addr
 
 #define in_addr_t u32_t
 #define socklen_t int

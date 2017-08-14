@@ -4,6 +4,7 @@
 typedef struct alac_file alac_file;
 
 alac_file *create_alac(int samplesize, int numchannels);
+void delete_alac(alac_file *alac);
 void decode_frame(alac_file *alac,
                   unsigned char *inbuffer,
                   void *outbuffer, int *outputsize);

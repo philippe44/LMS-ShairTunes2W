@@ -4,7 +4,7 @@ TOOLS		= ./src/tools
 VALGRIND	= ../valgrind
 SRC 		= ./src
 LIBRARY 	= $(OBJ)/libFLAC.a
-DEFINES 	= -DHAIRTUNES_STANDALONE -DHTTP_PARSER_STRICT=0 -D_POSIX_PTHREAD_SEMANTICS -D_REENTRANT -DMDNS_SVC -DNDEBUG
+DEFINES 	= -DHAIRTUNES_STANDALONE -DHTTP_PARSER_STRICT=0 -D_POSIX_PTHREAD_SEMANTICS -D_REENTRANT -DMDNS_SVC -DNDEBUG -D_GNU_SOURCE 
 
 TINYMDNS	= $(BASE)/tinysvcmdns
 
@@ -17,9 +17,9 @@ INCLUDE = -I. \
 		  -I$(TOOLS) \
 		  -I$(BASE)/flac/include
 
-SOURCES = alac.c hairtunes.c http.c \
+SOURCES = alac.c hairtunes.c main.c \
 		  mdns.c mdnsd.c tinysvcmdns.c \
-		  log_util.c
+		  log_util.c util.c
 		
 OBJECTS = $(patsubst %.c,$(OBJ)/%.o,$(SOURCES)) 
 

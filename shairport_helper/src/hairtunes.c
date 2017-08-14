@@ -3,6 +3,8 @@
  * Copyright (c) James Laird 2011
  * All rights reserved.
  *
+ * Modularisation: philippe_44@outlook.com, 2017
+ *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
  * files (the "Software"), to deal in the Software without
@@ -36,21 +38,14 @@
 #include <sys/stat.h>
 #include <stdint.h>
 #include <fcntl.h>
-
-#include "platform.h"
-
-#if WIN
-char* strsep(char** stringp, const char* delim);
-#endif
-
-#include "hairtunes.h"
-
 #include <assert.h>
 
+#include "platform.h"
+#include "hairtunes.h"
 #include "alac.h"
 #include "FLAC/stream_encoder.h"
-#include "http.h"
 #include "log_util.h"
+#include "util.h"
 
 #define NTP2MS(ntp) ((((ntp) >> 10) * 1000L) >> 22)
 #define MS2NTP(ms) (((((__u64) (ms)) << 22) / 1000) << 10)
@@ -62,29 +57,10 @@ char* strsep(char** stringp, const char* delim);
 #define GAP_THRES	8
 #define GAP_COUNT	20
 
-extern int mdns_server(int argc, char *argv[]);
-int _fprintf(FILE *file, ...);
-#define _printf(...) _fprintf(stdout, ##__VA_ARGS__)
-int _fflush(FILE *file);
-char *_fgets(char *str, int n, FILE *file);
-int in_port, out_port, err_port;
-int in_sd = -1, out_sd = -1, err_sd = -1;
-int latency = 0;
-int conn_socket(int port);
-int close_socket(int sd);
-unsigned int gettime_ms(void);
-
-const char *version = "0.70.4";
-
-static log_level 	main_loglevel = lERROR;
-static log_level 	*loglevel = &main_loglevel;
+extern log_level 	raop_loglevel;
+static log_level 	*loglevel = &raop_loglevel;
 
 // #define __RTP_STORE
-
-#ifdef __RTP_STORE
-FILE *rtpFP;
-char *rtpFile = "airplay.pcm";
-#endif
 
 // default buffer size
 #define BUFFER_FRAMES 1024
@@ -92,403 +68,311 @@ char *rtpFile = "airplay.pcm";
 #define FLAC_BLOCK_SIZE 1024
 #define MAX_FLAC_BYTES (FLAC_BLOCK_SIZE*4 + 1024)
 
-typedef u16_t seq_t;
-
-// global options (constant after init)
-static unsigned char aeskey[16], aesiv[16];
-static AES_KEY aes;
-static int fmtp[32];
-static int sampling_rate;
-static int frame_size;
-static struct in_addr host_addr;
-struct sockaddr_in rtp_host = { AF_INET, INADDR_ANY };
-
-static struct {
-	int port, sock;
-} rtp_sockets[3]; 					 // data, control, timing
-
-enum { DATA, CONTROL, TIMING };
-
 #define RTP_SYNC	(0x01)
 #define NTP_SYNC	(0x02)
 
-static struct timing_s {
-	u64_t local;
-	u64_t remote;
-	u32_t count, gap_count;
-	s64_t gap_sum, gap_adjust;
-} timing;
+enum { DATA, CONTROL, TIMING };
 
-static struct {
-	u32_t rtp;
-	u32_t time;
-	u8_t  status;
-} synchro;
-
-static int http_listener = -1;
-static int http_status = 0;
-static int http_connection = -1;
-static char http_buffer[4096];
-static FLAC__StreamEncoder *flac_encoder;
-static char flac_buffer[MAX_FLAC_BYTES];
-static int flac_len;
-static bool flac_ready = false;
-
-static int http_on_headers_complete(http_parser* parser);
-
-  http_cb      on_message_begin;
-  http_data_cb on_url;
-  http_cb      on_status_complete;
-  http_data_cb on_header_field;
-  http_data_cb on_header_value;
-  http_cb      on_headers_complete;
-  http_data_cb on_body;
-  http_cb      on_message_complete;
-
-http_parser_settings http_settings = { NULL, NULL, NULL, NULL, NULL,
-									   http_on_headers_complete,
-									   NULL, NULL,
-};
-
-http_parser *http_parser_ctx = NULL;
-
-
-#define FRAME_BYTES (4*frame_size)
-
-static alac_file *decoder_info;
-
-static bool  init_rtp(void);
-static bool  init_http(void);
-static void init_buffer(void);
-static void init_flac(void);
-static int  init_output(void);
-static bool rtp_request_resend(seq_t first, seq_t last);
-static bool rtp_request_timing(void);
-static void ab_reset(void);
-static FLAC__StreamEncoderWriteStatus flac_write_callback(const FLAC__StreamEncoder *encoder, const FLAC__byte buffer[], size_t bytes, unsigned samples, unsigned current_frame, void *client_data);
-
-// interthread variables
-// stdin->decoder
-static int flush_seqno = -1;
-static bool playing = false;
-static bool use_flac = false;
-
+typedef u16_t seq_t;
 typedef struct audio_buffer_entry {   // decoded audio packets
 	int ready;
 	u32_t rtptime;
 	s16_t *data;
 } abuf_t;
-static abuf_t audio_buffer[BUFFER_FRAMES];
+
+typedef struct hairtunes_s {
+#ifdef __RTP_STORE
+	FILE *rtpFP;
+	char *rtpFile = "airplay.pcm";
+#endif
+	bool running;
+	unsigned char aesiv[16];
+	AES_KEY aes;
+	int frame_size;
+	int in_frames, out_frames;
+	struct in_addr host;
+	struct sockaddr_in rtp_host;
+	struct {
+		unsigned short rport, lport;
+		int sock;
+	} rtp_sockets[3]; 					 // data, control, timing
+	struct timing_s {
+		u64_t local, remote;
+		u32_t count, gap_count;
+		s64_t gap_sum, gap_adjust;
+	} timing;
+	struct {
+		u32_t 	rtp, time;
+		u8_t  	status;
+		bool	first, required;
+	} synchro;
+	int latency;
+	abuf_t audio_buffer[BUFFER_FRAMES];
+	int http_listener;
+	seq_t ab_read, ab_write;
+	pthread_mutex_t ab_mutex;
+	pthread_t http_thread, rtp_thread;
+	FLAC__StreamEncoder *flac_codec;
+	char flac_buffer[MAX_FLAC_BYTES];
+	int flac_len;
+	bool flac_ready, flac_header;
+	alac_file *alac_codec;
+	int flush_seqno;
+	bool playing;
+	bool use_flac;
+	hairtunes_cb_t callback;
+	void *owner;
+} hairtunes_t;
+
 
 #define BUFIDX(seqno) ((seq_t)(seqno) % BUFFER_FRAMES)
+static void 	init_buffer(abuf_t *audio_buffer, int size);
+static void 	reset_flac(hairtunes_t *ctx);
+static bool 	rtp_request_resend(hairtunes_t *ctx, seq_t first, seq_t last);
+static bool 	rtp_request_timing(hairtunes_t *ctx);
+static void*	rtp_thread_func(void *arg);
+static void*	http_thread_func(void *arg);
+static bool 	handle_http(hairtunes_t *ctx, int sock);
+static void 	ab_reset(abuf_t *audio_buffer);
+static int	  	seq_order(seq_t a, seq_t b);
+static FLAC__StreamEncoderWriteStatus 	flac_write_callback(const FLAC__StreamEncoder *encoder, const FLAC__byte buffer[], size_t bytes, unsigned samples, unsigned current_frame, void *client_data);
 
-// mutex-protected variables
-static seq_t ab_read, ab_write;
-static pthread_mutex_t ab_mutex = PTHREAD_MUTEX_INITIALIZER;
-
-static void die(char *why) {
-	if (in_sd != -1) close_socket(in_sd);
-	if (out_sd != -1) close_socket(out_sd);
-	if (err_sd != -1) close_socket(err_sd);
-	_fprintf(stderr, "FATAL: %s\n", why);
-	LOG_ERROR("FATAL ERROR: %s", why);
-	exit(1);
-}
-
-static int hex2bin(unsigned char *buf, char *hex) {
-	int i;
-	int j;
-	if (strlen(hex) != 0x20)
-		return 1;
-	for (i=0; i < 0x10; i++) {
-		if (!sscanf(hex, "%2X", &j))
-		   return 1;
-		hex += 2;
-		*buf++ = j;
-	}
-	return 0;
-}
-
-static void init_flac() {
+/*---------------------------------------------------------------------------*/
+static void reset_flac(hairtunes_t *ctx) {
 	bool ok = true;
 
-	if (flac_ready) return;
+	if (ctx->flac_ready) return;
 
-	ok &= FLAC__stream_encoder_set_verify(flac_encoder, false);
-	ok &= FLAC__stream_encoder_set_compression_level(flac_encoder, 5);
-	ok &= FLAC__stream_encoder_set_channels(flac_encoder, 2);
-	ok &= FLAC__stream_encoder_set_bits_per_sample(flac_encoder, 16);
-	ok &= FLAC__stream_encoder_set_sample_rate(flac_encoder, 44100);
-	ok &= FLAC__stream_encoder_set_blocksize(flac_encoder, FLAC_BLOCK_SIZE);
-	ok &= !FLAC__stream_encoder_init_stream(flac_encoder, flac_write_callback, NULL, NULL, NULL, NULL);
+	ctx->flac_len = 0;
+	ctx->flac_ready = true;
+	ctx->flac_header = true;
 
-	flac_len = 0;
-	flac_ready = true;
+	ok &= FLAC__stream_encoder_set_verify(ctx->flac_codec, false);
+	ok &= FLAC__stream_encoder_set_compression_level(ctx->flac_codec, 5);
+	ok &= FLAC__stream_encoder_set_channels(ctx->flac_codec, 2);
+	ok &= FLAC__stream_encoder_set_bits_per_sample(ctx->flac_codec, 16);
+	ok &= FLAC__stream_encoder_set_sample_rate(ctx->flac_codec, 44100);
+	ok &= FLAC__stream_encoder_set_blocksize(ctx->flac_codec, FLAC_BLOCK_SIZE);
+	ok &= FLAC__stream_encoder_set_streamable_subset(ctx->flac_codec, true);
+	ok &= !FLAC__stream_encoder_init_stream(ctx->flac_codec, flac_write_callback, NULL, NULL, NULL, ctx);
 
 	if (!ok) {
-		LOG_ERROR("Cannot set FLAC parameters", NULL);
+		LOG_ERROR("{%p]: Cannot set FLAC parameters", ctx);
 	}
 }
 
-
+/*---------------------------------------------------------------------------*/
 static FLAC__StreamEncoderWriteStatus flac_write_callback(const FLAC__StreamEncoder *encoder, const FLAC__byte buffer[], size_t bytes, unsigned samples, unsigned current_frame, void *client_data) {
-	if (bytes <= MAX_FLAC_BYTES) {
-		flac_len = bytes;
-		memcpy(flac_buffer, buffer, bytes);
+	hairtunes_t *ctx = (hairtunes_t*) client_data;
+
+	if (ctx->flac_len + bytes <= MAX_FLAC_BYTES) {
+		memcpy(ctx->flac_buffer + ctx->flac_len, buffer, bytes);
+		ctx->flac_len += bytes;
 	} else {
-		LOG_WARN("flac coded buffer too big %u", bytes);
+		LOG_WARN("[%p]: flac coded buffer too big %u", ctx, bytes);
 	}
 
- 	return FLAC__STREAM_ENCODER_WRITE_STATUS_OK;
+	return FLAC__STREAM_ENCODER_WRITE_STATUS_OK;
 }
- 
 
-static int init_decoder(void) {
+
+/*---------------------------------------------------------------------------*/
+static alac_file* init_alac(int fmtp[32]) {
 	alac_file *alac;
 	int sample_size = fmtp[3];
 
-	frame_size = fmtp[1]; // stereo samples
-	sampling_rate = fmtp[11];
-
-	if (sample_size != 16)
-		die("only 16-bit samples supported!");
+	if (sample_size != 16) {
+		LOG_ERROR("sample size must be 16 %d", sample_size);
+		return false;
+	}
 
 	alac = create_alac(sample_size, 2);
-	if (!alac)
-		return 1;
-	decoder_info = alac;
 
-	alac->setinfo_max_samples_per_frame = frame_size;
-	alac->setinfo_7a =      fmtp[2];
-	alac->setinfo_sample_size = sample_size;
+	if (!alac) {
+		LOG_ERROR("cannot create alac codec", NULL);
+		return NULL;
+	}
+
+	alac->setinfo_max_samples_per_frame = fmtp[1];
+	alac->setinfo_7a 				= fmtp[2];
+	alac->setinfo_sample_size 		= sample_size;
 	alac->setinfo_rice_historymult = fmtp[4];
 	alac->setinfo_rice_initialhistory = fmtp[5];
-	alac->setinfo_rice_kmodifier = fmtp[6];
-	alac->setinfo_7f =      fmtp[7];
-	alac->setinfo_80 =      fmtp[8];
-	alac->setinfo_82 =      fmtp[9];
-	alac->setinfo_86 =      fmtp[10];
-	alac->setinfo_8a_rate = fmtp[11];
+	alac->setinfo_rice_kmodifier 	= fmtp[6];
+	alac->setinfo_7f 				= fmtp[7];
+	alac->setinfo_80 				= fmtp[8];
+	alac->setinfo_82 			    = fmtp[9];
+	alac->setinfo_86 				= fmtp[10];
+	alac->setinfo_8a_rate			= fmtp[11];
 	allocate_buffers(alac);
-	return 0;
+
+	return alac;
 }
 
-int hairtunes_init(char *pAeskey, char *pAesiv, char *fmtpstr, int pCtrlPort, int pTimingPort)
+/*---------------------------------------------------------------------------*/
+hairtunes_resp_t hairtunes_init(struct in_addr host, bool flac, bool sync, int latency,
+								char *aeskey, char *aesiv, char *fmtpstr,
+								short unsigned pCtrlPort, short unsigned pTimingPort,
+								void *owner, hairtunes_cb_t callback)
 {
 	int i = 0;
 	char *arg;
-	char line[128];
-	int in_line = 0;
-	int n;
+	int fmtp[12];
+	bool rc = true;
+	hairtunes_t *ctx = malloc(sizeof(hairtunes_t));
+	hairtunes_resp_t resp = { 0, 0, 0, 0, NULL };
+
+	if (!ctx) return resp;
+
+	memset(ctx, 0, sizeof(hairtunes_t));
+	ctx->host = host;
+	ctx->rtp_host.sin_family = AF_INET;
+	ctx->rtp_host.sin_addr.s_addr = INADDR_ANY;
+	pthread_mutex_init(&ctx->ab_mutex, 0);
+	ctx->flush_seqno = -1;
+	ctx->use_flac = flac;
+	ctx->flac_header = false;
+	ctx->latency = latency;
+	ctx->callback = callback;
+	ctx->owner = owner;
+	ctx->synchro.required = sync;
 
 #ifdef __RTP_STORE
-	rtpFP = fopen(rtpFile, "wb");
+	ctx->rtpFP = fopen(rtpFile, "wb");
 #endif
 
-	if (hex2bin(aesiv, pAesiv))
-		die("can't understand IV");
-	if (hex2bin(aeskey, pAeskey))
-		die("can't understand key");
+	memcpy(ctx->aesiv, aesiv, 16);
 
-	rtp_sockets[CONTROL].port = pCtrlPort;
-	rtp_sockets[TIMING].port = pTimingPort;
+	ctx->rtp_sockets[CONTROL].rport = pCtrlPort;
+	ctx->rtp_sockets[TIMING].rport = pTimingPort;
 
-	AES_set_decrypt_key(aeskey, 128, &aes);
+	AES_set_decrypt_key((unsigned char*) aeskey, 128, &ctx->aes);
 
 	memset(fmtp, 0, sizeof(fmtp));
+	while ((arg = strsep(&fmtpstr, " \t")) != NULL) fmtp[i++] = atoi(arg);
 
-	while ( (arg = strsep(&fmtpstr, " \t")) != NULL)
-		fmtp[i++] = atoi(arg);
+	ctx->frame_size = fmtp[1]; // stereo samples
 
-	init_decoder();
-	init_buffer();
-	if (!init_rtp() < 0) die("cannot init RTP");
-	if (!init_http()) die("cannot init HTTP");
-	if (use_flac) {
-		if ((flac_encoder = FLAC__stream_encoder_new()) == NULL) die("Cannot init FLAC");
-		LOG_INFO("Using FLAC", NULL);
+	// alac decoder
+	ctx->alac_codec = init_alac(fmtp);
+	rc &= ctx->alac_codec != NULL;
+
+	// flac encoder
+	if (ctx->use_flac) {
+		ctx->flac_codec = FLAC__stream_encoder_new();
+		rc &= ctx->flac_codec != NULL;
+		LOG_INFO("[%p]: Using FLAC", ctx);
 	}
 
-	_fflush(stdout);
-	init_output();              // resample and output from ring buffer
+	init_buffer(ctx->audio_buffer, ctx->frame_size*4);
 
-	while (_fgets(line + in_line, sizeof(line) - in_line, stdin)) {
-		n = strlen(line);
-		if (line[n-1] != '\n') {
-			in_line = strlen(line) - 1;
-			if (n == sizeof(line)-1)
-				in_line = 0;
-			continue;
-		}
-		if (!strcmp(line, "exit\n")) {
-			return (0);
-		}
-		if (strstr(line, "flush")) {
-			pthread_mutex_lock(&ab_mutex);
-			ab_reset();
-			if (use_flac) {
-				FLAC__stream_encoder_finish(flac_encoder);
-				flac_ready = false;
-			}
-			sscanf(line, "flush %d", &flush_seqno);
-			pthread_mutex_unlock(&ab_mutex);
-			_printf("flushed %d\n", flush_seqno);
-			LOG_INFO("Flushed at %u", flush_seqno);
-		}
-	}
-	
-	if (use_flac) FLAC__stream_encoder_delete(flac_encoder);
-
-	_fprintf(stderr, "bye!\n", NULL);
-	_fflush(stderr);
-
-	return EXIT_SUCCESS;
-}
-
-
-#ifdef WIN32
-static void winsock_init(void) {
-	WSADATA wsaData;
-	WORD wVersionRequested = MAKEWORD(2, 2);
-	int WSerr = WSAStartup(wVersionRequested, &wsaData);
-	if (WSerr != 0) exit(1);
-}
-
-static void winsock_close(void) {
-	WSACleanup();
-}
-#endif
-
-int main(int argc, char **argv) {
-	char *hexaeskey = 0;
-	char *hexaesiv = 0;
-	char *fmtpstr = 0;
-	char *arg;
-	char *logfile = NULL;
-	int ret;
-	int cport = 0, tport = 0;
-
-	assert(RAND_MAX >= 0x7fff);    // XXX move this to compile time
-
-	if (argc > 1 && (!strcmp(argv[1], "-h") || !strcmp(argv[1], "-dns"))) {
-		if (!strcmp(argv[1], "-h")) {
-			printf("MDNS mode:\n\t-dns ");
-			mdns_server(argc, argv);
-			printf("AIRPORT mode:\n\tiv <n> key <n> \n"
-				   "[host <ip>]\n"
-				   "[socket <in>,<out>,<err>]\n"
-				   "[fmtp <n>]\n"
-				   "[cport <n>] [tport <n>]\n"
-				   "[log <file>] [dbg <error|warn|info|debug|sdebug>]\n"
-				   "[flac]\n"
-				   "[latency <ms>]\n"
-				   );
-		} else mdns_server(argc - 1, argv + 1);
-		exit (0);
+	// create rtp ports
+	for (i = 0; i < 3; i++) {
+		ctx->rtp_sockets[i].sock = bind_socket(&ctx->rtp_sockets[i].lport, SOCK_DGRAM);
+		rc &= ctx->rtp_sockets[i].sock > 0;
 	}
 
-	while ( (arg = *++argv) != NULL ) {
-		if (!strcasecmp(arg, "iv")) {
-			hexaesiv = *++argv;
-		} else
-		if (!strcasecmp(arg, "key")) {
-			hexaeskey = *++argv;
-		} else
-		if (!strcasecmp(arg, "host")) {
-			host_addr.s_addr = inet_addr(*++argv);
-		} else
-    	if (!strcasecmp(arg, "fmtp")) {
-			fmtpstr = *++argv;
-		} else
-		if (!strcasecmp(arg, "cport")) {
-			cport = atoi(*++argv);
-		} else
-		if (!strcasecmp(arg, "tport")) {
-			tport = atoi(*++argv);
-		} else
-		if (!strcasecmp(arg, "latency")) {
-			latency = atoi(*++argv);
-		} else
+	// create http port and start listening
+	ctx->http_listener = bind_socket(&resp.hport, SOCK_STREAM);
+	rc &= ctx->http_listener > 0;
+	rc &= listen(ctx->http_listener, 1) == 0;
 
-		if (!strcasecmp(arg, "socket")) {
-			char *ports = *++argv;
-			sscanf(ports, "%d,%d,%d", &in_port, &out_port, &err_port);
-		}
-		if (!strcasecmp(arg, "log")) {
-			logfile = *++argv;
-		}
-		if (!strcasecmp(arg, "dbg")) {
-			++argv;
-			if (!strcmp(*argv, "error"))  *loglevel = lERROR;
-			if (!strcmp(*argv, "warn"))   *loglevel = lWARN;
-			if (!strcmp(*argv, "info"))   *loglevel = lINFO;
-			if (!strcmp(*argv, "debug"))  *loglevel = lDEBUG;
-			if (!strcmp(*argv, "sdebug")) *loglevel = lSDEBUG;
-		}
-		if (!strcasecmp(arg, "flac")) {
-			use_flac = true;
-		}
-	}
+	resp.cport = ctx->rtp_sockets[CONTROL].lport;
+	resp.tport = ctx->rtp_sockets[TIMING].lport;
+	resp.aport = ctx->rtp_sockets[DATA].lport;
 
-	if (logfile && !freopen(logfile, "w", stderr))
-		die("cannot open logfile");
-
-	if (!hexaeskey || !hexaesiv)
-		die("Must supply AES key and IV!");
-
-	LOG_INFO("client: %s", inet_ntoa(host_addr));
-
-#ifdef WIN32
-	winsock_init();
-#endif
-
-	if (in_port) in_sd = conn_socket(in_port);
-	if (out_port) out_sd = conn_socket(out_port);
-	if (err_port) err_sd = conn_socket(err_port);
-
-	if (((in_port || out_port || err_port) && (in_sd * out_sd * err_sd > 0)) ||
-		(!in_port && !out_port && !err_port)) {
-		ret = hairtunes_init(hexaeskey, hexaesiv, fmtpstr, cport, tport);
+	if (rc) {
+		ctx->running = true;
+		pthread_create(&ctx->rtp_thread, NULL, rtp_thread_func, (void *) ctx);
+		pthread_create(&ctx->http_thread, NULL, http_thread_func, (void *) ctx);
 	} else {
-		LOG_ERROR("Cannot start, check parameters", NULL);
-		_fprintf(stderr, "Cannot start, check parameters");
-		ret = 1;
+		hairtunes_end(ctx);
+		ctx = NULL;
 	}
 
-	if (in_sd != -1) close_socket(in_sd);
-	if (out_sd != -1) close_socket(out_sd);
-	if (err_sd != -1) close_socket(err_sd);
+	resp.ctx = ctx;
 
-#ifdef WIN32
-	winsock_close();
-#endif
-
-	return ret;
+	return resp;
 }
 
-static void init_buffer(void) {
+/*---------------------------------------------------------------------------*/
+void hairtunes_end(hairtunes_t *ctx)
+{
 	int i;
-	for (i = 0; i < BUFFER_FRAMES; i++)
-		audio_buffer[i].data = malloc(FRAME_BYTES);
-	ab_reset();
+
+	if (!ctx) return;
+
+	if (ctx->running) {
+		ctx->running = false;
+		pthread_join(ctx->rtp_thread, NULL);
+		pthread_join(ctx->http_thread, NULL);
+	}
+
+	close_socket(ctx->http_listener);
+	for (i = 0; i < 3; i++) close_socket(ctx->rtp_sockets[i].sock);
+
+	delete_alac(ctx->alac_codec);
+	if (ctx->flac_codec) {
+		FLAC__stream_encoder_finish(ctx->flac_codec);
+		FLAC__stream_encoder_delete(ctx->flac_codec);
+	}
+
+	free(ctx);
 }
 
-static void ab_reset(void) {
+/*---------------------------------------------------------------------------*/
+bool hairtunes_flush(hairtunes_t *ctx, unsigned short seqno, unsigned int rtpframe)
+{
+	bool rc;
+
+	pthread_mutex_lock(&ctx->ab_mutex);
+
+	if (seq_order(seqno, ctx->ab_read) || seqno == ctx->ab_read) {
+		rc = false;
+		LOG_ERROR("[%p]: FLUSH ignored as seqno (%hu) <= ab_read (%hu)", ctx, seqno, ctx->ab_read);
+	} else {
+		rc = true;
+		ab_reset(ctx->audio_buffer);
+		ctx->playing = false;
+		ctx->flush_seqno = seqno;
+		ctx->synchro.first = false;
+
+		if (ctx->use_flac) {
+			FLAC__stream_encoder_finish(ctx->flac_codec);
+			ctx->flac_ready = false;
+		}
+	}
+
+	pthread_mutex_unlock(&ctx->ab_mutex);
+
+	return rc;
+}
+
+/*---------------------------------------------------------------------------*/
+static void init_buffer(abuf_t *audio_buffer, int size) {
 	int i;
 	for (i = 0; i < BUFFER_FRAMES; i++) {
+		audio_buffer[i].data = malloc(size);
 		audio_buffer[i].ready = 0;
 	}
-	playing = false;
 }
 
+/*---------------------------------------------------------------------------*/
+static void ab_reset(abuf_t *audio_buffer) {
+	int i;
+	for (i = 0; i < BUFFER_FRAMES; i++) audio_buffer[i].ready = 0;
+}
+
+/*---------------------------------------------------------------------------*/
 // the sequence numbers will wrap pretty often.
 // this returns true if the second arg is after the first
-static inline int seq_order(seq_t a, seq_t b) {
+static int seq_order(seq_t a, seq_t b) {
 	s16_t d = b - a;
 	return d > 0;
 }
 
-static void alac_decode(s16_t *dest, char *buf, int len) {
+/*---------------------------------------------------------------------------*/
+static void alac_decode(hairtunes_t *ctx, s16_t *dest, char *buf, int len) {
 	unsigned char packet[MAX_PACKET];
 	unsigned char iv[16];
 	int aeslen;
@@ -496,61 +380,62 @@ static void alac_decode(s16_t *dest, char *buf, int len) {
 	assert(len<=MAX_PACKET);
 
 	aeslen = len & ~0xf;
-	memcpy(iv, aesiv, sizeof(iv));
-	AES_cbc_encrypt((unsigned char*)buf, packet, aeslen, &aes, iv, AES_DECRYPT);
+	memcpy(iv, ctx->aesiv, sizeof(iv));
+	AES_cbc_encrypt((unsigned char*)buf, packet, aeslen, &ctx->aes, iv, AES_DECRYPT);
 	memcpy(packet+aeslen, buf+aeslen, len-aeslen);
 
-	decode_frame(decoder_info, packet, dest, &outsize);
+	decode_frame(ctx->alac_codec, packet, dest, &outsize);
 
-	assert(outsize == FRAME_BYTES);
+	assert(outsize == ctx->frame_size*4);
 }
 
-static void buffer_put_packet(seq_t seqno, unsigned rtptime, char *data, int len) {
+/*---------------------------------------------------------------------------*/
+static void buffer_put_packet(hairtunes_t *ctx, seq_t seqno, unsigned rtptime, bool first, char *data, int len) {
 	abuf_t *abuf = NULL;
-	static int count = 0;
 
-	pthread_mutex_lock(&ab_mutex);
+	pthread_mutex_lock(&ctx->ab_mutex);
 
-	if (!playing) {
-		if (flush_seqno == -1 || seq_order(flush_seqno, seqno)) {
-			ab_write = seqno-1;
-			ab_read = seqno;
-			flush_seqno = -1;
-			playing = true;
-			_printf("play\n");
-			LOG_INFO("play", NULL);
-			if (use_flac) init_flac();
+	if (!ctx->playing) {
+		if ((ctx->flush_seqno == -1 || seq_order(ctx->flush_seqno, seqno)) &&
+		   ((ctx->synchro.required && ctx->synchro.first) || !ctx->synchro.required)) {
+			ctx->ab_write = seqno-1;
+			ctx->ab_read = seqno;
+			ctx->flush_seqno = -1;
+			ctx->playing = true;
+			ctx->synchro.first = false;
+			if (ctx->use_flac) reset_flac(ctx);
+			ctx->callback(ctx->owner, HAIRTUNES_PLAY);
 		} else {
-			pthread_mutex_unlock(&ab_mutex);
+			pthread_mutex_unlock(&ctx->ab_mutex);
 			return;
 		}
 	}
 
-	if (!(count++ & 0x1ff)) {
-		LOG_INFO("buffer fill status [level:%u] [W:%u R:%u]", (seq_t) (ab_write - ab_read), ab_write, ab_read);
+	if (!(ctx->in_frames++ & 0x1ff)) {
+		LOG_INFO("[%p]: buffer fill status [level:%hu] [W:%hu R:%hu]", ctx, (seq_t) (ctx->ab_write - ctx->ab_read), ctx->ab_write, ctx->ab_read);
 	}
 
-	if (seqno == (seq_t)(ab_write+1)) {                  // expected packet
-		abuf = audio_buffer + BUFIDX(seqno);
-		ab_write = seqno;
-		LOG_SDEBUG("packet expected seqno:%u rtptime:%u (W:%u R:%u)", seqno, rtptime, ab_write, ab_read);
-	} else if (seq_order(ab_write, seqno)) {    // newer than expected
-		if (rtp_request_resend(ab_write+1, seqno-1)) {
+	if (seqno == (seq_t)(ctx->ab_write+1)) {                  // expected packet
+		abuf = ctx->audio_buffer + BUFIDX(seqno);
+		ctx->ab_write = seqno;
+		LOG_SDEBUG("packet expected seqno:%hu rtptime:%u (W:%hu R:%hu)", seqno, rtptime, ctx->ab_write, ctx->ab_read);
+	} else if (seq_order(ctx->ab_write, seqno)) {    // newer than expected
+		if (rtp_request_resend(ctx, ctx->ab_write+1, seqno-1)) {
 			seq_t i;
-			for (i = ab_write+1; i <= seqno-1; i++)	audio_buffer[BUFIDX(i)].rtptime = rtptime - (seqno-i)*frame_size;
+			for (i = ctx->ab_write+1; i <= seqno-1; i++) ctx->audio_buffer[BUFIDX(i)].rtptime = rtptime - (seqno-i)*ctx->frame_size;
 		}
-		LOG_DEBUG("packet newer seqno:%u rtptime:%u (W:%u R:%u)", seqno, rtptime, ab_write, ab_read);
-		abuf = audio_buffer + BUFIDX(seqno);
-		ab_write = seqno;
-	} else if (seqno == ab_read || seq_order(ab_read, seqno)) {     // late but not yet played
-		abuf = audio_buffer + BUFIDX(seqno);
-		LOG_DEBUG("packet recovered seqno:%u rtptime:%u (W:%u R:%u)", seqno, rtptime, ab_write, ab_read);
+		LOG_DEBUG("[%p]: packet newer seqno:%hu rtptime:%u (W:%hu R:%hu)", ctx, seqno, rtptime, ctx->ab_write, ctx->ab_read);
+		abuf = ctx->audio_buffer + BUFIDX(seqno);
+		ctx->ab_write = seqno;
+	} else if (seqno == ctx->ab_read || seq_order(ctx->ab_read, seqno)) {     // late but not yet played
+		abuf = ctx->audio_buffer + BUFIDX(seqno);
+		LOG_DEBUG("[%p]: packet recovered seqno:%hu rtptime:%u (W:%hu R:%hu)", ctx, seqno, rtptime, ctx->ab_write, ctx->ab_read);
 	} else {    // too late.
-		LOG_DEBUG("packet too late seqno:%u rtptime:%u (W:%u R:%u)", seqno, rtptime, ab_write, ab_read);
+		LOG_DEBUG("[%p]: packet too late seqno:%hu rtptime:%u (W:%hu R:%hu)", ctx, seqno, rtptime, ctx->ab_write, ctx->ab_read);
 	}
 
 	if (abuf) {
-		alac_decode(abuf->data, data, len);
+		alac_decode(ctx, abuf->data, data, len);
 		abuf->ready = 1;
 		// this is the local time when this frame is epxected to play
 		abuf->rtptime = rtptime;
@@ -559,42 +444,45 @@ static void buffer_put_packet(seq_t seqno, unsigned rtptime, char *data, int len
 #endif
 	}
 
-	pthread_mutex_unlock(&ab_mutex);
+	pthread_mutex_unlock(&ctx->ab_mutex);
 }
 
+/*---------------------------------------------------------------------------*/
 static void *rtp_thread_func(void *arg) {
 	fd_set fds;
 	int i, sock = -1;
 	int count = 0;
 	bool ntp_sent;
-
-	FD_ZERO(&fds);
+	hairtunes_t *ctx = (hairtunes_t*) arg;
 
 	for (i = 0; i < 3; i++) {
-		FD_SET(rtp_sockets[i].sock, &fds);
-		if (rtp_sockets[i].sock > sock) sock = rtp_sockets[i].sock;
+		if (ctx->rtp_sockets[i].sock > sock) sock = ctx->rtp_sockets[i].sock;
 		// send synchro requets 3 times
-		ntp_sent = rtp_request_timing();
+		ntp_sent = rtp_request_timing(ctx);
 	}
 
-	while (select(sock + 1, &fds, 0, 0, 0) != -1) {
+	while (ctx->running) {
 		ssize_t plen;
 		char type, packet[MAX_PACKET];
 		socklen_t rtp_client_len = sizeof(struct sockaddr_storage);
 		int idx = 0;
 		char *pktp = packet;
+		struct timeval timeout = {0, 50*1000};
 
-		for (i = 0; i < 3; i++)	{
-			if (FD_ISSET(rtp_sockets[i].sock, &fds)) idx = i;
-			FD_SET(rtp_sockets[i].sock, &fds);
-		}
+		FD_ZERO(&fds);
+		for (i = 0; i < 3; i++)	{ FD_SET(ctx->rtp_sockets[i].sock, &fds); }
 
-		plen = recvfrom(rtp_sockets[idx].sock, packet, sizeof(packet), 0, (struct sockaddr*) &rtp_host, &rtp_client_len);
+		if (select(sock + 1, &fds, NULL, NULL, &timeout) <= 0) continue;
+
+		for (i = 0; i < 3; i++)
+			if (FD_ISSET(ctx->rtp_sockets[i].sock, &fds)) idx = i;
+
+		plen = recvfrom(ctx->rtp_sockets[idx].sock, packet, sizeof(packet), 0, (struct sockaddr*) &ctx->rtp_host, &rtp_client_len);
 
 		if (!ntp_sent) {
-			LOG_WARN("NTP request not send yet", NULL);
-			ntp_sent = rtp_request_timing();
-        }
+			LOG_WARN("[%p]: NTP request not send yet", ctx);
+			ntp_sent = rtp_request_timing(ctx);
+		}
 
 		if (plen < 0) continue;
 		assert(plen <= MAX_PACKET);
@@ -621,16 +509,16 @@ static void *rtp_thread_func(void *arg) {
 				pktp += 12;
 				plen -= 12;
 
-				LOG_SDEBUG("seqno:%u rtp:%u (type: %x, first: %u)", seqno, rtptime, type, packet[1] & 0x80);
+				LOG_SDEBUG("[%p]: seqno:%hu rtp:%u (type: %x, first: %u)", ctx, seqno, rtptime, type, packet[1] & 0x80);
 
 				// check if packet contains enough content to be reasonable
 				if (plen < 16) break;
 
 				if ((packet[1] & 0x80) && (type != 0x56)) {
-					LOG_INFO("1st audio packet received", NULL);
+					LOG_INFO("[%p]: 1st audio packet received", ctx);
 				}
 
-				buffer_put_packet(seqno, rtptime, pktp, plen);
+				buffer_put_packet(ctx, seqno, rtptime, packet[1] & 0x80, pktp, plen);
 
 				break;
 			}
@@ -642,22 +530,23 @@ static void *rtp_thread_func(void *arg) {
 				u32_t rtp_now = ntohl(*(u32_t*)(pktp+16));
 
 				// re-align timestamp and expected local playback time (mutex not needed)
-				synchro.rtp = (latency) ? rtp_now - (latency*44100)/1000 : rtp_now_latency;
-				synchro.time = timing.local + (u32_t) NTP2MS(remote - timing.remote);
+				ctx->synchro.rtp = (ctx->latency) ? rtp_now - (ctx->latency*44100)/1000 : rtp_now_latency;
+				ctx->synchro.time = ctx->timing.local + (u32_t) NTP2MS(remote - ctx->timing.remote);
 
 				// now we are synced on RTP frames
-				synchro.status |= RTP_SYNC;
+				ctx->synchro.status |= RTP_SYNC;
 
 				// 1st sync packet received (signals a restart of playback)
 				if (packet[0] & 0x10) {
-					LOG_INFO("1st sync packet received", NULL);
+					ctx->synchro.first = true;
+					LOG_INFO("[%p]: 1st sync packet received", ctx);
 				}
 
-				LOG_DEBUG("sync packet rtp_latency:%u rtp:%u remote ntp:%Lx, local time %u (now:%u)",
-						  rtp_now_latency, rtp_now, remote, synchro.time, gettime_ms());
+				LOG_DEBUG("[%p]: sync packet rtp_latency:%u rtp:%u remote ntp:%Lx, local time %u (now:%u)",
+						  ctx, rtp_now_latency, rtp_now, remote, ctx->synchro.time, gettime_ms());
 
 				if (!count--) {
-					rtp_request_timing();
+					rtp_request_timing(ctx);
 					count = 3;
 				}
 
@@ -681,66 +570,69 @@ static void *rtp_thread_func(void *arg) {
 				 also has the same error, assuming client => server is the same
 				 so the delta calculated below is correct
 				*/
-				expected = timing.remote + MS2NTP(reference - timing.local);
+				expected = ctx->timing.remote + MS2NTP(reference - ctx->timing.local);
 
-				timing.remote = remote;
-				timing.local = reference;
-				timing.count++;
+				ctx->timing.remote = remote;
+				ctx->timing.local = reference;
+				ctx->timing.count++;
 
-				if (synchro.status & NTP_SYNC) {
-					delta = NTP2MS((s64_t) expected - (s64_t) timing.remote);
-					timing.gap_sum += delta;
+				if (ctx->synchro.status & NTP_SYNC) {
+					delta = NTP2MS((s64_t) expected - (s64_t) ctx->timing.remote);
+					ctx->timing.gap_sum += delta;
 
-					pthread_mutex_lock(&ab_mutex);
+					pthread_mutex_lock(&ctx->ab_mutex);
 
 					/*
 					  if expected time is more than remote, then our time is
 					  running faster and we are transmitting frames too quickly,
 					  so we'll run out of frames, need to add one
 					*/
-					if (timing.gap_sum > GAP_THRES && timing.gap_count++ > GAP_COUNT) {
-						LOG_INFO("Sending packets too fast %d", timing.gap_sum);
-						ab_read--;
-						timing.gap_sum -= GAP_THRES;
-						timing.gap_adjust -= GAP_THRES;
+					if (ctx->timing.gap_sum > GAP_THRES && ctx->timing.gap_count++ > GAP_COUNT) {
+						LOG_INFO("[%p]: Sending packets too fast %Ld", ctx, ctx->timing.gap_sum);
+						ctx->ab_read--;
+						ctx->timing.gap_sum -= GAP_THRES;
+						ctx->timing.gap_adjust -= GAP_THRES;
 					/*
 					  if expected time is less than remote, then our time is
 					  running slower and we are transmitting frames too slowly,
 					  so we'll overflow frames buffer, need to remove one
 					*/
-					} else if (timing.gap_sum < -GAP_THRES && timing.gap_count++ > GAP_COUNT) {
-						LOG_INFO("Sending packets too slow %d", timing.gap_sum);
-						ab_read++;
-						timing.gap_sum += GAP_THRES;
-						timing.gap_adjust += GAP_THRES;
+					} else if (ctx->timing.gap_sum < -GAP_THRES && ctx->timing.gap_count++ > GAP_COUNT) {
+						LOG_INFO("[%p]: Sending packets too slow %Ld", ctx, ctx->timing.gap_sum);
+						ctx->ab_read++;
+						ctx->timing.gap_sum += GAP_THRES;
+						ctx->timing.gap_adjust += GAP_THRES;
 					}
 
-					if (abs(timing.gap_sum) < 8) timing.gap_count = 0;
+					if (llabs(ctx->timing.gap_sum) < 8) ctx->timing.gap_count = 0;
 
-					pthread_mutex_unlock(&ab_mutex);
+					pthread_mutex_unlock(&ctx->ab_mutex);
 				}
 
 				// now we are synced on NTP (mutex not needed)
-				synchro.status |= NTP_SYNC;
+				ctx->synchro.status |= NTP_SYNC;
 
-				LOG_DEBUG("Timing references local:%Lu, remote:%Lx (delta:%Ld, sum:%Ld, adjust:%Ld, gaps:%d)",
-						  timing.local, timing.remote, delta, timing.gap_sum, timing.gap_adjust, timing.gap_count);
+				LOG_DEBUG("[%p]: Timing references local:%Lu, remote:%Lx (delta:%Ld, sum:%Ld, adjust:%Ld, gaps:%d)",
+						  ctx, ctx->timing.local, ctx->timing.remote, delta, ctx->timing.gap_sum, ctx->timing.gap_adjust, ctx->timing.gap_count);
 
 				break;
 			}
 		}
 	}
 
+	LOG_INFO("[%p]: terminating", ctx);
+
 	return NULL;
 }
 
-static bool rtp_request_timing(void) {
+/*---------------------------------------------------------------------------*/
+static bool rtp_request_timing(hairtunes_t *ctx) {
 	unsigned char req[32];
 	u32_t now = gettime_ms();
 	int i;
 	struct sockaddr_in host;
 
-	LOG_DEBUG("timing request now:%u (port: %u)", now, rtp_sockets[TIMING].port);
+	LOG_DEBUG("[%p]: timing request now:%u (port: %hu)", ctx, now, ctx->rtp_sockets[TIMING].rport);
 
 	req[0] = 0x80;
 	req[1] = 0x52|0x80;
@@ -750,30 +642,31 @@ static bool rtp_request_timing(void) {
 	*(u32_t*)(req+24) = 0;
 	*(u32_t*)(req+28) = htonl(now); // this is not a real NTP, but a 32 ms counter in the low part of the NTP
 
-	if (host_addr.s_addr != INADDR_ANY) {
+	if (ctx->host.s_addr != INADDR_ANY) {
 		host.sin_family = AF_INET;
-		host.sin_addr =	host_addr;
-	} else host = rtp_host;
+		host.sin_addr =	ctx->host;
+	} else host = ctx->rtp_host;
 
 	// no address from sender, need to wait for 1st packet to be received
 	if (host.sin_addr.s_addr == INADDR_ANY) return false;
 
-	host.sin_port = htons(rtp_sockets[TIMING].port);
+	host.sin_port = htons(ctx->rtp_sockets[TIMING].rport);
 
-	if (sizeof(req) != sendto(rtp_sockets[TIMING].sock, req, sizeof(req), 0, (struct sockaddr*) &host, sizeof(host))) {
-		LOG_WARN("SENDTO failed (%s)", strerror(errno));
+	if (sizeof(req) != sendto(ctx->rtp_sockets[TIMING].sock, req, sizeof(req), 0, (struct sockaddr*) &host, sizeof(host))) {
+		LOG_WARN("[%p]: SENDTO failed (%s)", ctx, strerror(errno));
 	}
 
 	return true;
 }
 
-static bool rtp_request_resend(seq_t first, seq_t last) {
+/*---------------------------------------------------------------------------*/
+static bool rtp_request_resend(hairtunes_t *ctx, seq_t first, seq_t last) {
 	unsigned char req[8];    // *not* a standard RTCP NACK
 
 	// do not request silly ranges (happens in case of network large blackouts)
 	if (seq_order(last, first) || last - first > BUFFER_FRAMES / 2) return false;
 
-	LOG_DEBUG("resend request [W:%u R:%u first=%u last=%u]", ab_write, ab_read, first, last);
+	LOG_DEBUG("resend request [W:%hu R:%hu first=%hu last=%hu]", ctx->ab_write, ctx->ab_read, first, last);
 
 	req[0] = 0x80;
 	req[1] = 0x55|0x80;  // Apple 'resend'
@@ -781,430 +674,204 @@ static bool rtp_request_resend(seq_t first, seq_t last) {
 	*(u16_t*)(req+4) = htons(first);  // missed seqnum
 	*(u16_t*)(req+6) = htons(last-first+1);  // count
 
-	rtp_host.sin_port = htons(rtp_sockets[CONTROL].port);
+	ctx->rtp_host.sin_port = htons(ctx->rtp_sockets[CONTROL].rport);
 
-	if (sizeof(req) != sendto(rtp_sockets[CONTROL].sock, req, sizeof(req), 0, (struct sockaddr*) &rtp_host, sizeof(rtp_host))) {
-		LOG_WARN("SENDTO failed (%s)", strerror(errno));
+	if (sizeof(req) != sendto(ctx->rtp_sockets[CONTROL].sock, req, sizeof(req), 0, (struct sockaddr*) &ctx->rtp_host, sizeof(ctx->rtp_host))) {
+		LOG_WARN("[%p]: SENDTO failed (%s)", ctx, strerror(errno));
 	}
 
 	return true;
 }
 
-static int bind_socket(int *port, int mode)
-{
-	int sock;
-	socklen_t len = sizeof(struct sockaddr);
-	struct sockaddr_in addr;
 
-	if ((sock = socket(AF_INET, mode, 0)) < 0) {
-		LOG_ERROR("cannot create socket %d", sock);
-		return sock;
-	}
-
-	/*  Populate socket address structure  */
-	memset(&addr, 0, sizeof(addr));
-	addr.sin_family      = AF_INET;
-	addr.sin_addr.s_addr = htonl(INADDR_ANY);
-	addr.sin_port        = htons(*port);
-#ifdef SIN_LEN
-	si.sin_len = sizeof(si);
-#endif
-
-	if (bind(sock, (struct sockaddr*) &addr, sizeof(addr)) < 0) {
-		LOG_ERROR("cannot bind socket %d", sock);
-		return -1;
-	}
-
-	if (!*port) {
-		getsockname(sock, (struct sockaddr *) &addr, &len);
-		*port = ntohs(addr.sin_port);
-	}
-
-	LOG_DEBUG("socket binding %d on port %d", sock, *port);
-
-	return sock;
-}
-
-static bool init_rtp(void) {
-	bool rc = true;
-	pthread_t rtp_thread;
-	int i;
-	int ports[3] = {0, 0, 0};
-
-	for (i = 0; i < 3; i++) {
-		rtp_sockets[i].sock = bind_socket(&ports[i], SOCK_DGRAM);
-		rc &= rtp_sockets[i].sock > 0;
-	}
-
-	_printf("port: %d\n", ports[DATA]); // let our handler know where we end up listening
-	_printf("cport: %d\n", ports[CONTROL]);
-	_printf("tport: %d\n", ports[TIMING]);
-
-	_fprintf(stderr, "shairport_helper: VERSION: %s\n", version);
-	pthread_create(&rtp_thread, NULL, rtp_thread_func, (void *)rtp_sockets);
-
-	return rc;
-}
-
-static bool init_http(void)
-{
-	int port = 0;
-
-	if ((http_listener = bind_socket(&port, SOCK_STREAM)) < 0) return false;
-
-	if (listen(http_listener, 1) < 0) return false;
-
-	_printf("hport: %d\n", port);
-
-	return true;
-}
-
+/*---------------------------------------------------------------------------*/
 // get the next frame, when available. return 0 if underrun/stream reset.
-static short *buffer_get_frame(void) {
+static short *buffer_get_frame(hairtunes_t *ctx) {
 	short buf_fill;
 	abuf_t *curframe = 0;
 	int i;
 	u32_t now, playtime;
-	static int count = 0;
 
-	pthread_mutex_lock(&ab_mutex);
+	pthread_mutex_lock(&ctx->ab_mutex);
 
-	buf_fill = ab_write - ab_read;
+	buf_fill = ctx->ab_write - ctx->ab_read;
 
 	if (buf_fill >= BUFFER_FRAMES) {
-		LOG_ERROR("Buffer overrun %u", buf_fill);
-		ab_read = ab_write - 64;
+		LOG_ERROR("[%p]: Buffer overrun %hu", ctx, buf_fill);
+		ctx->ab_read = ctx->ab_write - 64;
 	}
 
 	now = gettime_ms();
-	curframe = audio_buffer + BUFIDX(ab_read);
+	curframe = ctx->audio_buffer + BUFIDX(ctx->ab_read);
 
 	/*
 	  Last RTP sync might have happen recently and buffer frames have an RTP
 	  older than sync.rtp, so difference will be negative, need to treat that
 	  as a signed number. This works even in case of 32 bits rollover
 	*/
-	playtime = synchro.time + (((s32_t)(curframe->rtptime - synchro.rtp))*1000)/44100;
+	playtime = ctx->synchro.time + (((s32_t)(curframe->rtptime - ctx->synchro.rtp))*1000)/44100;
 
-	if (!playing || !buf_fill || synchro.status != (RTP_SYNC | NTP_SYNC) || now < playtime) {
-		LOG_SDEBUG("waiting (fill:%u, W:%u R:%u) now:%u, playtime:%u, wait:%d", buf_fill - 1, ab_write, ab_read, now, playtime, playtime - now);
-		pthread_mutex_unlock(&ab_mutex);
+	if (!ctx->playing || !buf_fill || ctx->synchro.status != (RTP_SYNC | NTP_SYNC) || now < playtime) {
+		LOG_SDEBUG("[%p]: waiting (fill:%hu, W:%hu R:%hu) now:%u, playtime:%u, wait:%d", ctx, buf_fill - 1, ctx->ab_write, ctx->ab_read, now, playtime, playtime - now);
+		pthread_mutex_unlock(&ctx->ab_mutex);
 		return NULL;
 	}
 
-	if (!(count++ & 0x1ff)) {
-		LOG_INFO("buffer drain status [level:%u] [W:%u R:%u]", buf_fill, ab_write, ab_read);
+	if (!(ctx->out_frames++ & 0x1ff)) {
+		LOG_INFO("[%p]: buffer drain status [level:%hu] [W:%hu R:%hu]", ctx, buf_fill, ctx->ab_write, ctx->ab_read);
 	}
 
 	// each missing packet will be requested up to (latency_frames / 16) times
-	for (i = 16; seq_order(ab_read + i, ab_write); i += 16) {
-		if (!audio_buffer[BUFIDX(ab_read + i)].ready) rtp_request_resend(ab_read + i, ab_read + i);
+	for (i = 16; seq_order(ctx->ab_read + i, ctx->ab_write); i += 16) {
+		if (!ctx->audio_buffer[BUFIDX(ctx->ab_read + i)].ready) rtp_request_resend(ctx, ctx->ab_read + i, ctx->ab_read + i);
 	}
 
 	if (!curframe->ready) {
-		LOG_DEBUG("created zero frame (fill:%u,  W:%u R:%u)", buf_fill - 1, ab_write, ab_read);
-		memset(curframe->data, 0, FRAME_BYTES);
+		LOG_DEBUG("[%p]: created zero frame (fill:%hu,  W:%hu R:%hu)", ctx, buf_fill - 1, ctx->ab_write, ctx->ab_read);
+		memset(curframe->data, 0, ctx->frame_size*4);
 	}
 	else {
-		LOG_SDEBUG("prepared frame (fill:%u, W:%u R:%u)", buf_fill - 1, ab_write, ab_read);
+		LOG_SDEBUG("[%p]: prepared frame (fill:%hu, W:%hu R:%hu)", ctx, buf_fill - 1, ctx->ab_write, ctx->ab_read);
 	}
 
 	curframe->ready = 0;
-	ab_read++;
+	ctx->ab_read++;
 
-	pthread_mutex_unlock(&ab_mutex);
+	pthread_mutex_unlock(&ctx->ab_mutex);
 
 	return curframe->data;
 }
 
-
-static void *audio_thread_func(void *arg) {
+/*---------------------------------------------------------------------------*/
+static void *http_thread_func(void *arg) {
 	signed short *inbuf;
 	int frame_count = 0;
 	FLAC__int32 *flac_samples = NULL;
+	hairtunes_t *ctx = (hairtunes_t*) arg;
+	int sock = -1;
+	bool http_ready = false;
 
-	if (use_flac) {
-		if ((flac_samples = malloc(2 * frame_size * sizeof(FLAC__int32))) == NULL) {
-			LOG_ERROR("Cannot allocate FLAC sample buffer %u", frame_size);
-		}
+	if (ctx->use_flac && ((flac_samples = malloc(2 * ctx->frame_size * sizeof(FLAC__int32))) == NULL)) {
+		LOG_ERROR("[%p]: Cannot allocate FLAC sample buffer %u", ctx, ctx->frame_size);
 	}
 
-	while (1) {
+	while (ctx->running) {
 		ssize_t sent;
+		fd_set rfds;
+		struct timeval timeout = {0, 0};
+		int n;
+		bool res = true;
 
-		if (http_connection == -1) {
-			http_connection = accept(http_listener, NULL, NULL);
-
-			if (http_connection != -1) {
-				LOG_INFO("audio_thread_func: got HTTP connection %u", http_connection);
-
-				http_status = 1;
-				http_parser_ctx = malloc(sizeof(http_parser));
-				http_parser_init(http_parser_ctx, HTTP_REQUEST);
-			}
-		}
-
-		if (http_connection >= 0) {
-			ssize_t recvd;
-#ifdef WIN32
-			fd_set rfds;
-			struct timeval timeout = {0, 0};
-			int n;
-
+		if (sock == -1) {
 			FD_ZERO(&rfds);
-			FD_SET(http_connection, &rfds);
+			FD_SET(ctx->http_listener, &rfds);
+			timeout.tv_usec = 50*1000;
 
-			n = select(http_connection + 1, &rfds, NULL, NULL, &timeout);
-			if (n <= 0) {
-				if (n < 0 && (errno != EAGAIN) && (errno != WSAEWOULDBLOCK)) {
-					_fprintf(stderr, "audio_thread_func: HTTP recv failed %d (%s)\n", n, strerror(errno));
-					LOG_WARN("HTTP recv failed %d (%s)", n, strerror(errno));
-				}
-			} else {
-				recvd = recv(http_connection, http_buffer, sizeof(http_buffer), 0);
-#else
-			if (0 > (recvd = recv(http_connection, http_buffer, sizeof(http_buffer), MSG_DONTWAIT))) {
-				if ((errno != EAGAIN) && (errno != EWOULDBLOCK)) {
-					_fprintf(stderr, "audio_thread_func: HTTP recv failed %d (%s)\n", errno, strerror(errno));
-					LOG_WARN("audio_thread_func: HTTP recv failed %d (%s)", errno, strerror(errno));
-				}
-			} else {
-#endif
-				if (recvd <= 0) {
-					close_socket(http_connection);
-					LOG_INFO("HTTP close %u", http_connection);
-					frame_count = 0;
-					http_connection = -1;
-					free (http_parser_ctx);
-					http_parser_ctx = 0;
-					http_status = 0;
-				} else {
-					if (*loglevel == lDEBUG) {
-						LOG_DEBUG("HTTP recvd %d:", recvd);
-						fwrite(http_buffer, recvd, 1, stderr);
-					}
-					http_parser_execute(http_parser_ctx, &http_settings, http_buffer, recvd);
-				}
+			if (select(ctx->http_listener + 1, &rfds, NULL, NULL, &timeout) > 0) {
+				sock = accept(ctx->http_listener, NULL, NULL);
 			}
+
+			if (sock != -1 && ctx->running) {
+				LOG_INFO("[%p]: got HTTP connection %u", ctx, sock);
+			} else continue;
 		}
 
-		/*
-		When using synchronized players, LMS blocks the addRead of the player
-		until the HTTP connection is established. This means the RECORD message
-		is not responded and RTP does not start. So if this loops blocks when 
-		there is no frame received yet, this is a dead lock
-		*/
+		FD_ZERO(&rfds);
+		FD_SET(sock, &rfds);
+
+		timeout.tv_usec = ctx->frame_size*((1000*2*1000)/(44100*3));
+		n = select(sock + 1, &rfds, NULL, NULL, &timeout);
+
+		if (n > 0) {
+			res = handle_http(ctx, sock);
+			http_ready = res;
+		}
+
+		// terminate connection if required by HTTP peer
+		if (n < 0 || !res) {
+			closesocket(sock);
+			LOG_INFO("HTTP close %u", sock);
+			sock = -1;
+			http_ready = false;
+		}
 
 		// even if the HTTP session is not established, empty the buffer queue
-		if ((inbuf = buffer_get_frame()) != NULL) {
-			if (http_status == 1000) {
-				int len;
+		if ((inbuf = buffer_get_frame(ctx)) != NULL) {
+			int len;
 
-				if (use_flac) {
-					for (len = 0; len < 2*frame_size; len++) flac_samples[len] = inbuf[len];
-					FLAC__stream_encoder_process_interleaved(flac_encoder, flac_samples, frame_size);
-					inbuf = (void*) flac_buffer;
-					len = flac_len;
-					flac_len = 0;
-				} else len = FRAME_BYTES;
+			if (!http_ready) continue;
 
-				if (len) {
-					u32_t gap;
-					LOG_SDEBUG("HTTP sent frame count:%u bytes:%u (W:%u R:%u)", frame_count++, len, ab_write, ab_read);
-					gap = gettime_ms();
-					sent = send(http_connection, (void*) inbuf, len, 0);
-					gap = gettime_ms() - gap;
-					if (gap > 50) {
-						LOG_ERROR("spent %u ms in send! %u", gap);
-					}
-					if (sent != len) {
-						LOG_WARN("HTTP send() unexpected response: %li (data=%i): %s", (long int)sent, len, strerror(errno));
-					}
-				} else {
-					LOG_SDEBUG("no encoded frame ready yet, waiting", NULL);
-					usleep(frame_size*((1000*2*1000)/(44100*3)));
+			if (ctx->use_flac && ctx->flac_ready) {
+				// send streaminfo at beginning
+				if (ctx->flac_header && ctx->flac_len) {
+					send(sock, (void*) ctx->flac_buffer, ctx->flac_len, 0);
+					ctx->flac_len = 0;
+					ctx->flac_header = false;
+				}
+
+				// now send body
+				for (len = 0; len < 2*ctx->frame_size; len++) flac_samples[len] = inbuf[len];
+				FLAC__stream_encoder_process_interleaved(ctx->flac_codec, flac_samples, ctx->frame_size);
+				inbuf = (void*) ctx->flac_buffer;
+				len = ctx->flac_len;
+				ctx->flac_len = 0;
+			} else len = ctx->frame_size*4;
+
+			if (len) {
+				u32_t gap = gettime_ms();
+
+				LOG_SDEBUG("[%p]: HTTP sent frame count:%u bytes:%u (W:%hu R:%hu)", ctx, frame_count++, len, ctx->ab_write, ctx->ab_read);
+				sent = send(sock, (void*) inbuf, len, 0);
+				gap = gettime_ms() - gap;
+
+				if (gap > 50) {
+					LOG_ERROR("[%p]: spent %u ms in send!", ctx, gap);
+				}
+
+				if (sent != len) {
+					LOG_WARN("[%p]: HTTP send() unexpected response: %li (data=%i): %s", ctx, (long int) sent, len, strerror(errno));
 				}
 			}
-		} else {
-			usleep(frame_size*((1000*2*1000)/(44100*3)));
-		}	
+		}
 	}
 
-	if (use_flac && flac_samples) free(flac_samples);
+	if (ctx->use_flac && flac_samples) free(flac_samples);
+
+	LOG_INFO("[%p]: terminating", ctx);
 
 	return NULL;
 }
 
-int http_on_headers_complete(http_parser* parser)
+
+/*----------------------------------------------------------------------------*/
+static bool handle_http(hairtunes_t *ctx, int sock)
 {
-	ssize_t sent;
-	const char* response;
+	char *body = NULL, method[16] = "", *str;
+	key_data_t headers[64], resp[16] = { { NULL, NULL } };
+	int len;
 
-	if (use_flac) response = "HTTP/1.1 200 OK\r\nServer: HairTunes\r\nConnection: close\r\nContent-Type: audio/flac\r\n\r\n";
-	else response = "HTTP/1.1 200 OK\r\nServer: HairTunes\r\nConnection: close\r\nContent-Type: audio/L16;rate=44100;channels=2\r\n\r\n";
-	
-	LOG_INFO("HTTP header received", NULL);
-	sent = send(http_connection, response, strlen(response), 0);
+	if (!http_parse(sock, method, headers, &body, &len)) return false;
 
-	if (sent != (ssize_t) strlen(response)) {
-		LOG_ERROR("HTTP send() unexpected response: %li (strlen=%lu)", (long int)sent, (long unsigned int)strlen(response));
-	}
+	LOG_INFO("[%p]: received %s", ctx, method);
 
-	http_status = 1000;
+	kd_add(resp, "Server", "HairTunes");
+	kd_add(resp, "Connection", "close");
 
-	return 0;
+	if (ctx->use_flac) kd_add(resp, "Content-Type", "audio/flac");
+	else kd_add(resp, "Content-Type", "audio/L16;rate=44100;channels=2");
+
+
+	str = http_send(sock, "HTTP/1.0 200 OK", resp);
+
+	LOG_INFO("[%p]: responding:\n%s", ctx, str);
+
+	NFREE(body);
+	NFREE(str);
+	kd_free(resp);
+	kd_free(headers);
+
+	return true;
 }
 
-static int init_output(void) {
-	void* arg = 0;
-	pthread_t audio_thread;
-
-	pthread_create(&audio_thread, NULL, audio_thread_func, arg);
-
-	return 0;
-}
-
-#ifdef WIN32
-char* strsep(char** stringp, const char* delim)
-{
-  char* start = *stringp;
-  char* p;
-
-  p = (start != NULL) ? strpbrk(start, delim) : NULL;
-
-  if (p == NULL)  {
-	*stringp = NULL;
-  } else {
-	*p = '\0';
-	*stringp = p + 1;
-  }
-
-  return start;
-}
-#endif
-
-int conn_socket(int port)
-{
-	struct sockaddr_in addr;
-	int sd;
-
-	sd = socket(AF_INET, SOCK_STREAM, 0);
-	// set_nonblock(ctx->cli_sock);
-	addr.sin_family = AF_INET;
-	addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-	addr.sin_port = htons(port);
-
-	if (sd < 0 || connect(sd, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
-		close(sd);
-		return -1;
-	}
-
-	LOG_DEBUG("created socket %d", sd);
-
-	return sd;
-}
-
-int close_socket(int sd)
-{
-#ifdef WIN32
-	shutdown(sd, SD_BOTH);
-#else
-	shutdown(sd, SHUT_RDWR);
-#endif
-
-	LOG_DEBUG("closed socket %d", sd);
-
-	return close(sd);
-}
-
-char *_fgets(char *str, int num, FILE *file)
-{
-	fd_set rfds;
-	char *p = str;
-	int n;
-
-	if (file == stdin && in_sd == -1) return fgets(str, num, file);
-
-	FD_ZERO(&rfds);
-	FD_SET(in_sd, &rfds);
-
-	n = select(in_sd + 1, &rfds, NULL, NULL, NULL);
-	if (n == -1) {
-		LOG_DEBUG("gets EOF on select", NULL);
-		return NULL;
-	}
-
-	do {
-		n = recv(in_sd, p, 1, 0);
-		if (n == 1) p++;
-		else break;
-	}  while (p-str < num && *(p-1) != '\n');
-
-	*p = '\0';
-
-	if (p == str) {
-		LOG_DEBUG("gets EOF on closed socket", NULL);
-		return NULL;
-	}
-
-	return str;
-}
-
-
-int _fprintf(FILE *file, ...)
-{
-	va_list args, cp;
-	char *p, *fmt;
-	int n;
-
-	va_start(args, file);
-	fmt = va_arg(args, char*);
-
-	if ((file == stdout && out_sd == -1) || (file == stderr && err_sd == -1)) {
-		int n = vfprintf(file, fmt, args);
-		va_end(args);
-		return n;
-	}
-
-#ifdef WIN32
-	n = vsnprintf(NULL, 0, fmt, args);
-#else
-	va_copy(cp, args);
-	n = vsnprintf(NULL, 0, fmt, cp);
-	va_end(cp);
-#endif
-
-	p = malloc(n + 1);
-	vsprintf(p, fmt, args);
-
-	n = send(file == stdout ? out_sd : err_sd, p, n, 0);
-
-	free(p);
-
-	return n;
-}
-
-int _fflush(FILE *file)
-{
-	if (!out_port || !err_port) return fflush(file);
-
-	return 0;
-}
-
-unsigned int gettime_ms(void) {
-#ifdef WIN32
-	return GetTickCount();
-#else
-#if defined(linux) || defined(__FreeBSD_)
-	struct timespec ts;
-	if (!clock_gettime(CLOCK_MONOTONIC, &ts)) {
-		return ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
-	}
-#endif
-	struct timeval tv;
-	gettimeofday(&tv, NULL);
-	return tv.tv_sec * 1000 + tv.tv_usec / 1000;
-#endif
-}
 
 
