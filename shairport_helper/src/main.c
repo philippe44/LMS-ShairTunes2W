@@ -54,7 +54,7 @@ static int 		_fflush_(FILE *file);
 static char*	_fgets(char *str, int n, FILE *file);
 static void 	print_usage(int argc, char **argv);
 
-const char *version = "0.72.0";
+const char *version = "0.72.2";
 
 short unsigned cport = 0, tport = 0, in_port, out_port, err_port;
 static	int in_sd = -1, out_sd = -1, err_sd = -1;
@@ -194,6 +194,7 @@ static void print_usage(int argc, char **argv) {
 		   "[cport <n>] [tport <n>]\n"
 		   "[log <file>] [dbg <error|warn|info|debug|sdebug>]\n"
 		   "[flac]\n"
+		   "[sync]\n"
 		   "[latency <ms>]\n"
 		   );
 }
@@ -204,7 +205,7 @@ int main(int argc, char **argv) {
 	char aeskey[16] = "", aesiv[16] = "", *fmtp = NULL;
 	char *arg, *logfile = NULL;
 	int ret = 0, latency = 1000;
-	bool use_flac = true;
+	bool use_flac = false, use_sync = false;
 	static struct in_addr host_addr;
 
 	assert(RAND_MAX >= 0x7fff);    // XXX move this to compile time
@@ -257,6 +258,9 @@ int main(int argc, char **argv) {
 		if (!strcasecmp(arg, "flac")) {
 			use_flac = true;
 		}
+		if (!strcasecmp(arg, "sync")) {
+			use_sync = true;
+		}
 	}
 
 	if (logfile && !freopen(logfile, "w", stderr))
@@ -283,7 +287,7 @@ int main(int argc, char **argv) {
 		char line[128];
 		int in_line = 0, n;
 
-		ht = hairtunes_init(host_addr, use_flac, false, latency, aeskey, aesiv,
+		ht = hairtunes_init(host_addr, use_flac, use_sync, latency, aeskey, aesiv,
 							fmtp, cport, tport, NULL, hairtunes_cb);
 
 		_printf("port: %d\n", ht.aport);

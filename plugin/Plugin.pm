@@ -52,6 +52,8 @@ $prefs->init({
 	loglevel => '',
 	bufferThreshold => int( 44100*4*0.75/1024 ),
 	latency => 1000,
+	usesync => 1,
+	useFLAC => 1,
 });
 
 my $shairtunes_helper;
@@ -802,6 +804,7 @@ sub conn_handle_request {
 			}	
 			
 			push @dec_args, ("flac") if $prefs->get('useFLAC');			
+			push @dec_args, ("sync") if $prefs->get('usesync');			
 			
 			$log->info( "decode command: ", Dumper(@dec_args));
 						    
