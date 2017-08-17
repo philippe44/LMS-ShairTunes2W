@@ -1,3 +1,6 @@
+0.72.3
+ - add "HTTP catchup" to better handle network sloppyness
+ 
 0.72.2
  - use_flac default was wrong
  - add use_sync option
