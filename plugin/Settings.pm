@@ -19,8 +19,10 @@ sub page {
 	return 'plugins/ShairTunes2W/settings/basic.html';
 }
 
+my @bool  = qw(squeezelite useFLAC usesync syncVolume);
+
 sub prefs {
-	return (preferences('plugin.shairtunes'), qw(squeezelite bufferThreshold loglevel useFLAC usesync syncVolume latency));
+	return (preferences('plugin.shairtunes'), (qw(bufferThreshold loglevel latency), @bool) );
 }
 
 my $prefs = preferences('plugin.shairtunes');
@@ -39,6 +41,11 @@ sub handler {
 			my $enabled = $params->{'enabled.'.$player->{mac}} // 0;
 			$prefs->set($player->{mac}, $enabled);
 			$player->{enabled} = $enabled;
+		}
+		
+		# checkboxes must have a value but HTML page returns undef if they are unchecked
+		for my $param (@bool) {
+			$params->{"pref_$param"} ||= 0;
 		}
 		
 		$params->{pref_bufferThreshold} = min($params->{pref_bufferThreshold}, 255);
