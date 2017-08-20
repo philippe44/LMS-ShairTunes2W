@@ -1,3 +1,6 @@
+0.72.5
+ - high CPU usage in http frames handling
+ 
 0.72.4
  - (P) boolean parameters whose default is true were alwasy reset to default at LMS startup
  
