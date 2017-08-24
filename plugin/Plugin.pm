@@ -244,8 +244,14 @@ sub getDisplayName {
 
 sub shutdownPlugin {
     revoke_publishPlayer();
+	
 	Slim::Networking::Select::removeRead( $mDNSsock );
 	close($mDNSsock) if defined $mDNSsock;
+	
+	my $helper = Plugins::ShairTunes2W::Utils::helperBinary();
+	$log->info("Killing all processes $helper");
+	system("killall $helper");
+	
     return;
 }
 
@@ -379,7 +385,8 @@ sub publishPlayer {
     $log->info( "mDNSPublish not in path" ) if (!$@);
         
     $log->info("using built-in helper: $shairtunes_helper");
-	eval { $proc = Proc::Background->new( $shairtunes_helper, "-dns", $id, "_raop._tcp", @params ); };
+	
+	eval { $proc = Proc::Background->new( $shairtunes_helper, "-dns", "host", Slim::Utils::Network::serverAddr(), $id, "_raop._tcp", @params ); };
 	return $proc unless ($@);
 	$log->error( "start $shairtunes_helper failed" ) if (!$@);
 	

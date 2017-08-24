@@ -1,5 +1,9 @@
+0.72.6
+ - mDNS broadcast uses LMS socket to avoid issue with multi-home networks
+ - try to killall process when plugin terminates
+
 0.72.5
- - high CPU usage in http frames handling
+  high CPU usage in http frames handling
  
 0.72.4
  - (P) boolean parameters whose default is true were alwasy reset to default at LMS startup
