@@ -769,7 +769,12 @@ sub conn_handle_request {
             $conn->{aesiv}  = $aesiv;
             $conn->{aeskey} = $aeskey;
             $conn->{fmtp}   = $audio->attribute( 'fmtp' );
+			# there is a bug in some client like AirAudio who puts the target IN addr in the o= fiekd of the SDP session
 			$conn->{host}   = $sdp->session_origin_address();
+			if ($conn->{host} eq Slim::Utils::Network::serverAddr()) {
+				$conn->{host}   = $socket->peerhost();
+				$log->info("suspicious peer in SDP, using socket $conn->{host}");
+			}	
 						
 			last;
         };
