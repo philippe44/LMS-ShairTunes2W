@@ -1,3 +1,6 @@
+0.72.8
+ - Try to increase SO_SNDBUF in http thread to try to improve sloppy network behavior
+ 
 0.72.7
  - workaround for wrong SDP session by some client (AirAudio)
 
@@ -22,7 +25,7 @@
  - Add correct shared libs (multi, thread, 64int)
 
 0.72.0
-  Refactor to use share AirConnect code
+ - Refactor to use share AirConnect code
  
 0.71.2
  - helperBinary must be called at least when plugin 1st run
