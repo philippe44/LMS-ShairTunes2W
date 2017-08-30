@@ -1,3 +1,15 @@
+note:
+	- Playback will fail if PCM is used and target device requires MP3 conversion (eg it is a bridge) 
+	because the lame conversion rule expects a wav file whic means a header. Such header is not added
+	by the helper, so lame gets confused (Similar issue probably exists with flac)
+	==> TODO: add wav header
+
+0.72.9
+ - only notify of playback when frame is not silence (all 0) to avoid iOS 10.x spurious play
+ - print flush on stdout only if flush done (flush seqno > ab_read)
+ - add proper wav file header
+ - (P) stop LMS player only when FLUSH acknowledge (found on stdout)
+  
 0.72.8
  - Try to increase SO_SNDBUF in http thread to try to improve sloppy network behavior
  

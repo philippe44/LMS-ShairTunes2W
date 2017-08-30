@@ -54,7 +54,7 @@ static int 		_fflush_(FILE *file);
 static char*	_fgets(char *str, int n, FILE *file);
 static void 	print_usage(int argc, char **argv);
 
-const char *version = "0.72.8";
+const char *version = "0.72.9";
 
 short unsigned cport = 0, tport = 0, in_port, out_port, err_port;
 static	int in_sd = -1, out_sd = -1, err_sd = -1;
@@ -314,8 +314,9 @@ int main(int argc, char **argv) {
 				unsigned short flush_seqno;
 
 				sscanf(line, "flush %hu", &flush_seqno);
-				hairtunes_flush(ht.ctx, flush_seqno, 0);
-				_printf("flushed %hu\n", flush_seqno);
+				if (hairtunes_flush(ht.ctx, flush_seqno, 0)) {
+					_printf("flushed %hu\n", flush_seqno);
+                }
 			}
 		}
 
