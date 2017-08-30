@@ -501,7 +501,12 @@ sub handleHelperOut {
 	
 	$log->info("From helper: ", $line);
 	
-    $connections{$slave}->{player}->execute( ['play'] ) if ($line =~ /play/);
+	if ($line =~ /play/) {
+		$connections{$slave}->{player}->execute( ['play'] );
+	} elsif ($line =~ /flushed/) {
+		$connections{$slave}->{metaData}->{offset} = 0;
+		$connections{$slave}->{player}->execute( ['stop'] );
+	}	
 }	
 
 sub handleSocketRead {
@@ -901,9 +906,6 @@ sub conn_handle_request {
 			my ($seqno, $rtptime) = $req->header('RTP-Info') =~ m|seq=([^;]+);rtptime=([^;]+)|i;
 			$log->info("Flush up to $seqno, $rtptime");
             send ($dfh, "flush $seqno $rtptime\n", 0);
-
-			$conn->{metaData}->{offset} = 0;
-			$conn->{player}->execute( ['stop'] );
             
             last;
         };
