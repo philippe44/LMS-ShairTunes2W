@@ -54,7 +54,7 @@ static int 		_fflush_(FILE *file);
 static char*	_fgets(char *str, int n, FILE *file);
 static void 	print_usage(int argc, char **argv);
 
-const char *version = "0.72.9";
+const char *version = "0.72.10";
 
 short unsigned cport = 0, tport = 0, in_port, out_port, err_port;
 static	int in_sd = -1, out_sd = -1, err_sd = -1;
@@ -202,7 +202,7 @@ static void print_usage(int argc, char **argv) {
 
 /*----------------------------------------------------------------------------*/
 int main(int argc, char **argv) {
-	char aeskey[16] = "", aesiv[16] = "", *fmtp = NULL;
+	char aeskey[16], aesiv[16], *fmtp = NULL;
 	char *arg, *logfile = NULL;
 	int ret = 0, latency = 1000;
 	bool use_flac = false, use_sync = false;
@@ -266,9 +266,6 @@ int main(int argc, char **argv) {
 	if (logfile && !freopen(logfile, "w", stderr))
 		die("cannot open logfile");
 
-	if (!*aeskey || !*aesiv)
-		die("Must supply AES key and IV!");
-
 	LOG_INFO("client: %s", inet_ntoa(host_addr));
 
 #ifdef WIN32
@@ -316,7 +313,7 @@ int main(int argc, char **argv) {
 				sscanf(line, "flush %hu", &flush_seqno);
 				if (hairtunes_flush(ht.ctx, flush_seqno, 0)) {
 					_printf("flushed %hu\n", flush_seqno);
-                }
+				}
 			}
 		}
 

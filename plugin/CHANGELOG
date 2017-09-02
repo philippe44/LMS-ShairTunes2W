@@ -1,9 +1,12 @@
 note:
 	- Playback will fail if PCM is used and target device requires MP3 conversion (eg it is a bridge) 
 	because the lame conversion rule expects a wav file whic means a header. Such header is not added
-	by the helper, so lame gets confused (Similar issue probably exists with flac)
-	==> TODO: add wav header
+	by the helper, so lame gets confused (similar issue probably exists with flac)
+	==> TODO: test conversion
 
+0.72.10
+ - Cannot test *aeskey or aesiv, might start by '0'
+ 
 0.72.9
  - only notify of playback when frame is not silence (all 0) to avoid iOS 10.x spurious play
  - print flush on stdout only if flush done (flush seqno > ab_read)
