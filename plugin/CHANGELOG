@@ -4,8 +4,12 @@ note:
 	by the helper, so lame gets confused (similar issue probably exists with flac)
 	==> TODO: test conversion
 
+0.73.0
+ - add HTTP delay (delay before sending "play" command to LMS to let bridge do buffering)
+ - do not hold RTP frames when they are available! only hold missing one, up to RTP latency
+ 
 0.72.10
- - Cannot test *aeskey or aesiv, might start by '0'
+ - cannot test *aeskey or aesiv, might start by '0'
  
 0.72.9
  - only notify of playback when frame is not silence (all 0) to avoid iOS 10.x spurious play

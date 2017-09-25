@@ -22,7 +22,7 @@ sub page {
 my @bool  = qw(squeezelite useFLAC usesync syncVolume);
 
 sub prefs {
-	return (preferences('plugin.shairtunes'), (qw(bufferThreshold loglevel latency), @bool) );
+	return (preferences('plugin.shairtunes'), (qw(bufferThreshold loglevel latency http_latency), @bool) );
 }
 
 my $prefs = preferences('plugin.shairtunes');

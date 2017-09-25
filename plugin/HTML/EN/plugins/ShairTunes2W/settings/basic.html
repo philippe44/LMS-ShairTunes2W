@@ -24,7 +24,10 @@
 	[% END %]
 	
 	[% WRAPPER setting title="PLUGIN_SHAIRTUNES2_LATENCY" desc="PLUGIN_SHAIRTUNES2_LATENCY_DESC" %]
+		[% "PLUGIN_SHAIRTUNES2_RTPLATENCY" | string %]&nbsp
 		<input name="pref_latency" id="pref_latency" type="stdedit" value="[% prefs.pref_latency %]" size="4" >
+		&nbsp&nbsp[% "PLUGIN_SHAIRTUNES2_HTTPLATENCY" | string %]&nbsp
+		<input name="pref_http_latency" id="pref_http_latency" type="stdedit" value="[% prefs.pref_http_latency %]" size="4" >
 	[% END %]
 	
 	[% WRAPPER setting title="PLUGIN_SHAIRTUNES2_USESYNC" desc="PLUGIN_SHAIRTUNES2_USESYNC_DESC" %]

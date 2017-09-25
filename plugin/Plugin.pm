@@ -51,8 +51,9 @@ $prefs->init({
 	squeezelite => 0, 
 	loglevel => '',
 	bufferThreshold => int( 44100*4*0.75/1024 ),
-	latency => 1000,
-	usesync => 1,
+	latency => 1500,
+	http_latency => 2500,
+	usesync => 0,
 	useFLAC => 1,
 });
 
@@ -502,7 +503,9 @@ sub handleHelperOut {
 	$log->info("From helper: ", $line);
 	
 	if ($line =~ /play/) {
-		$connections{$slave}->{player}->execute( ['play'] );
+		Slim::Utils::Timers::setTimer( undef, Time::HiRes::time() + $prefs->get('http_latency') / 1000, sub {
+			$connections{$slave}->{player}->execute( ['play'] );
+			} );
 	} elsif ($line =~ /flushed/) {
 		$connections{$slave}->{metaData}->{offset} = 0;
 		$connections{$slave}->{player}->execute( ['stop'] );

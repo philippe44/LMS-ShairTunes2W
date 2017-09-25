@@ -28,13 +28,26 @@ PLUGIN_SHAIRTUNES2_BUFFER
 	EN	Buffer level (KB)
 	
 PLUGIN_SHAIRTUNES2_BUFFER_DESC
-	EN	Set the amount of buffering LMS does before playing. Low value means faster start but more shuttering
+	EN	Set the amount of buffering LMS does before playing. 
 
 PLUGIN_SHAIRTUNES2_LATENCY
-	EN	Airplay latency (ms)
+	EN	RTP and HTTP buffering (ms)
+
+PLUGIN_SHAIRTUNES2_RTPLATENCY
+	EN	RTP latency
+	
+PLUGIN_SHAIRTUNES2_HTTPLATENCY
+	EN	HTTP latency
 	
 PLUGIN_SHAIRTUNES2_LATENCY_DESC
-	EN	Set the duration of the AirPlay buffer. Low value means faster start but more shuttering 
+	EN	Use to tweak buffering realtime bridge buffering. AirPlay frames are received using UDP (realtime RTP) and 
+	EN	are forwarded to SB using HTTP. When two received UDP frames are not consecutives, the in-between missing 
+	EN	ones are requested again but HTTP sending must be put on hold while waiting for these.
+	EN	SB players must also have enough frames buffered to ensure uninterrupted playback. It seems that the "Buffer Level"
+	EN	parameter above is not working well, so it's also possible to force the bridge to build a big enough buffer before
+	EN	requesting LMS to play, so that SB players will receive a large amount of larger burst frames at startup
+	EN	<br>- RTP: max holding time (ms) of HTTP sending when missing UDP frames
+	EN	<br>- HTTP: delay before playback command is sent to LMS after first AirPlay frame has been received 
 
 PLUGIN_SHAIRTUNES2_USESYNC
 	EN	Wait for synchro 
