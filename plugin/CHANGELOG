@@ -4,7 +4,10 @@ note:
 	by the helper, so lame gets confused (similar issue probably exists with flac)
 	==> TODO: test conversion
 
-0.73.0
+0.73.1
+ - sync correction was causing rollover when buffer was empty
+
+ 0.73.0
  - add HTTP delay (delay before sending "play" command to LMS to let bridge do buffering)
  - do not hold RTP frames when they are available! only hold missing one, up to RTP latency
  
