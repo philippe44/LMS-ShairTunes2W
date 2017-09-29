@@ -54,7 +54,7 @@ static int 		_fflush_(FILE *file);
 static char*	_fgets(char *str, int n, FILE *file);
 static void 	print_usage(int argc, char **argv);
 
-const char *version = "0.73.1";
+const char *version = "0.74.0";
 
 short unsigned cport = 0, tport = 0, in_port, out_port, err_port;
 static	int in_sd = -1, out_sd = -1, err_sd = -1;
@@ -195,7 +195,7 @@ static void print_usage(int argc, char **argv) {
 		   "[log <file>] [dbg <error|warn|info|debug|sdebug>]\n"
 		   "[flac]\n"
 		   "[sync]\n"
-		   "[latency <ms>]\n"
+		   "[latency <airplay max ms hold[:http ms delay]>]\n"
 		   );
 }
 
@@ -203,8 +203,8 @@ static void print_usage(int argc, char **argv) {
 /*----------------------------------------------------------------------------*/
 int main(int argc, char **argv) {
 	char aeskey[16], aesiv[16], *fmtp = NULL;
-	char *arg, *logfile = NULL;
-	int ret = 0, latency = 1000;
+	char *arg, *logfile = NULL, *latencies = "";
+	int ret = 0;
 	bool use_flac = false, use_sync = false;
 	static struct in_addr host_addr;
 
@@ -236,8 +236,8 @@ int main(int argc, char **argv) {
 		if (!strcasecmp(arg, "tport")) {
 			tport = atoi(*++argv);
 		} else
-		if (!strcasecmp(arg, "latency")) {
-			latency = atoi(*++argv);
+		if (!strcasecmp(arg, "latencies")) {
+			latencies = *++argv;
 		} else
 
 		if (!strcasecmp(arg, "socket")) {
@@ -284,7 +284,7 @@ int main(int argc, char **argv) {
 		char line[128];
 		int in_line = 0, n;
 
-		ht = hairtunes_init(host_addr, use_flac, use_sync, latency, aeskey, aesiv,
+		ht = hairtunes_init(host_addr, use_flac, use_sync, latencies, aeskey, aesiv,
 							fmtp, cport, tport, NULL, hairtunes_cb);
 
 		_printf("port: %d\n", ht.aport);

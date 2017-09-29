@@ -4,6 +4,9 @@ note:
 	by the helper, so lame gets confused (similar issue probably exists with flac)
 	==> TODO: test conversion
 
+0.74.0
+ - HTTP delay uses silence frames
+ 
 0.73.1
  - sync correction was causing rollover when buffer was empty
 

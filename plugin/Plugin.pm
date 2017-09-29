@@ -503,9 +503,7 @@ sub handleHelperOut {
 	$log->info("From helper: ", $line);
 	
 	if ($line =~ /play/) {
-		Slim::Utils::Timers::setTimer( undef, Time::HiRes::time() + $prefs->get('http_latency') / 1000, sub {
-			$connections{$slave}->{player}->execute( ['play'] );
-			} );
+		$connections{$slave}->{player}->execute( ['play'] );
 	} elsif ($line =~ /flushed/) {
 		$connections{$slave}->{metaData}->{offset} = 0;
 		$connections{$slave}->{player}->execute( ['stop'] );
@@ -814,7 +812,7 @@ sub conn_handle_request {
                 fmtp  => $conn->{fmtp},
                 cport => $cport,
                 tport => $tport,
-				latency => $prefs->get('latency'),
+				latencies => $prefs->get('latency') . ':' . $prefs->get('http_latency'),
                 );
 
 			if (my $loglevel = $prefs->get('loglevel')) {
