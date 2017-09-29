@@ -710,7 +710,7 @@ static short *buffer_get_frame(hairtunes_t *ctx) {
 	int i;
 	u32_t now, playtime;
 
-	if (ctx->silence_count && ctx->silence_count--)	return ctx->silence_frame;
+	if (ctx->silence_count && ctx->silence_count--)	return (short*) ctx->silence_frame;
 
 	pthread_mutex_lock(&ctx->ab_mutex);
 
