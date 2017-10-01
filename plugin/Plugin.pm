@@ -1042,7 +1042,3 @@ LAuE4Pu13aKiJnfft7hIjbK+5kyb3TysZvoyDnb3HOKvInK7vXbKuU4ISgxB2bB3HcYzQMGsz1qJ
 }
 
 1;
-
-our $VERSION = 0.80.0;
-
-1;
