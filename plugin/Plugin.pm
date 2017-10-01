@@ -49,9 +49,9 @@ my $prefs         = preferences( 'plugin.shairtunes' );
 $prefs->init({ 
 	squeezelite => 0, 
 	loglevel => '',
-	bufferThreshold => int( 44100*4*0.75/1024 ),
+	bufferThreshold => 32,
 	latency => 1500,
-	http_latency => 2500,
+	http_latency => 2000,
 	usesync => 0,
 	useFLAC => 1,
 });
@@ -194,8 +194,21 @@ sub sendAction {
 				  					  
 sub initPlugin {
     my $class = shift;
+	my $version = $class->_pluginDataFor( 'version' );
 
-    $log->info( "Initialising " . $class->_pluginDataFor( 'version' ) . " on " . $Config{'archname'} );
+    $log->info( "Initialising $version on " . $Config{'archname'} );
+	
+	if ( $version ne $prefs->get('version') ) {
+		$log->info("version change");
+		$prefs->set('version', $version);
+		
+		if ($version eq '0.80.1') {
+			$prefs->set("bufferThreshold", 32);
+			$prefs->set("latency", 1500);
+			$prefs->set("http_delay", 2000);
+			$prefs->set("use_sync", 0);
+		}
+	}
 	
 	if ( main::WEBUI ) {
 		require Plugins::ShairTunes2W::Settings;

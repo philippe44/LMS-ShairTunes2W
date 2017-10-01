@@ -4,6 +4,10 @@ note:
 	by the helper, so lame gets confused (similar issue probably exists with flac)
 	==> TODO: test conversion
 	
+0.80.1
+ - Do not consume frames when http_session not ready
+ - In case of overflow, restart as far as possible 
+	
 0.80.0
  - Use only one socket for all IPC communication
  
