@@ -46,18 +46,15 @@
 #include "log_util.h"
 
 
-#define _printf(...) _fprintf_(stdout, ##__VA_ARGS__)
-
 extern int 		mdns_server(int argc, char *argv[]);
-static int 		_fprintf_(FILE *file, ...);
-static int 		_fflush_(FILE *file);
-static char*	_fgets(char *str, int n, FILE *file);
+static int 		sock_printf(int sock,...);
+static char*	sock_gets(int sock, char *str, int n);
 static void 	print_usage(int argc, char **argv);
 
-const char *version = "0.74.0";
+const char *version = "0.80.0";
 
-short unsigned cport = 0, tport = 0, in_port, out_port, err_port;
-static	int in_sd = -1, out_sd = -1, err_sd = -1;
+short unsigned cport = 0, tport = 0, ipc_port = 0;
+static int ipc_sock = -1;
 
 log_level 			raop_loglevel = lERROR;
 log_level			util_loglevel = lERROR;
@@ -67,10 +64,8 @@ static log_level 	*loglevel = &raop_loglevel;
 
 /*----------------------------------------------------------------------------*/
 static void die(char *why) {
-	if (in_sd != -1) close_socket(in_sd);
-	if (out_sd != -1) close_socket(out_sd);
-	if (err_sd != -1) close_socket(err_sd);
-	_fprintf_(stderr, "FATAL: %s\n", why);
+	if (ipc_sock != -1) close_socket(ipc_sock);
+	sock_printf(ipc_sock, "FATAL: %s\n", why);
 	LOG_ERROR("FATAL ERROR: %s", why);
 	exit(1);
 }
@@ -93,25 +88,23 @@ static int hex2bin(char *buf, char *hex) {
 
 
 /*----------------------------------------------------------------------------*/
-static char *_fgets(char *str, int num, FILE *file)
+static char *sock_gets(int sock, char *str, int num)
 {
 	fd_set rfds;
 	char *p = str;
 	int n;
 
-	if (file == stdin && in_sd == -1) return fgets(str, num, file);
-
 	FD_ZERO(&rfds);
-	FD_SET(in_sd, &rfds);
+	FD_SET(sock, &rfds);
 
-	n = select(in_sd + 1, &rfds, NULL, NULL, NULL);
+	n = select(sock + 1, &rfds, NULL, NULL, NULL);
 	if (n == -1) {
 		LOG_DEBUG("gets EOF on select", NULL);
 		return NULL;
 	}
 
 	do {
-		n = recv(in_sd, p, 1, 0);
+		n = recv(sock, p, 1, 0);
 		if (n == 1) p++;
 		else break;
 	}  while (p-str < num && *(p-1) != '\n');
@@ -128,20 +121,14 @@ static char *_fgets(char *str, int num, FILE *file)
 
 
 /*----------------------------------------------------------------------------*/
-static int _fprintf_(FILE *file, ...)
+static int sock_printf(int sock, ...)
 {
 	va_list args, cp;
 	char *p, *fmt;
 	int n;
 
-	va_start(args, file);
+	va_start(args, sock);
 	fmt = va_arg(args, char*);
-
-	if ((file == stdout && out_sd == -1) || (file == stderr && err_sd == -1)) {
-		int n = vfprintf(file, fmt, args);
-		va_end(args);
-		return n;
-	}
 
 #ifdef WIN32
 	n = vsnprintf(NULL, 0, fmt, args);
@@ -154,19 +141,11 @@ static int _fprintf_(FILE *file, ...)
 	p = malloc(n + 1);
 	vsprintf(p, fmt, args);
 
-	n = send(file == stdout ? out_sd : err_sd, p, n, 0);
+	n = send(sock, p, n, 0);
 
 	free(p);
 
 	return n;
-}
-
-/*----------------------------------------------------------------------------*/
-static int _fflush_(FILE *file)
-{
-	if (!out_port || !err_port) return fflush(file);
-
-	return 0;
 }
 
 
@@ -175,7 +154,7 @@ static void hairtunes_cb(void *owner, hairtunes_event_t event)
 {
 	switch(event) {
 		case HAIRTUNES_PLAY:
-			_printf("play\n");
+			sock_printf(ipc_sock, "play\n");
 			break;
 		default:
 			LOG_ERROR("unknown hairtunes event %d", event);
@@ -189,7 +168,7 @@ static void print_usage(int argc, char **argv) {
 	mdns_server(argc, argv);
 	printf("AIRPORT mode:\n\tiv <n> key <n> \n"
 		   "[host <ip>]\n"
-		   "[socket <in>,<out>,<err>]\n"
+		   "[socket <port>]\n"
 		   "[fmtp <n>]\n"
 		   "[cport <n>] [tport <n>]\n"
 		   "[log <file>] [dbg <error|warn|info|debug|sdebug>]\n"
@@ -239,14 +218,12 @@ int main(int argc, char **argv) {
 		if (!strcasecmp(arg, "latencies")) {
 			latencies = *++argv;
 		} else
-
 		if (!strcasecmp(arg, "socket")) {
-			char *ports = *++argv;
-			sscanf(ports, "%hu,%hu,%hu", &in_port, &out_port, &err_port);
-		}
+			ipc_port = atoi(*++argv);
+		} else
 		if (!strcasecmp(arg, "log")) {
 			logfile = *++argv;
-		}
+		} else
 		if (!strcasecmp(arg, "dbg")) {
 			++argv;
 			if (!strcmp(*argv, "error"))  *loglevel = lERROR;
@@ -254,10 +231,10 @@ int main(int argc, char **argv) {
 			if (!strcmp(*argv, "info"))   *loglevel = lINFO;
 			if (!strcmp(*argv, "debug"))  *loglevel = lDEBUG;
 			if (!strcmp(*argv, "sdebug")) *loglevel = lSDEBUG;
-		}
+		} else
 		if (!strcasecmp(arg, "flac")) {
 			use_flac = true;
-		}
+		} else
 		if (!strcasecmp(arg, "sync")) {
 			use_sync = true;
 		}
@@ -266,20 +243,15 @@ int main(int argc, char **argv) {
 	if (logfile && !freopen(logfile, "w", stderr))
 		die("cannot open logfile");
 
-	LOG_INFO("client: %s", inet_ntoa(host_addr));
-
 #ifdef WIN32
 	winsock_init();
 #endif
 
-	if (in_port) in_sd = conn_socket(in_port);
-	if (out_port) out_sd = conn_socket(out_port);
-	if (err_port) err_sd = conn_socket(err_port);
+	LOG_INFO("client: %s, ipc port %hu", inet_ntoa(host_addr), ipc_port);
 
-	_fflush_(stdout);
+	ipc_sock = conn_socket(ipc_port);
 
-	if (((in_port || out_port || err_port) && (in_sd * out_sd * err_sd > 0)) ||
-		(!in_port && !out_port && !err_port)) {
+	if (ipc_sock != -1) {
 		hairtunes_resp_t ht;
 		char line[128];
 		int in_line = 0, n;
@@ -287,14 +259,14 @@ int main(int argc, char **argv) {
 		ht = hairtunes_init(host_addr, use_flac, use_sync, latencies, aeskey, aesiv,
 							fmtp, cport, tport, NULL, hairtunes_cb);
 
-		_printf("port: %d\n", ht.aport);
-		_printf("cport: %d\n", ht.cport);
-		_printf("tport: %d\n", ht.tport);
-		_printf("hport: %d\n", ht.hport);
+		sock_printf(ipc_sock, "port: %d\n", ht.aport);
+		sock_printf(ipc_sock, "cport: %d\n", ht.cport);
+		sock_printf(ipc_sock, "tport: %d\n", ht.tport);
+		sock_printf(ipc_sock, "hport: %d\n", ht.hport);
 
-		_fprintf_(stderr, "shairport_helper: VERSION: %s\n", version);
+		sock_printf(ipc_sock, "shairport_helper: VERSION: %s\n", version);
 
-		while (_fgets(line + in_line, sizeof(line) - in_line, stdin)) {
+		while (sock_gets(ipc_sock, line + in_line, sizeof(line) - in_line)) {
 			n = strlen(line);
 
 			if (line[n-1] != '\n') {
@@ -312,25 +284,22 @@ int main(int argc, char **argv) {
 
 				sscanf(line, "flush %hu", &flush_seqno);
 				if (hairtunes_flush(ht.ctx, flush_seqno, 0)) {
-					_printf("flushed %hu\n", flush_seqno);
+					sock_printf(ipc_sock, "flushed %hu\n", flush_seqno);
 				}
 			}
 		}
 
 		hairtunes_end(ht.ctx);
 
-		_fprintf_(stderr, "bye!\n", NULL);
-		_fflush_(stderr);
+		sock_printf(ipc_sock, "bye!\n", NULL);
 
 	} else {
 		LOG_ERROR("Cannot start, check parameters", NULL);
-		_fprintf_(stderr, "Cannot start, check parameters");
+		sock_printf(ipc_sock, "Cannot start, check parameters");
 		ret = 1;
 	}
 
-	if (in_sd != -1) close_socket(in_sd);
-	if (out_sd != -1) close_socket(out_sd);
-	if (err_sd != -1) close_socket(err_sd);
+	if (ipc_sock != -1) close_socket(ipc_sock);
 
 #ifdef WIN32
 	winsock_close();

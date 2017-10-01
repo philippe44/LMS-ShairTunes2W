@@ -3,7 +3,10 @@ note:
 	because the lame conversion rule expects a wav file whic means a header. Such header is not added
 	by the helper, so lame gets confused (similar issue probably exists with flac)
 	==> TODO: test conversion
-
+	
+0.80.0
+ - Use only one socket for all IPC communication
+ 
 0.74.0
  - HTTP delay uses silence frames
  

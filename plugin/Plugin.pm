@@ -32,7 +32,6 @@ use Data::Dumper;
 use IO::Socket::INET;
 use Crypt::OpenSSL::RSA;
 use Net::SDP;
-use IPC::Open3;
 use IO::Handle;
 
 # create log categogy before loading other modules
@@ -71,8 +70,7 @@ my %clients     = (); # ( [ LMSclient ]      => [mDNSPID],       ...)
 my %sockets     = (); # ( [ LMSclient ]      => [masterINETsock], ...)
 my %players     = (); # ( [ masterINETsock ] => [LMSclient],      ...)
 my %connections = (); # ( [ slaveINETSock ]  => ('socket' => [MasterINETSock], 'player' => [LMSclient],
-					  #							 'decoder_fh' => [INETSockIn], decoder_fhout' => [INETSockOut], 
-					  #							 'decoder_ferr' => [INETSockErr], 'decoder_pid' => [helper],
+					  #							 'decoder_ipc' => [INETSockIn], 'decoder_pid' => [helper],
 					  #							 'poweroff', 'iport' => [image proxy]
 					  #							 'cover_fh' => [INETSockCover], 'cover' => [jpeg blob] },		
 					  #							 'DACPid' => [DACP ID], 'activeRemote' => [remote ID], 
@@ -472,14 +470,6 @@ sub handleCoverRequest {
 	}
 			
 	Slim::Networking::Select::removeRead( $socket );
-=comment	
-	$socket->shutdown(1);
-	while (1) {
-		my $bytes = sysread($socket, my $c, 16);
-		next if !defined $bytes && ($! == EAGAIN || $! == EWOULDBLOCK);
-		last if !$bytes;
-	}	
-=cut	
 	
 	close $socket;
 	delete $covers{$socket};
@@ -490,7 +480,7 @@ sub handleCoverRequest {
 sub handleHelperOut {
     my $socket = shift;
 	
-	my ($slave) = grep { $connections{$_}->{decoder_fhout} == $socket } keys %connections;
+	my ($slave) = grep { $connections{$_}->{decoder_ipc} == $socket } keys %connections;
 	my $line = _readline($socket);
 	
 	if (!defined $line) {
@@ -577,55 +567,20 @@ sub handleSocketRead {
     ### END: Not yet updated.
 }
 
-sub acceptChildSockets {   
-	my @sockets = @_;
-	
-	foreach my $socket (@sockets)	{
-		IO::Handle::blocking($socket, 0);
-		$socket->accept;
-	}	
-}
-
-sub closeSockets {
-	my @sockets = @_;
-	
-	foreach my $socket (@sockets)	{
-		$socket->close;
-	}	
-}	
 
 sub waitChildConnect {   
-	my @sockets = @_;
-	my %status;
+	my $socket = shift;
 	my $sel = IO::Select->new();
 	
-	foreach my $socket (@sockets)	{
-		$sel->add($socket);	
-		$status{$socket} = undef;
-	}	
+	$sel->add($socket);	
 	
-	while (1) {
-		my @connects = $sel->can_read(5);
+	return undef if !$sel->can_read(5);
 		
-		last if !@connects;
-		
-		foreach my $connect (@connects) {
-			$status{$connect} = $connect->accept;
-			IO::Handle::blocking($status{$connect}, 0);
-			$sel->remove($connect);
-		}
-		
-		last if !grep { defined $status{$_} } keys %status;
-	}	
-	
-	my @result;
-	
-	# can't use values %status or keys because of order randomization;
-	foreach my $socket (@sockets)	{
-		push @result, $status{$socket};
-	}
-
-	return @result;
+	my $sock = $socket->accept;
+	IO::Handle::blocking($sock, 0);
+	$sel->remove($socket);
+					
+	return $sock;
 }
 
 # a readline that returns undef if nothing pending, otherwise reads up to '\n'
@@ -653,18 +608,16 @@ sub _readline {
 sub cleanHelper {
 	my $conn = shift;
 
-	if (defined $conn->{decoder_fh} && $conn->{decoder_fh}->connected) { 
-        close $conn->{decoder_fh};
-		$conn->{player}->execute( ['stop'] );
+	if (defined $conn->{decoder_ipc} && $conn->{decoder_ipc}->connected) { 
+        $conn->{player}->execute( ['stop'] );
 		
-        # read all left errors
-        my $derr = $conn->{decoder_fherr};
-        while ( my $err = _readline($derr) ) { $log->error( "Decoder error: " . $err ); }
+        # read all left output
+        my $dfh = $conn->{decoder_ipc};
+        while ( my $out = _readline($dfh) ) { $log->info( "Decoder output: " . $out ); }
 
-        close $conn->{decoder_fherr};
-		Slim::Networking::Select::removeRead( $conn->{decoder_fhout} );
-		close $conn->{decoder_fhout};
-		
+        Slim::Networking::Select::removeRead( $conn->{decoder_ipc} );
+		close $conn->{decoder_ipc};
+				
         if ( $conn->{poweredoff} ) {
             $conn->{player}->execute( [ 'power', 0 ] );
         }
@@ -745,11 +698,7 @@ sub conn_handle_request {
             $resp->header( 'Public',
                 'ANNOUNCE, SETUP, RECORD, PAUSE, FLUSH, TEARDOWN, OPTIONS, GET_PARAMETER, SET_PARAMETER' );
 
-            # OPTIONS is called every 2s so ideal to read all errors on a regular basis
-	        my $derr = $conn->{decoder_fherr};
-			while ( my $err = _readline($derr) ) { $log->error( "Decoder error: " . $err ); }
-			
-			if ( !defined $conn->{remote} ) {
+            if ( !defined $conn->{remote} ) {
 				$conn->{DACPid} = $req->header( 'DACP-ID' );
 				$conn->{activeRemote} = $req->header( 'Active-Remote' );
 				my $mDNSdata = AnyEvent::DNS::dns_pack { rd => 1, qd => [[$DACPfqdn, "ptr"]] };	
@@ -799,14 +748,14 @@ sub conn_handle_request {
 						Proto     => 'tcp'
 					);	
 
-			my $h_in  = new IO::Socket::INET(%socket_params);
-			my $h_out = new IO::Socket::INET(%socket_params);
-			my $h_err = new IO::Socket::INET(%socket_params);
+			my $h_ipc  = new IO::Socket::INET(%socket_params);
+			IO::Handle::blocking($h_ipc, 0);
+			
 			my @fmtp = split( / /, $conn->{fmtp} );
 					
 			my @dec_args = (
 				host  => $conn->{host},
-				socket => join( ',', $h_in->sockport, $h_out->sockport, $h_err->sockport ),
+				socket => $h_ipc->sockport, 
                 iv    => unpack( 'H*', $conn->{aesiv} ),
                 key   => unpack( 'H*', $conn->{aeskey} ),
                 fmtp  => $conn->{fmtp},
@@ -826,46 +775,32 @@ sub conn_handle_request {
 			
 			$log->info( "decode command: ", Dumper(@dec_args));
 						    
-			acceptChildSockets($h_in, $h_out, $h_err);
-
+			$h_ipc->accept;
+			
 			my $helper_pid = Proc::Background->new( $shairtunes_helper, @dec_args );
+			my $helper_ipc = waitChildConnect($h_ipc);
+			$h_ipc->close();
 
 			my $sel = IO::Select->new();
-			my ($helper_in, $helper_out, $helper_err) = waitChildConnect($h_in, $h_out, $h_err);
-
-			closeSockets($h_in, $h_out, $h_err);
-
-			$sel->add( $helper_out, $helper_err);
+			$sel->add($helper_ipc);
 			my %helper_ports = ( cport => '', hport => '', port => '', tport => '' );
 
-			my @ready;
-            while ( @ready = $sel->can_read( 5 ) ) {
-			    foreach my $reader ( @ready ) {
-                    while ( defined( my $line = _readline($reader) ) ) {
-                        $log->debug( $line ) and next if ( $line =~ /^shairport_helper: / );
-						next if ( $line =~ /^shairport_helper: / );
-                        if ( $reader == $helper_err ) {
-                            $log->error( "Helper error: " . $line );
-							next;
-                        }
-						if ( $line =~ /^([cht]?port):\s*(\d+)/ ) {
-                            $helper_ports{$1} = $2;
-                            next;
-                        }
-                        $log->error( "Helper unknown output: " . $line );
-					}
+			while ( (my $reader) = $sel->can_read(5) ) {
+				while ( defined( my $line = _readline($reader) ) ) {
+					if ( $line =~ /^([cht]?port):\s*(\d+)/ ) {
+                           $helper_ports{$1} = $2;
+                           next;
+                    }
+                    $log->error( "Helper output: " . $line );
                 }
                 last if ( !grep { !$helper_ports{$_} } keys %helper_ports );
             }
 			
-            $sel->remove( $helper_out );
-            $sel->remove( $helper_err );
-       
-			$conn->{decoder_pid}   = $helper_pid;
-            $conn->{decoder_fh}    = $helper_in;
-            $conn->{decoder_fherr} = $helper_err;
-			$conn->{decoder_fhout} = $helper_out;
-			$conn->{iport}		   = $conn->{cover_fh}->sockport;	
+            $sel->remove( $helper_ipc );
+                   
+			$conn->{decoder_pid}  = $helper_pid;
+            $conn->{decoder_ipc}  = $helper_ipc;
+            $conn->{iport}		  = $conn->{cover_fh}->sockport;	
 			
 			$log->info(
                 "launched decoder: $helper_pid on ports: $helper_ports{port}/$helper_ports{cport}/$helper_ports{tport}/$helper_ports{hport}, http port: $conn->{iport}"
@@ -875,7 +810,7 @@ sub conn_handle_request {
 			$conn->{url}  = "airplay://$host:$helper_ports{hport}/" . md5_hex($conn) . "_stream." . ($prefs->get('useFLAC') ? "flc" : "wav");
 								
 			# Add out to the select loop so we get notified of play after flush (pause)
-			Slim::Networking::Select::addRead( $helper_out, \&handleHelperOut );
+			Slim::Networking::Select::addRead( $helper_ipc, \&handleHelperOut );
 
 			#$resp->header( 'Transport', $req->header( 'Transport' ) . ";server_port=$helper_ports{port}" );
 			$resp->header( 'Transport', "RTP/AVP/UDP;unicast;mode=record;control_port=$helper_ports{cport};timing_port=$helper_ports{tport};server_port=$helper_ports{port}" );
@@ -903,7 +838,7 @@ sub conn_handle_request {
 		
         /^FLUSH$/ && do {
 
-            my $dfh = $conn->{decoder_fh};
+            my $dfh = $conn->{decoder_ipc};
 			my ($seqno, $rtptime) = $req->header('RTP-Info') =~ m|seq=([^;]+);rtptime=([^;]+)|i;
 			$log->info("Flush up to $seqno, $rtptime");
             send ($dfh, "flush $seqno $rtptime\n", 0);
@@ -924,7 +859,7 @@ sub conn_handle_request {
                 my @lines = split( /[\r\n]+/, $req->content );
                 $log->debug( "SET_PARAMETER req: " . $req->content );
                 my %content = map { /^(\S+): (.+)/; ( lc $1, $2 ) } @lines;
-                my $cfh = $conn->{decoder_fh};
+                my $cfh = $conn->{decoder_ipc};
                 if ( exists $content{volume} ) {
                     my $volume = $content{volume};
                     my $percent = int( 100 + ( $volume * 99 / 30) + 0.5 );
@@ -1095,6 +1030,6 @@ LAuE4Pu13aKiJnfft7hIjbK+5kyb3TysZvoyDnb3HOKvInK7vXbKuU4ISgxB2bB3HcYzQMGsz1qJ
 
 1;
 
-our $VERSION = 0.35.2;
+our $VERSION = 0.80.0;
 
 1;
