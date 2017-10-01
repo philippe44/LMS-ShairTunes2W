@@ -205,8 +205,8 @@ sub initPlugin {
 		if ($version eq '0.80.1') {
 			$prefs->set("bufferThreshold", 32);
 			$prefs->set("latency", 1500);
-			$prefs->set("http_delay", 2000);
-			$prefs->set("use_sync", 0);
+			$prefs->set("http_latency", 2000);
+			$prefs->set("usesync", 0);
 		}
 	}
 	
