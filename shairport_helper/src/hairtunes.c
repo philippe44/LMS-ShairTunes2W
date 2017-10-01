@@ -752,11 +752,11 @@ static short *buffer_get_frame(hairtunes_t *ctx) {
 		if (!ctx->audio_buffer[BUFIDX(ctx->ab_read + i)].ready) rtp_request_resend(ctx, ctx->ab_read + i, ctx->ab_read + i);
 	}
 
-	if (!curframe->ready) {
+
+	if (!curframe->ready) {
 		LOG_INFO("[%p]: created zero frame (fill:%hu,  W:%hu R:%hu)", ctx, buf_fill - 1, ctx->ab_write, ctx->ab_read);
 		memset(curframe->data, 0, ctx->frame_size*4);
-	}
-	else {
+	} else {
 		LOG_SDEBUG("[%p]: prepared frame (fill:%hu, W:%hu R:%hu)", ctx, buf_fill - 1, ctx->ab_write, ctx->ab_read);
 	}
 
