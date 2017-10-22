@@ -30,10 +30,6 @@
 		<input name="pref_http_latency" id="pref_http_latency" type="stdedit" value="[% prefs.pref_http_latency %]" size="4" >
 	[% END %]
 	
-	[% WRAPPER setting title="PLUGIN_SHAIRTUNES2_USESYNC" desc="PLUGIN_SHAIRTUNES2_USESYNC_DESC" %]
-		<input name="pref_usesync" id="pref_usesync" type="checkbox" [% IF prefs.pref_usesync %] checked [% END %]>
-	[% END %]
-	
 	[% WRAPPER setting title="PLUGIN_SHAIRTUNES2_USEFLAC" desc="PLUGIN_SHAIRTUNES2_USEFLAC_DESC" %]
 		<input name="pref_useFLAC" id="pref_useFLAC" type="checkbox" [% IF prefs.pref_useFLAC %] checked [% END %]>
 	[% END %]

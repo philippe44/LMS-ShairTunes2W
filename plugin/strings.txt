@@ -49,16 +49,6 @@ PLUGIN_SHAIRTUNES2_LATENCY_DESC
 	EN	<br>- RTP: max holding time (ms) of HTTP sending when missing UDP frames
 	EN	<br>- HTTP: delay before playback command is sent to LMS after first AirPlay frame has been received 
 
-PLUGIN_SHAIRTUNES2_USESYNC
-	EN	Wait for synchro 
-	
-PLUGIN_SHAIRTUNES2_USESYNC_DESC
-	EN	AirPlay protocol specifies that a sync flag is sent on the first audio packet, but some controllers, 
-	EN	including iOS 10.x and Tuneblade do not set it and this might prevent playback. This option allows 
-	EN	playback to restart at first received packet, not waiting for a packet with the flag set, but pause
-	EN	function on iOS 10.x will not work as expected, as iOS sends silence frames for a few seconds when 
-	EN	paused.
-
 PLUGIN_SHAIRTUNES2_USEFLAC
 	EN	Use flac for streaming
 	

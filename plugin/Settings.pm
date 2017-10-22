@@ -19,7 +19,7 @@ sub page {
 	return 'plugins/ShairTunes2W/settings/basic.html';
 }
 
-my @bool  = qw(squeezelite useFLAC usesync syncVolume);
+my @bool  = qw(squeezelite useFLAC syncVolume);
 
 sub prefs {
 	return (preferences('plugin.shairtunes'), (qw(bufferThreshold loglevel latency http_latency), @bool) );

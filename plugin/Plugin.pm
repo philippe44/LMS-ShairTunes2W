@@ -52,7 +52,6 @@ $prefs->init({
 	bufferThreshold => 32,
 	latency => 1500,
 	http_latency => 2000,
-	usesync => 0,
 	useFLAC => 1,
 });
 
@@ -784,8 +783,7 @@ sub conn_handle_request {
 			}	
 			
 			push @dec_args, ("flac") if $prefs->get('useFLAC');			
-			push @dec_args, ("sync") if $prefs->get('usesync');			
-			
+						
 			$log->info( "decode command: ", Dumper(@dec_args));
 						    
 			$h_ipc->accept;
