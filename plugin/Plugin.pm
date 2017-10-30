@@ -774,6 +774,7 @@ sub conn_handle_request {
                 cport => $cport,
                 tport => $tport,
 				latencies => $prefs->get('latency') . ':' . $prefs->get('http_latency'),
+				codec => $prefs->get('useFLAC') ? "flac" : "wav",
                 );
 
 			if (my $loglevel = $prefs->get('loglevel')) {
@@ -782,8 +783,6 @@ sub conn_handle_request {
 				push @dec_args, ("log", logFile($id), "dbg", $loglevel);
 			}	
 			
-			push @dec_args, ("flac") if $prefs->get('useFLAC');			
-						
 			$log->info( "decode command: ", Dumper(@dec_args));
 						    
 			$h_ipc->accept;
