@@ -82,7 +82,7 @@ sub new {
 	
 	$log->debug("NEW: $url");
 
-    ${*$sock}{contentType} = $prefs->get('useFLAC') ? 'audio/flac' : 'audio/wav';
+    ${*$sock}{contentType} = $prefs->get('useFLAC') ? 'flc' : 'wav';
 
     return $sock;
 }
