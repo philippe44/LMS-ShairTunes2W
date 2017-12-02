@@ -51,7 +51,7 @@ static int 		sock_printf(int sock,...);
 static char*	sock_gets(int sock, char *str, int n);
 static void 	print_usage(int argc, char **argv);
 
-const char *version = "0.81.0";
+const char *version = "0.82.0";
 
 short unsigned cport = 0, tport = 0, ipc_port = 0;
 static int ipc_sock = -1;
@@ -174,6 +174,7 @@ static void print_usage(int argc, char **argv) {
 		   "[log <file>] [dbg <error|warn|info|debug|sdebug>]\n"
 		   "[codec <flac|wav|pcm>]\n"
 		   "[sync]\n"
+   		   "[drift]\n"
 		   "[latency <airplay max ms hold[:http ms delay]>]\n"
 		   );
 }
@@ -184,7 +185,7 @@ int main(int argc, char **argv) {
 	char aeskey[16], aesiv[16], *fmtp = NULL;
 	char *arg, *logfile = NULL, *latencies = "";
 	int ret = 0;
-	bool use_sync = false;
+	bool use_sync = false, drift = false;
 	static struct in_addr host_addr;
 	codec_t codec = CODEC_FLAC;
 
@@ -241,7 +242,11 @@ int main(int argc, char **argv) {
 		} else
 		if (!strcasecmp(arg, "sync")) {
 			use_sync = true;
+		} else
+		if (!strcasecmp(arg, "drift")) {
+			drift = true;
 		}
+
 	}
 
 	if (logfile && !freopen(logfile, "w", stderr))
@@ -260,8 +265,8 @@ int main(int argc, char **argv) {
 		char line[128];
 		int in_line = 0, n;
 
-		ht = hairtunes_init(host_addr, codec, use_sync, latencies, aeskey, aesiv,
-							fmtp, cport, tport, NULL, hairtunes_cb);
+		ht = hairtunes_init(host_addr, codec, use_sync, drift, latencies,
+							aeskey, aesiv, fmtp, cport, tport, NULL, hairtunes_cb);
 
 		sock_printf(ipc_sock, "port: %d\n", ht.aport);
 		sock_printf(ipc_sock, "cport: %d\n", ht.cport);

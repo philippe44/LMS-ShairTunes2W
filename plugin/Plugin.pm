@@ -783,6 +783,8 @@ sub conn_handle_request {
 				push @dec_args, ("log", logFile($id), "dbg", $loglevel);
 			}	
 			
+			push (@dec_args, "drift") if $prefs->get('drift');
+			
 			$log->info( "decode command: ", Dumper(@dec_args));
 						    
 			$h_ipc->accept;

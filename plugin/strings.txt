@@ -57,6 +57,15 @@ PLUGIN_SHAIRTUNES2_USEFLAC_DESC
 	EN	By default, audio is decoded and streamed in PCM, which can be a lot of network bandwidth for synchronized 
 	EN	players. Use this option to re-encode audio in FLAC, dividing bandwidth by ~2
 	
+PLUGIN_SHAIRTUNES2_DRIFT
+	EN	Let timing references drift
+	
+PLUGIN_SHAIRTUNES2_DRIFT_DESC
+	EN	AirPlay and LMS timing references are asynchronous and, on a long term, their differences can create
+	EN	buffer underrun or overrun (producing too much or not enough samples). This is corrected by forcing
+	EN	the addition or deletion of a 8 ms buffer when needed, but such adjustement creates a "click". Disable 
+	EN	this option avoid it but let references drift.
+	
 PLUGIN_SHAIRTUNES2_SYNCVOLUME
 	EN	Change volume of sync'd players
 	
