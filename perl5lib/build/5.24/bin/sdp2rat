@@ -1,0 +1,130 @@
+#!/opt/perl-5.24.3/bin/perl 
+#
+
+# sdp2rat
+#
+# Launch rat (Robust Audio Tool) 
+# with parameters taken from an SDP file
+#
+# Version 0.5
+#
+# By Nicholas Humfrey <njh@cpan.org>
+# Started 27 August 2003
+#
+# History:
+#  Version 0.5 (08/09/2004): Checks for rat
+#  Version 0.4 (25/07/2004): Now uses Net::SDP to parse the file
+#  Version 0.3 (02/09/2003): Opens SDP files as URLs as well as on disk
+#  Version 0.2 (28/08/2003): Fix for the port parameter being passed to rat
+#  Version 0.1 (27/08/2003): Initial Release
+#
+#
+
+use Net::SDP;
+use Data::Dumper;
+use strict;
+
+
+my $rat_cmd = 'rat';
+my $Debug = 0;
+
+
+
+# Check that rat is available
+my $rat_version = `$rat_cmd -v 2>/dev/null`;
+if ($rat_version eq '') {
+	print "Error: RAT (Robust Audio Tool) isn't available on your system.\n";
+	print "       http://www-mice.cs.ucl.ac.uk/multimedia/software/rat/\n";
+	exit;
+}
+
+
+# Create a new SDP object and parse in file
+my $sdp = Net::SDP->new();
+$sdp->parse( shift @ARGV );
+
+
+# Display information about the session
+print          "RAT version: ".$rat_version."\n" if ($Debug);
+print "        Session Name: ".$sdp->session_name()."\n";
+print " Session Information: ".$sdp->session_info()."\n";
+print "                 URL: ".$sdp->session_uri()."\n";
+print "              E-mail: ".$sdp->session_email()."\n";
+print "               Phone: ".$sdp->session_phone()."\n\n";
+
+
+# Get the first audio media description
+my $sdp_audio = $sdp->media_desc_of_type( 'audio' );
+if (!defined $sdp_audio) {
+	die "SDP file doesn't contain an audio media description";
+}
+
+
+# Process the payload type map
+my $ratmap_cmd = "";
+my $default_format = undef;
+my %format_list = %{$sdp_audio->format_list()};
+foreach my $fmt (sort keys %format_list) {
+	my ($media, $encoding, $rate, $channels) = split(/\//, $format_list{$fmt});
+	$rate = (int($rate/1000)).'K';
+	if ($channels == 2) {
+		$channels = 'Stereo';
+	} else {
+		$channels = 'Mono';
+	}
+	
+	my $ratmap_str = "$encoding-$rate-$channels";
+	$ratmap_cmd .= " -pt $fmt/$ratmap_str";
+	
+	$default_format = $ratmap_str if ($fmt == $sdp_audio->default_format());
+}
+
+
+# Build the command line and execute rat
+my $command = "$rat_cmd $ratmap_cmd ";
+$command .= '-C "'.$sdp->session_name().'" ' if (defined $sdp->session_name());
+$command .= '-f '.$default_format.' '  if (defined $default_format);
+$command .= '-t '.$sdp_audio->ttl().' ' if (defined $sdp_audio->ttl());
+$command .= $sdp_audio->address().'/'.$sdp_audio->port();
+
+print "$command\n\n" if ($Debug);
+exec($command);
+
+
+__END__
+
+=pod
+
+=head1 NAME
+
+sdp2rat - Launch RAT (Robust Audio Tool) from an SDP file
+
+=head1 SYNOPSIS
+
+  sdp2rat file.sdp
+  
+  sdp2rat http://www.ecs.soton.ac.uk/file.sdp
+  
+  cat file.sdp | sdp2rat 
+
+=head1 DESCRIPTION
+
+Parses an SDP file using Net::SDP and launches RAT using
+the session information in the SDP file.
+
+The SDP data can be stored on disk as a file, read from STDIN
+or loaded from a URL (LWP must be available).
+
+=head1 AUTHOR
+
+Nicholas Humfrey, njh@cpan.org
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2004 University of Southampton
+
+This script is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself, either Perl version 5.005 or,
+at your option, any later version of Perl 5 you may have available.
+
+=cut
