@@ -66,3 +66,4 @@ _backup/
 *.tds
 *-idx*
 *.save*
+**/build/
