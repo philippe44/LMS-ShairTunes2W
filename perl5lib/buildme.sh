@@ -534,7 +534,7 @@ function build {
             ;;
 
         Crypt::OpenSSL::Bignum)
-            build_module Crypt-OpenSSL-Bignum-0.09
+            build_module Crypt-OpenSSL-Bignum-0.06
             ;;
 
         Crypt::OpenSSL::RSA)
@@ -577,7 +577,7 @@ fi
 mkdir -p $PERL_ARCH/$ARCH
 rsync -amv --include='*/' --include='*.pm' --exclude='*' $PERL_BASE/lib/perl5/$ARCH/ $PERL_ARCH/
 rsync -amv --exclude=$ARCH --exclude='inc/' --exclude='Module/' --include='*/' --include='*.pm' --exclude='*' $PERL_BASE/lib/perl5/ $PERL_ARCH/
-rsync -amv --include='*/' --include='*.so' --exclude='*' $PERL_BASE/lib/perl5/$ARCH/auto $PERL_ARCH/$ARCH/
+rsync -amv --include='*/' --include='*.so' --include='*.al' --include='*.ix' --exclude='*' $PERL_BASE/lib/perl5/$ARCH/auto $PERL_ARCH/$ARCH/
 
 if [ $LIBBASEDIR ]; then
     if [ ! -d $LIBBASEDIR/5.$PERL_MINOR_VER/$ARCH ]; then

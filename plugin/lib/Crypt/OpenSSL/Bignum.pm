@@ -6,9 +6,11 @@ use Carp;
 
 use vars qw( $VERSION @ISA );
 
-use base qw(DynaLoader);
+require DynaLoader;
 
-$VERSION = '0.09';
+@ISA = qw(DynaLoader);
+
+$VERSION = '0.06';
 
 bootstrap Crypt::OpenSSL::Bignum $VERSION;
 
