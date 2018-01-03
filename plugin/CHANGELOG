@@ -2,6 +2,12 @@ note:
 	- Playback will fail if PCM is used and target device requires MP3 conversion (eg it is a bridge) 
 	because the lame conversion rule expects a wav file which means a header. 
 
+0.82.5
+ - and ... put the lib at the correct place for 5.10
+ 
+0.82.4
+ - added libs for Linux x86 5.10 and Solaris x86 5.24
+ 
 0.82.3
  - fix "settings" link
  
