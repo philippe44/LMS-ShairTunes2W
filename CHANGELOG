@@ -3,6 +3,7 @@ note:
 	because the lame conversion rule expects a wav file which means a header. 
 
 0.83.0
+ - optimize RTP frame recovery in case of network blackouts
  
 0.82.5
  - and ... put the lib at the correct place for 5.10
