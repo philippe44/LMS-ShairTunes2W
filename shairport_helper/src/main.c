@@ -51,7 +51,7 @@ static int 		sock_printf(int sock,...);
 static char*	sock_gets(int sock, char *str, int n);
 static void 	print_usage(int argc, char **argv);
 
-const char *version = "0.83.2";
+const char *version = "0.84.0";
 
 short unsigned cport = 0, tport = 0, ipc_port = 0;
 static int ipc_sock = -1;
@@ -64,7 +64,7 @@ static log_level 	*loglevel = &raop_loglevel;
 
 /*----------------------------------------------------------------------------*/
 static void die(char *why) {
-	if (ipc_sock != -1) close_socket(ipc_sock);
+	if (ipc_sock != -1) shutdown_socket(ipc_sock);
 	sock_printf(ipc_sock, "FATAL: %s\n", why);
 	LOG_ERROR("FATAL ERROR: %s", why);
 	exit(1);
@@ -308,7 +308,7 @@ int main(int argc, char **argv) {
 		ret = 1;
 	}
 
-	if (ipc_sock != -1) close_socket(ipc_sock);
+	if (ipc_sock != -1) shutdown_socket(ipc_sock);
 
 #ifdef WIN32
 	winsock_close();
