@@ -2,6 +2,9 @@ note:
 	- Playback will fail if PCM is used and target device requires MP3 conversion (eg it is a bridge) 
 	because the lame conversion rule expects a wav file which means a header. 
 
+0.85.0
+ - restore existing playlist when exiting
+ 
 0.84.0
  - mDNS sender should set TTL to 120s for SRV, PTR, and A (not TXT)
  - use closesocket under Windows, not close!

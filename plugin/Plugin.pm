@@ -44,7 +44,8 @@ my $log = Slim::Utils::Log->addLogCategory(
     }
 );
 
-my $prefs         = preferences( 'plugin.shairtunes' );
+my $prefs  = preferences( 'plugin.shairtunes' );
+my $sprefs = preferences('server');
 
 $prefs->init({ 
 	squeezelite => 0, 
@@ -834,6 +835,15 @@ sub conn_handle_request {
 
 			my $client = $conn->{player};
 			
+			# save current playlist
+			$client->pluginData(playlist => {
+					playlist 	=> [ @{$client->playlist} ],
+					shufflelist => [ @{$client->shufflelist} ],
+					index   	=> Slim::Player::Source::streamingSongIndex($client),
+					shuffle  	=> $sprefs->client($client)->get('shuffle'),
+					repeat		=> $sprefs->client($client)->get('repeat'),
+			} );	
+			
 			$log->info( "Playing url: $conn->{url}" );
 			
             $conn->{poweredoff} = !$conn->{player}->power;
@@ -859,9 +869,26 @@ sub conn_handle_request {
         };
 		
         /^TEARDOWN$/ && do {
-            $resp->header( 'Connection', 'close' );
-			
+			my $client = $conn->{player};
+            
+			$resp->header( 'Connection', 'close' );
+					
 			cleanHelper($conn);
+			
+			# restore playlist
+			my $playlist = $client->pluginData('playlist');
+			
+			@{$client->playlist} = @{$playlist->{playlist}};
+			@{$client->shufflelist} = @{$playlist->{shufflelist}};
+		
+			$sprefs->client($client)->set('shuffle', $playlist->{shuffle});
+			$sprefs->client($client)->set('repear', $playlist->{repeat});
+		
+			$client->controller()->resetSongqueue($playlist->{index});
+			$client->currentPlaylistUpdateTime(Time::HiRes::time());
+
+			Slim::Control::Request::notifyFromArray($client, ['playlist', 'stop']);	
+			Slim::Control::Request::notifyFromArray($client, ['playlist', 'sync']);
 			
 			last;
         };

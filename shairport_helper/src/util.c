@@ -737,6 +737,7 @@ int bind_socket(unsigned short *port, int mode)
 #endif
 
 	if (bind(sock, (struct sockaddr*) &addr, sizeof(addr)) < 0) {
+		closesocket(sock);
 		LOG_ERROR("cannot bind socket %d", sock);
 		return -1;
 	}
