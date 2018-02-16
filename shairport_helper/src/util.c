@@ -1035,6 +1035,8 @@ bool http_parse(int sock, char *method, key_data_t *rkd, char **body, int *len)
 	unsigned j;
 	int i, timeout = 100;
 
+	rkd[0].key = NULL;
+
 	if ((i = read_line(sock, line, sizeof(line), timeout)) <= 0) {
 		if (i < 0) {
 			LOG_ERROR("cannot read method", NULL);
@@ -1048,7 +1050,6 @@ bool http_parse(int sock, char *method, key_data_t *rkd, char **body, int *len)
 	}
 
 	i = *len = 0;
-	rkd[0].key = NULL;
 
 	while (read_line(sock, line, sizeof(line), timeout) > 0) {
 

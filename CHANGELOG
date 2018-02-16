@@ -2,6 +2,9 @@ note:
 	- Playback will fail if PCM is used and target device requires MP3 conversion (eg it is a bridge) 
 	because the lame conversion rule expects a wav file which means a header. 
 
+0.85.1
+ - correct one potentil issue with empty header on HTTP response
+ 
 0.85.0
  - restore existing playlist when exiting
  
