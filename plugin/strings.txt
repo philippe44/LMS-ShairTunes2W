@@ -6,17 +6,22 @@ PLUGIN_SHAIRTUNES2
 PLUGIN_SHAIRTUNES2_DESC
 	EN	ShairTunes2 Integration (w/Windows)
 
-PLUGIN_SHAIRTUNES2_WARNING
-	EN	WARNING: Either LMS or the enabled/disabled players must be restarted for modifications to be taken into account
-
-PLUGIN_SHAIRTUNES2W_BINARIES
+PLUGIN_SHAIRTUNES2_BINARIES
 	EN	Helper binary 
+
+PLUGIN_SHAIRTUNES2_REPUBLISH
+	EN	Re-Publish
 	
-PLUGIN_SHAIRTUNES2W_NEEDRESTART
+PLUGIN_SHAIRTUNES2_WIPE
+	EN	Wipe
+	
+PLUGIN_SHAIRTUNES2_NEEDRESTART
 	EN	(restarting LMS recommended if changed)
 
-PLUGIN_SHAIRTUNES2W_BINARIES_DESC
+PLUGIN_SHAIRTUNES2_BINARIES_DESC
 	EN	Choose what helper will be used. Leave it empty to let plugin choose automatically
+	EN	<br>Re-Publish will stop all ShairTunes2 clients and republish them
+	EN	<br>Wipe will kill all DNS publishers with the same name and republish ShairTunes2 client - DANGEROUS
 	
 PLUGIN_SHAIRTUNES2_LOGLEVEL
 	EN	Enable logging 

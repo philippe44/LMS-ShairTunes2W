@@ -1432,6 +1432,7 @@ void free_metadata(struct metadata_s *metadata)
 	NFREE(metadata->genre);
 	NFREE(metadata->path);
 	NFREE(metadata->artwork);
+	NFREE(metadata->remote_title);
 }
 
 

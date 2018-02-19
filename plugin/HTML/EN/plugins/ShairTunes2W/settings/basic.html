@@ -2,13 +2,15 @@
 
 	<div class="prefDesc">
 			
-	[% WRAPPER setting title="PLUGIN_SHAIRTUNES2W_BINARIES" desc="PLUGIN_SHAIRTUNES2W_BINARIES_DESC" %]
+	[% WRAPPER setting title="PLUGIN_SHAIRTUNES2_BINARIES" desc="PLUGIN_SHAIRTUNES2_BINARIES_DESC" %]
 		<select class="stdedit" name="binary" id="binary">
 		[% FOREACH entry IN binaries %]
 			<option [% IF entry == binary %]selected[% END %] value="[% entry %]">[% entry %]</option>
 		[% END %]
 		</select>
-		&nbsp&nbsp[% "PLUGIN_SHAIRTUNES2W_NEEDRESTART" | string %]
+		&nbsp&nbsp[% "PLUGIN_SHAIRTUNES2_NEEDRESTART" | string %]
+		&nbsp&nbsp<input name="republish" type="submit" value=[% "PLUGIN_SHAIRTUNES2_REPUBLISH" | string %]>
+		&nbsp&nbsp<input name="wipe" type="submit" value=[% "PLUGIN_SHAIRTUNES2_WIPE" | string %]>
 	[% END %]
 	
 	[% WRAPPER setting title="PLUGIN_SHAIRTUNES2_LOGLEVEL" desc="PLUGIN_SHAIRTUNES2_LOGLEVEL_DESC" %]
@@ -50,15 +52,11 @@
 	<table>
 	[% FOREACH entry IN players %]	
 		<tr>
-		<td><input name="enabled.[% entry.mac %]" type="checkbox" [% IF entry.enabled %] checked [% END %]></td>
-		<th>&nbsp&nbsp[% entry.name %]</th><th>&nbsp[% entry.mac %]</th>
+		<td><input name="enabled.[% entry.id %]" type="checkbox" [% IF entry.enabled %] checked [% END %]></td>
+		<th>&nbsp&nbsp[% entry.name %]</th><th>&nbsp[% entry.id %]</th>
 		</tr>
 	[% END %]
 	</table>
-	
-	[% WRAPPER settingSection %]
-			<b><font color=red>[% "PLUGIN_SHAIRTUNES2_WARNING" | string %]</font></b>
-	[% END %]	
 	
 	</div>
 

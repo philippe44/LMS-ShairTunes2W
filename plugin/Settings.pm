@@ -33,13 +33,23 @@ sub handler {
 	$params->{logdir} = Plugins::ShairTunes2W::Plugin::logFile("[mac]");
 	
 	# get all LMS players and filter out squeezelite if needed
-	my @players =  map { { mac => $_->id, name => $_->name, model => $_->model, FW => $_->revision } } Slim::Player::Client::clients();
+	my @players =  map { { id => $_->id, name => $_->name, model => $_->model, FW => $_->revision } } Slim::Player::Client::clients();
 		
-	if ($params->{saveSettings}) {
+	if ($params->{republish}) {
+		Plugins::ShairTunes2W::Plugin::revoke_publishPlayers();
+		Plugins::ShairTunes2W::Plugin::republishPlayers();
+	} elsif ($params->{wipe}) {
+		Plugins::ShairTunes2W::Plugin::revoke_publishPlayers();
+		Plugins::ShairTunes2W::Plugin::stop_mDNS;		
+		Plugins::ShairTunes2W::Plugin::republishPlayers();
+	} elsif ($params->{saveSettings}) {
 		@players = grep { $_->{model} ne 'squeezelite' || $_->{FW} } @players if !$params->{pref_squeezelite};
 		foreach my $player (@players) {
-			my $enabled = $params->{'enabled.'.$player->{mac}} // 0;
-			$prefs->set($player->{mac}, $enabled);
+			my $enabled = $params->{'enabled.'.$player->{id}} // 0;
+			my $client = Slim::Player::Client::getClient($player->{id});
+			Plugins::ShairTunes2W::Plugin::removePlayer($client) if $prefs->get($player->{id}) && !$enabled;
+			Plugins::ShairTunes2W::Plugin::addPlayer($client) if !$prefs->get($player->{id}) && $enabled;
+			$prefs->set($player->{id}, $enabled);
 			$player->{enabled} = $enabled;
 		}
 		
@@ -51,11 +61,11 @@ sub handler {
 		$params->{pref_bufferThreshold} = min($params->{pref_bufferThreshold}, 255);
 		$Plugins::ShairTunes2W::Utils::shairtunes_helper = Plugins::ShairTunes2W::Utils::helperPath( $params->{binary} || Plugins::ShairTunes2W::Utils::helperBinary() );
 		$prefs->set('helper', $params->{binary});
-	} else {
-		@players = grep { $_->{model} ne 'squeezelite' || $_->{FW} } @players if !$prefs->get('squeezelite');
-		foreach my $player (@players) {
-			$player->{enabled} = $prefs->get($player->{mac}) // 1;
-		}	
+	}	
+	
+	@players = grep { $_->{model} ne 'squeezelite' || $_->{FW} } @players if !$prefs->get('squeezelite');
+	foreach my $player (@players) {
+		$player->{enabled} = $prefs->get($player->{id}) // 1;
 	}	
 
 	@{$params->{players}} = @players;

@@ -59,6 +59,7 @@ $prefs->init({
 my $shairtunes_helper;
 my $DACPfqdn = "_dacp._tcp.local";
 my $mDNSsock;
+my $mDNShelper;
 
 my $airport_pem = _airport_pem();
 my $rsa         = Crypt::OpenSSL::RSA->new_private_key( $airport_pem )
@@ -226,7 +227,7 @@ sub initPlugin {
 	
 	$log->info("selected helper: $shairtunes_helper");
 
-    revoke_publishPlayer();
+    revoke_publishPlayers();
 
     # Subscribe to player connect/disconnect messages
     Slim::Control::Request::subscribe( \&playerSubscriptionChange,
@@ -254,18 +255,49 @@ sub getDisplayName {
     return ( 'PLUGIN_SHAIRTUNES2' );
 }
 
+sub republishPlayers {
+	# first stop all existing players	
+	foreach my $client (keys %clients) {
+		next if (!defined($clients{$client}));
+				
+		my $player = $players{$sockets{$client}};
+		next if !$player;
+		removePlayer($player);
+	}	
+	
+	%clients = %sockets = %players = %connections = ();
+	
+	# then re-publish all authorized
+	foreach my $client (Slim::Player::Client::clients()) {
+		next if !($prefs->get($client->id) // 1);
+		next if $client->modelName() =~ /SqueezeLite/ && !$client->firmware && !$prefs->get('squeezelite');
+		addPlayer($client);
+	}
+}
+
 sub shutdownPlugin {
-    revoke_publishPlayer();
+    revoke_publishPlayers();
 	
 	Slim::Networking::Select::removeRead( $mDNSsock );
 	close($mDNSsock) if defined $mDNSsock;
 	
-	my $helper = Plugins::ShairTunes2W::Utils::helperBinary();
-	$log->info("Killing all processes $helper");
-	system("killall $helper");
+	stop_mDNS();
 	
     return;
 }
+
+sub stop_mDNS {
+	my $helper = Plugins::ShairTunes2W::Utils::helperBinary();
+	$log->info("Killing all processes $mDNShelper");
+	
+	my $os = Slim::Utils::OSDetect::details();
+		
+	if ($os->{'os'} eq 'Windows') {
+		system("taskkill /F /IM $mDNShelper /T");
+	} else {	
+		system("killall $mDNShelper");
+	}	
+}	
 
 sub playerSubscriptionChange {
     my $request = shift;
@@ -280,44 +312,55 @@ sub playerSubscriptionChange {
 	return if $client->modelName() =~ /SqueezeLite/ && !$client->firmware && !$prefs->get('squeezelite');
 		
     if ( ( $reqstr eq "client new" ) || ( $reqstr eq "client reconnect" ) ) {
-        $sockets{$client} = createListenPort(1);
-        $players{ $sockets{$client} } = $client;
+		addPlayer($client);
+    } elsif ( $reqstr eq "client disconnect" ) {
+		removePlayer($client);
+	}	
+}
 
-        if ( $sockets{$client} ) {
+sub addPlayer {
+	my $client = shift;
+	my $name = $client->name;
+    
+    $sockets{$client} = createListenPort(1);
+    $players{ $sockets{$client} } = $client;
+	
+    if ( $sockets{$client} ) {
+         # Add us to the select loop so we get notified
+        Slim::Networking::Select::addRead( $sockets{$client}, \&handleSocketConnect );
 
-            # Add us to the select loop so we get notified
-            Slim::Networking::Select::addRead( $sockets{$client}, \&handleSocketConnect );
-
-            $clients{$client} = publishPlayer( $clientname, "", $sockets{$client}->sockport() );
-			$log->info("create client $client with proc $clients{$client}");
-        }
-        else {
-            $log->error( "could not create ShairTunes socket for $clientname" );
-            delete $sockets{$client};
-        }
-    }
-    elsif ( $reqstr eq "client disconnect" ) {
-        $log->info( "publisher for $clientname PID $clients{$client} will be terminated." );
-        $clients{$client}->die();
-        Slim::Networking::Select::removeRead( $sockets{$client} );
-		my ($slave) = grep { $connections{$_}->{player} eq $client } keys %connections;
-		if (defined $slave) {
-			my $conn = $connections{$slave};
-			
-			$log->debug("Cleaning connection: $conn->{self}");
-			cleanHelper( $conn );
-			Slim::Networking::Select::removeRead( $conn->{self} );
-			Slim::Networking::Select::removeRead( $conn->{cover_fh} );
-			close $conn->{self};
-			close $conn->{cover_fh};
-			delete $connections{$slave};
-		}	
-		delete $players{ $sockets{$client} };
-		close $sockets{$client};
-		delete $sockets{$client};
-		delete $clients{$client};
+        $clients{$client} = publishPlayer( $name, "", $sockets{$client}->sockport() );
+		$log->info("create client $client with proc $clients{$client}");
+    } else {
+        $log->error( "could not create ShairTunes socket for $name" );
+        delete $sockets{$client};
     }
 }
+
+sub removePlayer {	
+	my $client = shift;
+	my $name = $client->name;
+	
+    $log->info( "publisher for $name PID $clients{$client} will be terminated." );
+    $clients{$client}->die();
+    Slim::Networking::Select::removeRead( $sockets{$client} );
+	my ($slave) = grep { $connections{$_}->{player} eq $client } keys %connections;
+	if (defined $slave) {
+		my $conn = $connections{$slave};
+			
+		$log->debug("Cleaning connection: $conn->{self}");
+		cleanHelper( $conn );
+		Slim::Networking::Select::removeRead( $conn->{self} );
+		Slim::Networking::Select::removeRead( $conn->{cover_fh} );
+		close $conn->{self};
+		close $conn->{cover_fh};
+		delete $connections{$slave};
+	}	
+	delete $players{ $sockets{$client} };
+	close $sockets{$client};
+	delete $sockets{$client};
+	delete $clients{$client};
+ }
 
 sub createListenPort {
 	my $max = shift || 1;
@@ -345,7 +388,7 @@ sub createListenPort {
     return $listen;
 }
 
-sub revoke_publishPlayer {
+sub revoke_publishPlayers {
 
 	foreach my $client (keys %clients) {
 		next if (!defined($clients{$client}));
@@ -375,6 +418,7 @@ sub publishPlayer {
 	if ( $path = which('avahi-publish-service') ) {
 		$log->info( "start avahi-publish-service \"$apname\"" );
         eval { $proc = Proc::Background->new( $path, $id, "_raop._tcp", $port, @params ); };
+		$mDNShelper = $path;
 		return $proc unless ($@);
         $log->error( "start avahi-publish-service failed" );
 	}	
@@ -383,6 +427,7 @@ sub publishPlayer {
 	if ( $path = which('dns-sd') ) {
         $log->info( "start dns-sd \"$apname\"" );
 		eval { $proc = Proc::Background->new( $path, '-R', $id, "_raop._tcp", ".", @params ); };
+		$mDNShelper = $path;
 		return $proc unless ($@);
         $log->error( "start dns-sd failed" );
     }
@@ -391,6 +436,7 @@ sub publishPlayer {
     if ( $path = which('mDNSPublish') ) {
         $log->info( "start mDNSPublish \"$apname\"" );
         eval { $proc = Proc::Background->new($path, $id, "_raop._tcp", @params ); };
+		$mDNShelper = $path;
 		return $proc unless ($@);
         $log->error( "start mDNSPublish failed" );
     }
@@ -399,6 +445,7 @@ sub publishPlayer {
     $log->info("using built-in helper: $shairtunes_helper");
 	
 	eval { $proc = Proc::Background->new( $shairtunes_helper, "-dns", "host", Slim::Utils::Network::serverAddr(), $id, "_raop._tcp", @params ); };
+	$mDNShelper = $shairtunes_helper;
 	return $proc unless ($@);
 	$log->error( "start $shairtunes_helper failed" ) if (!$@);
 	
