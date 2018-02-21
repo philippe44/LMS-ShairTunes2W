@@ -56,6 +56,10 @@ sub helperBinary {
 			$bin = "shairport_helper-armv5te";
 		}	
 		
+		if ($os->{'binArch'} =~ /ppc|powerpc/) {
+			$bin = "shairport_helper-ppc";
+		}
+	
 	}
 	
 	if ($os->{'os'} eq 'Darwin') {

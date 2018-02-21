@@ -1,0 +1,9 @@
+CC	= powerpc-linux-gnu-gcc
+CFLAGS  ?= -Wall -fPIC -ggdb -O2 $(OPTS) $(INCLUDE) $(DEFINES)
+LDFLAGS ?= -s -lpthread -lcrypto -ldl -lm -lrt -L. -static
+
+OBJ		= bin/ppc
+EXECUTABLE 	= bin/shairport_helper-ppc
+
+include Makefile
+
