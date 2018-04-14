@@ -1053,6 +1053,8 @@ bool http_parse(int sock, char *method, key_data_t *rkd, char **body, int *len)
 
 	while (read_line(sock, line, sizeof(line), timeout) > 0) {
 
+		LOG_SDEBUG("sock: %u, received %s", line);
+
 		// line folding should be deprecated
 		if (i && rkd[i].key && (line[0] == ' ' || line[0] == '\t')) {
 			for(j = 0; j < strlen(line); j++) if (line[j] != ' ' && line[j] != '\t') break;
@@ -1212,7 +1214,7 @@ char *kd_dump(key_data_t *kd)
 	int pos = 0, size = 0;
 	char *str = NULL;
 
-	if (!kd) return strdup("\r\n");
+	if (!kd || !kd[0].key) return strdup("\r\n");
 
 	while (kd && kd[i].key) {
 		char *buf;
