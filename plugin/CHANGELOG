@@ -2,6 +2,9 @@ note:
 	- Playback will fail if PCM is used and target device requires MP3 conversion (eg it is a bridge) 
 	because the lame conversion rule expects a wav file which means a header. 
 
+0.90.6
+ - aarch64 version
+ 
 0.90.5
  - if previous HTTP socket was not closed, it could be used to send new track, causing miss of flac header (backport from AirConnect, no mandatory here)
  - kd_dump was writing in a NULL string when no header was received

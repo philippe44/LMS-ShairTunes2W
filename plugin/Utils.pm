@@ -50,6 +50,10 @@ sub helperBinary {
 		    $bin = "shairport_helper-i386-linux";
 		}
 		
+		if ($os->{'osArch'} =~ /aarch64/) {
+			$bin = "shairport_helper-aarch64";
+		}	
+		
 		if ($os->{'binArch'} =~ /armhf/) {
 			$bin = "shairport_helper-armv6hf";
 		} elsif ($os->{'binArch'} =~ /arm/) {
