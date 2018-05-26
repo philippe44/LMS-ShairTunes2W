@@ -5,6 +5,7 @@ note:
 	
 0.91.0
  - update OpenSSL	
+ - added various Perl & CPU
 
 0.90.6
  - aarch64 version
