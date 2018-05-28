@@ -9,7 +9,7 @@ use vars qw( @ISA );
 
 require DynaLoader;
 
-use base qw(DynaLoader);
+@ISA = qw(DynaLoader);
 
 bootstrap Crypt::OpenSSL::Bignum $Crypt::OpenSSL::Bignum::VERSION;
 

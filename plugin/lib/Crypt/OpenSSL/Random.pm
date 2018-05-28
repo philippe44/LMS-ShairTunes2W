@@ -9,7 +9,7 @@ require Exporter;
 @EXPORT_OK = qw( random_bytes random_pseudo_bytes random_seed
                  random_egd random_status );
 
-$VERSION = '0.15';
+$VERSION = '0.11';
 XSLoader::load( __PACKAGE__, $VERSION );
 
 1;
@@ -55,7 +55,7 @@ a false value is returned.
 
 =item random_pseudo_bytes (IV num_bytes)
 
-This function, is similar to C<random_bytes>, but the resulting
+This function, is similar to c<random_bytes>, but the resulting
 sequence of bytes are not necessarily unpredictable.  They can be used
 for non-cryptographic purposes and for certain purposes in
 cryptographic protocols, but usually not for key generation etc.
