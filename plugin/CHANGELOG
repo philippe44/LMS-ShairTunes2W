@@ -5,6 +5,7 @@ note:
 
 0.91.1
  - rename i686, x86_64 and aarch64 auto directories (add gnu-)
+ - add x86 and x86_64 shared lib 5.16 version (ancient!)
  
 0.91.0
  - update OpenSSL	
