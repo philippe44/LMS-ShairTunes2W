@@ -2,7 +2,10 @@ note:
 	- Playback will fail if PCM is used and target device requires MP3 conversion (eg it is a bridge) 
 	because the lame conversion rule expects a wav file which means a header. 
 	- BEWARE OF VERSION NUMBER FOR PERL LIBS
-	
+
+0.91.1
+ - rename i686 and x86_64 auto directories
+ 
 0.91.0
  - update OpenSSL	
  - added various Perl & CPU
