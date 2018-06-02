@@ -4,7 +4,7 @@ note:
 	- BEWARE OF VERSION NUMBER FOR PERL LIBS
 
 0.91.1
- - rename i686 and x86_64 auto directories
+ - rename i686, x86_64 and aarch64 auto directories (add gnu-)
  
 0.91.0
  - update OpenSSL	
