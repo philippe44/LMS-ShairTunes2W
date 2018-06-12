@@ -25,12 +25,12 @@ use Digest::MD5 qw(md5 md5_hex);
 use MIME::Base64;
 use File::Spec;
 use File::Which;
+use File::Copy;
 use POSIX qw(ceil :errno_h);
 use Data::Dumper;
 
 #use IO::Socket::INET6;
 use IO::Socket::INET;
-use Crypt::OpenSSL::RSA;
 use Net::SDP;
 use IO::Handle;
 
@@ -62,8 +62,7 @@ my $mDNSsock;
 my $mDNShelper;
 
 my $airport_pem = _airport_pem();
-my $rsa         = Crypt::OpenSSL::RSA->new_private_key( $airport_pem )
-  || do { $log->error( "RSA private key import failed" ); return; };
+my $rsa;
 
 my $samplingRate = 44100;  
   
@@ -192,13 +191,26 @@ sub sendAction {
 	
 	return $doAction;
 }	
-				  					  
+
+	  					  
 sub initPlugin {
     my $class = shift;
 	my $version = $class->_pluginDataFor( 'version' );
 
     $log->info( "Initialising $version on " . $Config{'archname'} );
 	
+	eval {require Crypt::OpenSSL::RSA};
+    if ($@) {
+		my $lib = catdir(Slim::Utils::PluginManager->allPlugins->{'ShairTunes2W'}->{'basedir'}, "lib");
+		move(catdir($lib, "_Crypt"), catdir($lib, "Crypt"));
+		$log->warn("cannot find system OpenSSL::RSA, trying local version");
+		
+		require Crypt::OpenSSL::RSA;
+		
+		Crypt::OpenSSL::RSA->new_private_key( $airport_pem )
+		|| do { $log->error( "RSA private key import failed" ); return; };
+	}
+		
 	if ( $version ne $prefs->get('version') ) {
 		$log->info("version change");
 		$prefs->set('version', $version);
@@ -283,6 +295,9 @@ sub shutdownPlugin {
 	
 	stop_mDNS();
 	
+	my $lib = catdir(Slim::Utils::PluginManager->allPlugins->{'ShairTunes2W'}->{'basedir'}, "lib");
+	move(catdir($lib, "Crypt"), catdir($lib, "_Crypt"));
+		
     return;
 }
 

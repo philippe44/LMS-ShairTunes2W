@@ -108,7 +108,7 @@ sub helperBinary {
 }
 
 sub helperBinaries {
-	return qw (shairport_helper-x64-linux shairport_helper-i386-linux shairport_helper-armv6hf shairport_helper-armv5te shairport_helper-osx shairport_helper-win.exe shairport_helper-i86pc-solaris);
+	return qw (shairport_helper-x64-linux shairport_helper-i386-linux shairport_helper-aarch64 shairport_helper-armv6hf shairport_helper-armv5te shairport_helper-osx shairport_helper-win.exe shairport_helper-i86pc-solaris);
 }
 
 sub helperPath {
