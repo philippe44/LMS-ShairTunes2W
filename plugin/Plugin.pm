@@ -206,10 +206,9 @@ sub initPlugin {
 		$log->warn("cannot find system OpenSSL::RSA, trying local version");
 		
 		require Crypt::OpenSSL::RSA;
-		
-		Crypt::OpenSSL::RSA->new_private_key( $airport_pem )
-		|| do { $log->error( "RSA private key import failed" ); return; };
 	}
+	
+	$rsa = Crypt::OpenSSL::RSA->new_private_key( $airport_pem )	|| do { $log->error( "RSA private key import failed" ); return; };
 		
 	if ( $version ne $prefs->get('version') ) {
 		$log->info("version change");
