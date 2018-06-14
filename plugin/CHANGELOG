@@ -3,6 +3,9 @@ note:
 	because the lame conversion rule expects a wav file which means a header. 
 	- BEWARE OF VERSION NUMBER FOR PERL LIBS
 
+0.91.3
+ - use @INC instead of renaming directory
+ 
 0.91.2
  - Crypt lib only used if system version non available
 	
