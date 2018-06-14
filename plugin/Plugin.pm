@@ -10,7 +10,6 @@ use base qw(Slim::Plugin::OPMLBased);
 
 use File::Spec::Functions;
 use FindBin qw($Bin);
-use lib catdir($Bin, 'Plugins', 'ShairTunes2W', 'lib');
 
 use Slim::Utils::Log;
 use Slim::Utils::Prefs;
@@ -192,7 +191,6 @@ sub sendAction {
 	return $doAction;
 }	
 
-	  					  
 sub initPlugin {
     my $class = shift;
 	my $version = $class->_pluginDataFor( 'version' );
@@ -201,10 +199,8 @@ sub initPlugin {
 	
 	eval {require Crypt::OpenSSL::RSA};
     if ($@) {
-		my $lib = catdir(Slim::Utils::PluginManager->allPlugins->{'ShairTunes2W'}->{'basedir'}, "lib");
-		move(catdir($lib, "_Crypt"), catdir($lib, "Crypt"));
+		unshift @INC, catdir(Slim::Utils::PluginManager->allPlugins->{'ShairTunes2W'}->{'basedir'}, "olib");
 		$log->warn("cannot find system OpenSSL::RSA, trying local version");
-		
 		require Crypt::OpenSSL::RSA;
 	}
 	
@@ -294,9 +290,6 @@ sub shutdownPlugin {
 	
 	stop_mDNS();
 	
-	my $lib = catdir(Slim::Utils::PluginManager->allPlugins->{'ShairTunes2W'}->{'basedir'}, "lib");
-	move(catdir($lib, "Crypt"), catdir($lib, "_Crypt"));
-		
     return;
 }
 
