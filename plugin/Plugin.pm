@@ -907,7 +907,7 @@ sub conn_handle_request {
             );
 					
 			my $host = Slim::Utils::Network::serverAddr();
-			$conn->{url}  = "airplay://$host:$helper_ports{hport}/" . md5_hex($$conn) . "_stream." . ($prefs->get('useFLAC') ? "flc" : "wav");
+			$conn->{url}  = "airplay://$host:$helper_ports{hport}/" . $conn->{decoder_pid}->pid . "_stream." . ($prefs->get('useFLAC') ? "flc" : "wav");
 								
 			# Add out to the select loop so we get notified of play after flush (pause)
 			Slim::Networking::Select::addRead( $helper_ipc, \&handleHelperOut );
