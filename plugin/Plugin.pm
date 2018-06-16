@@ -9,7 +9,6 @@ use Plugins::ShairTunes2W::Utils;
 use base qw(Slim::Plugin::OPMLBased);
 
 use File::Spec::Functions;
-use FindBin qw($Bin);
 
 use Slim::Utils::Log;
 use Slim::Utils::Prefs;
@@ -28,10 +27,43 @@ use File::Copy;
 use POSIX qw(ceil :errno_h);
 use Data::Dumper;
 
-#use IO::Socket::INET6;
 use IO::Socket::INET;
 use Net::SDP;
 use IO::Handle;
+
+# add libraries that might be missing at end of @INC unless we need a specific version
+BEGIN {
+	# Intel broken names
+	my $arch = $Config::Config{'archname'};
+	   $arch =~ s/^i[3456]86-/i386-/;
+	   $arch =~ s/gnu-//;
+	
+	# Check for use64bitint Perls
+	my $is64bitint = $arch =~ /64int/ ;	
+
+	# ARM broken names.
+	if ( $arch =~ /^arm.*linux/ ) {
+		$arch = $arch =~ /gnueabihf/ 
+			? 'arm-linux-gnueabihf-thread-multi' 
+			: 'arm-linux-gnueabi-thread-multi';
+		$arch .= '-64int' if $is64bitint;
+	}
+	
+	# Same thing with PPC
+	if ( $arch =~ /^(?:ppc|powerpc).*linux/ ) {
+		$arch = 'powerpc-linux-thread-multi';
+		$arch .= '-64int' if $is64bitint;
+	}
+
+	my $perlmajorversion = $Config{'version'};
+	   $perlmajorversion =~ s/\.\d+$//;
+	   
+	my $basedir = Slim::Utils::PluginManager->allPlugins->{'ShairTunes2W'}->{'basedir'};
+
+	push @INC, catdir($basedir, 'elib', $perlmajorversion);
+	push @INC, catdir($basedir, 'elib', $perlmajorversion, $arch);
+	push @INC, catdir($basedir, 'elib', $perlmajorversion, $arch, 'auto');
+}
 
 # create log categogy before loading other modules
 my $log = Slim::Utils::Log->addLogCategory(
@@ -69,6 +101,7 @@ my %clients     = (); # ( [ LMSclient ]      => [mDNSPID],       ...)
 my %sockets     = (); # ( [ LMSclient ]      => [masterINETsock], ...)
 my %players     = (); # ( [ masterINETsock ] => [LMSclient],      ...)
 my %connections = (); # ( [ slaveINETSock ]  => ('socket' => [MasterINETSock], 'player' => [LMSclient],
+					  #							 'url' => [URL where LMS get the audio], 
 					  #							 'decoder_ipc' => [INETSockIn], 'decoder_pid' => [helper],
 					  #							 'poweroff', 'iport' => [image proxy]
 					  #							 'cover_fh' => [INETSockCover], 'cover' => [jpeg blob] },		
@@ -196,12 +229,11 @@ sub initPlugin {
 	my $version = $class->_pluginDataFor( 'version' );
 
     $log->info( "Initialising $version on " . $Config{'archname'} );
-	
+		
 	eval {require Crypt::OpenSSL::RSA};
     if ($@) {
-		unshift @INC, catdir(Slim::Utils::PluginManager->allPlugins->{'ShairTunes2W'}->{'basedir'}, "olib");
-		$log->warn("cannot find system OpenSSL::RSA, trying local version");
-		require Crypt::OpenSSL::RSA;
+		$log->warn("cannot find system Crypt::OpenSSL::RSA\n", Dumper(\@INC));
+		return;
 	}
 	
 	$rsa = Crypt::OpenSSL::RSA->new_private_key( $airport_pem )	|| do { $log->error( "RSA private key import failed" ); return; };
@@ -579,7 +611,7 @@ sub handleSocketRead {
     while ( 1 ) {
 		my $ret = sysread( $socket, my $incoming, $bytesToRead );
 		next if !defined $ret && ($! == EAGAIN || $! == EWOULDBLOCK);
-		#next if !defined $ret;
+		
 		$log->error( "Reading socket failed!: $!" ) if !defined $ret;
         last if !$ret;    # ERROR or EOF
 		
@@ -618,7 +650,7 @@ sub handleSocketRead {
         ### In the next loop just read whats missing.
         my $ret = read( $socket, my $incoming, $bytesToRead );
         next if !defined $ret && ($! == EAGAIN || $! == EWOULDBLOCK);
-		#next if !defined $ret;
+		
         $log->error( "Reading socket failed!: $!" ) if !defined $ret;
         last if !$ret;    # ERROR or EOF
 			
@@ -874,12 +906,11 @@ sub conn_handle_request {
             );
 					
 			my $host = Slim::Utils::Network::serverAddr();
-			$conn->{url}  = "airplay://$host:$helper_ports{hport}/" . md5_hex($conn) . "_stream." . ($prefs->get('useFLAC') ? "flc" : "wav");
+			$conn->{url}  = "airplay://$host:$helper_ports{hport}/" . md5_hex($$conn) . "_stream." . ($prefs->get('useFLAC') ? "flc" : "wav");
 								
 			# Add out to the select loop so we get notified of play after flush (pause)
 			Slim::Networking::Select::addRead( $helper_ipc, \&handleHelperOut );
 
-			#$resp->header( 'Transport', $req->header( 'Transport' ) . ";server_port=$helper_ports{port}" );
 			$resp->header( 'Transport', "RTP/AVP/UDP;unicast;mode=record;control_port=$helper_ports{cport};timing_port=$helper_ports{tport};server_port=$helper_ports{port}" );
 						
             last;
@@ -1073,8 +1104,7 @@ sub mDNSlistener {
 	recv $mDNSsock, my $buf, 4096, 0;
 		
 	my $res = AnyEvent::DNS::dns_unpack $buf;
-	#$log->debug("DNSListener: ", Dumper($res));
-	 
+		 
 	my @answers = (@{$res->{an}}, @{$res->{ar}});
 	
 	foreach my $socket (keys %connections) {

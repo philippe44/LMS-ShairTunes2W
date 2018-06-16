@@ -1,8 +1,11 @@
-note:
-	- Playback will fail if PCM is used and target device requires MP3 conversion (eg it is a bridge) 
+note:	- Playback will fail if PCM is used and target device requires MP3 conversion (eg it is a bridge) 
 	because the lame conversion rule expects a wav file which means a header. 
 	- BEWARE OF VERSION NUMBER FOR PERL LIBS
 
+0.91.4
+ - add all lib in a "elib" directory and make sure its path is at the end of @INC
+ - add x86 and x64 versions for Perl 5.14
+ 
 0.91.3
  - use @INC instead of renaming directory
  
@@ -26,12 +29,12 @@ note:
  - kd_dump was writing in a NULL string when no header was received
  
 0.90.1
- - Add ppc version
+ - add ppc version
  
 0.90.0
- - Players can be added/remove dynamically
- - Add option to republish all & kill all mDNS helper
- - Use TCP_NODELAY in HTTP socket
+ - players can be added/remove dynamically
+ - add option to republish all & kill all mDNS helper
+ - use TCP_NODELAY in HTTP socket
  
 0.85.1
  - correct one potentil issue with empty header on HTTP response
