@@ -3,33 +3,11 @@ package Plugins::ShairTunes2W::Plugin;
 use strict;
 use warnings;
 
-use Plugins::ShairTunes2W::AIRPLAY;
-use Plugins::ShairTunes2W::Utils;
-
 use base qw(Slim::Plugin::OPMLBased);
 
-use File::Spec::Functions;
-
-use Slim::Utils::Log;
-use Slim::Utils::Prefs;
-use Slim::Utils::Misc;
-use Slim::Utils::Network;
-use Slim::Networking::Async;
-use Slim::Networking::Async::Socket;
-use Slim::Networking::Async::Socket::HTTP;
-
 use Config;
-use Digest::MD5 qw(md5 md5_hex);
-use MIME::Base64;
 use File::Spec;
-use File::Which;
-use File::Copy;
-use POSIX qw(ceil :errno_h);
-use Data::Dumper;
-
-use IO::Socket::INET;
-use Net::SDP;
-use IO::Handle;
+use File::Spec::Functions;
 
 # add libraries that might be missing at end of @INC unless we need a specific version
 BEGIN {
@@ -60,10 +38,33 @@ BEGIN {
 	   
 	my $basedir = Slim::Utils::PluginManager->allPlugins->{'ShairTunes2W'}->{'basedir'};
 
+	push @INC, catdir($basedir, 'elib');
 	push @INC, catdir($basedir, 'elib', $perlmajorversion);
 	push @INC, catdir($basedir, 'elib', $perlmajorversion, $arch);
 	push @INC, catdir($basedir, 'elib', $perlmajorversion, $arch, 'auto');
 }
+
+use Digest::MD5 qw(md5 md5_hex);
+use MIME::Base64;
+use File::Which;
+use File::Copy;
+use POSIX qw(ceil :errno_h);
+use Data::Dumper;
+
+use IO::Socket::INET;
+use IO::Handle;
+use Net::SDP;
+
+use Slim::Utils::Log;
+use Slim::Utils::Prefs;
+use Slim::Utils::Misc;
+use Slim::Utils::Network;
+use Slim::Networking::Async;
+use Slim::Networking::Async::Socket;
+use Slim::Networking::Async::Socket::HTTP;
+
+use Plugins::ShairTunes2W::AIRPLAY;
+use Plugins::ShairTunes2W::Utils;
 
 # create log categogy before loading other modules
 my $log = Slim::Utils::Log->addLogCategory(
@@ -229,7 +230,7 @@ sub initPlugin {
 	my $version = $class->_pluginDataFor( 'version' );
 
     $log->info( "Initialising $version on " . $Config{'archname'} );
-		
+			
 	eval {require Crypt::OpenSSL::RSA};
     if ($@) {
 		$log->warn("cannot find system Crypt::OpenSSL::RSA\n", Dumper(\@INC));
