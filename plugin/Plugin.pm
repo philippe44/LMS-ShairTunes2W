@@ -930,6 +930,9 @@ sub conn_handle_request {
 					repeat		=> $sprefs->client($client)->get('repeat'),
 			} );	
 			
+			# save volume 
+			$client->pluginData(volume => $client->volume);
+			
 			$log->info( "Playing url: $conn->{url}" );
 			
             $conn->{poweredoff} = !$conn->{player}->power;
@@ -975,6 +978,9 @@ sub conn_handle_request {
 
 			Slim::Control::Request::notifyFromArray($client, ['playlist', 'stop']);	
 			Slim::Control::Request::notifyFromArray($client, ['playlist', 'sync']);
+			
+			# restore volume
+			$client->execute( [ 'mixer', 'volume', $client->pluginData('volume') ] );
 			
 			last;
         };

@@ -1,7 +1,11 @@
-note:	- Playback will fail if PCM is used and target device requires MP3 conversion (eg it is a bridge) 
+note:
+	- Playback will fail if PCM is used and target device requires MP3 conversion (eg it is a bridge) 
 	because the lame conversion rule expects a wav file which means a header. 
 	- BEWARE OF VERSION NUMBER FOR PERL LIBS
 
+0.92.0
+ - Save & Restore LMS volume between AirPlay sessions
+ 
 0.91.4
  - add all lib in a "elib" directory and make sure its path is at the end of @INC
  - add x86 and x64 versions for Perl 5.14
