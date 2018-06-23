@@ -3,8 +3,12 @@ note:
 	because the lame conversion rule expects a wav file which means a header. 
 	- BEWARE OF VERSION NUMBER FOR PERL LIBS
 
+0.92.1
+ - authorize non-encrypted sessions
+ - coverart can be jpeg or png
+ 
 0.92.0
- - Save & Restore LMS volume between AirPlay sessions
+ - save & Restore LMS volume between AirPlay sessions
  
 0.91.4
  - add all lib in a "elib" directory and make sure its path is at the end of @INC

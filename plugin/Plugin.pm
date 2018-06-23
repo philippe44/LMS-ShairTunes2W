@@ -814,12 +814,15 @@ sub conn_handle_request {
         /^ANNOUNCE$/ && do {
             my $sdp   = Net::SDP->new( $req->content );
             my $audio = $sdp->media_desc_of_type( 'audio' );
-
-            do { $log->error( "no AESIV" ); return; } unless my $aesiv = decode_base64( $audio->attribute( 'aesiv' ) );
-            do { $log->error( "no AESKEY" ); return; }
-              unless my $rsaaeskey = decode_base64( $audio->attribute( 'rsaaeskey' ) );
-            $rsa->use_pkcs1_oaep_padding;
-            my $aeskey = $rsa->decrypt( $rsaaeskey ) || do { $log->error( "RSA decrypt failed" ); return; };
+			
+			my $aesiv = decode_base64( $audio->attribute( 'aesiv' ) );
+			my $rsaaeskey = decode_base64( $audio->attribute( 'rsaaeskey' ) );
+			my $aeskey;
+			            
+			if ($rsaaeskey) {
+				$rsa->use_pkcs1_oaep_padding;
+				$aeskey = $rsa->decrypt( $rsaaeskey ) || do { $log->error( "RSA decrypt failed" ); return; };
+			}	
 
             $conn->{aesiv}  = $aesiv;
             $conn->{aeskey} = $aeskey;
@@ -856,15 +859,15 @@ sub conn_handle_request {
 			my @dec_args = (
 				host  => $conn->{host},
 				socket => $h_ipc->sockport, 
-                iv    => unpack( 'H*', $conn->{aesiv} ),
-                key   => unpack( 'H*', $conn->{aeskey} ),
                 fmtp  => $conn->{fmtp},
                 cport => $cport,
                 tport => $tport,
 				latencies => $prefs->get('latency') . ':' . $prefs->get('http_latency'),
 				codec => $prefs->get('useFLAC') ? "flac" : "wav",
                 );
-
+				
+			push (@dec_args, ("iv", unpack('H*', $conn->{aesiv}), "key", unpack('H*', $conn->{aeskey}))) if $conn->{aesiv} && $conn->{aeskey};
+			
 			if (my $loglevel = $prefs->get('loglevel')) {
 				my $id = $conn->{player}->id;
 				$id =~ s/:/-/g;
@@ -1056,11 +1059,12 @@ sub conn_handle_request {
                 notifyUpdate($conn->{player}, $metaData);
 				$metaData->{offset} = $conn->{player}->songElapsedSeconds();
 			}
-            elsif ( $req->header( 'Content-Type' ) eq "image/jpeg" ) {
+            elsif ( $req->header( 'Content-Type' ) =~ /image\/(.+)/ ) {
+				my $ext = $1;
 				my $metaData = $conn->{metaData};
                                 
                 my $host = Slim::Utils::Network::serverAddr();
-				my $url  = "http://$host:$conn->{iport}/" . md5_hex($req->content) . "/cover.jpg";
+				my $url  = "http://$host:$conn->{iport}/" . md5_hex($req->content) . "/cover.$ext";
 				$metaData->{cover} = $url;
 				$metaData->{icon} = $url;
 				$conn->{cover} = $req->content;
