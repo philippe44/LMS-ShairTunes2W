@@ -105,12 +105,12 @@ my %connections = (); # ( [ slaveINETSock ]  => ('socket' => [MasterINETSock], '
 					  #							 'url' => [URL where LMS get the audio], 
 					  #							 'decoder_ipc' => [INETSockIn], 'decoder_pid' => [helper],
 					  #							 'poweroff', 'iport' => [image proxy]
-					  #							 'cover_fh' => [INETSockCover], 'cover' => [jpeg blob] },		
+					  #							 'cover_fh' => [INETSockCover], 'cover' => [blob] }, 'coverType' => [content-type]		
 					  #							 'DACPid' => [DACP ID], 'activeRemote' => [remote ID], 
 					  #						     'remote' => [IP::port of remote]	
 					  #							 'volume' => [player volume set by AirPlay]
 					  #							 'host' => IP of iXXX device
-my %covers		= (); # ( [ coverINETSock ]	 =>	 [jpeg blob]
+my %covers		= (); # ( [ coverINETSock ]	 =>	 {'cover' => [blob], 'coverType' => [content-type]}
 
 
 sub logFile {
@@ -535,7 +535,8 @@ sub handleCoverConnect {
 	Slim::Utils::Network::blocking( $new, 0 );
 	
 	my ($slave) = grep { $connections{$_}->{cover_fh} == $socket } keys %connections;
-	$covers{$new} = $connections{$slave}->{cover};
+	$covers{$new}->{image} = $connections{$slave}->{cover};
+	$covers{$new}->{type} = $connections{$slave}->{coverType};
 				
     $log->info( "New cover proxy connection from " . $new->peerhost );
 	
@@ -554,10 +555,10 @@ sub handleCoverRequest {
 	my $resp = HTTP::Response->new( 200 );
 	$resp->protocol('HTTP/1.1');
 	$resp->user_agent('ShairTunes2');
-	$resp->content_type('image/jpeg');
-    $resp->header( 'Content-Length' => length $covers{$socket} );
+	$resp->content_type($covers{$socket}->{type});
+    $resp->header( 'Content-Length' => length $covers{$socket}->{image} );
 	$resp->header( 'Connection' => 'close');
-	$resp->content( $covers{$socket} );
+	$resp->content( $covers{$socket}->{image} );
 	
 	my $data = $resp->as_string();
 	my $sent = 0;
@@ -1068,6 +1069,7 @@ sub conn_handle_request {
 				$metaData->{cover} = $url;
 				$metaData->{icon} = $url;
 				$conn->{cover} = $req->content;
+				$conn->{coverType} = $req->header( 'Content-Type' );
 				      								
 				$log->debug( "IMAGE DATA received, sending to: ", $url );
 				
