@@ -53,14 +53,20 @@ PLUGIN_SHAIRTUNES2_LATENCY_DESC
 	EN	requesting LMS to play, so that SB players will receive a large amount of larger burst frames at startup
 	EN	<br>- RTP: max holding time (ms) of HTTP sending when missing UDP frames
 	EN	<br>- HTTP: delay before playback command is sent to LMS after first AirPlay frame has been received 
-
-PLUGIN_SHAIRTUNES2_USEFLAC
-	EN	Use flac for streaming
 	
-PLUGIN_SHAIRTUNES2_USEFLAC_DESC
-	EN	Audio received from AirPlay devices are codec with ALAC, which cannot be streamed directly to LMS players.
-	EN	By default, audio is decoded and streamed in PCM, which can be a lot of network bandwidth for synchronized 
-	EN	players. Use this option to re-encode audio in FLAC, dividing bandwidth by ~2
+PLUGIN_SHAIRTUNES2_ENCODE
+	EN	Encoding parameters
+	
+PLUGIN_SHAIRTUNES2_ENCODE_DESC
+	EN	Audio received from AirPlay devices are coded using ALAC, which cannot be streamed directly to LMS players.
+	EN	It can be re-encoded in pcm, flac or mp3. With flac, the compression level can be adjusted from 0 to 9
+	EN	(default = 0, gives lowest compression, least CPU consumption). With mp3 the bitrate must bet set (default = 128)
+	
+PLUGIN_SHAIRTUNES2_FLACLEVEL
+	EN	Level
+	
+PLUGIN_SHAIRTUNES2_MP3BITRATE
+	EN	Bitrate
 	
 PLUGIN_SHAIRTUNES2_DRIFT
 	EN	Let timing references drift

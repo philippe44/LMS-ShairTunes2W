@@ -51,7 +51,7 @@ static int 		sock_printf(int sock,...);
 static char*	sock_gets(int sock, char *str, int n);
 static void 	print_usage(int argc, char **argv);
 
-const char *version = "0.92.1";
+const char *version = "0.100.0";
 
 short unsigned cport = 0, tport = 0, ipc_port = 0;
 static int ipc_sock = -1;
@@ -172,7 +172,7 @@ static void print_usage(int argc, char **argv) {
 		   "[fmtp <n>]\n"
 		   "[cport <n>] [tport <n>]\n"
 		   "[log <file>] [dbg <error|warn|info|debug|sdebug>]\n"
-		   "[codec <flac|wav|pcm>]\n"
+		   "[codec <mp3[:<rate>]|flac[:<level>]|wav|pcm>]\n"
 		   "[sync]\n"
    		   "[drift]\n"
 		   "[latency <airplay max ms hold[:http ms delay]>]\n"
@@ -187,7 +187,7 @@ int main(int argc, char **argv) {
 	int ret = 0;
 	bool use_sync = false, drift = false;
 	static struct in_addr host_addr;
-	codec_t codec = CODEC_FLAC;
+	encode_t encoder;
 
 	assert(RAND_MAX >= 0x7fff);    // XXX move this to compile time
 
@@ -197,6 +197,9 @@ int main(int argc, char **argv) {
 		} else mdns_server(argc - 1, argv + 1);
 		exit (0);
 	}
+
+	memset(&encoder, 0, sizeof(encode_t));
+	encoder.codec = CODEC_FLAC;
 
 	while ( (arg = *++argv) != NULL ) {
 		if (!strcasecmp(arg, "iv")) {
@@ -236,9 +239,18 @@ int main(int argc, char **argv) {
 		} else
 		if (!strcasecmp(arg, "codec")) {
 			++argv;
-			if (!strcmp(*argv, "flac"))  codec = CODEC_FLAC;
-			if (!strcmp(*argv, "wav"))  codec = CODEC_WAV;
-			if (!strcmp(*argv, "pcm"))  codec = CODEC_PCM;
+			if (!strcasecmp(*argv, "pcm")) encoder.codec = CODEC_PCM;
+			else if (!strcasecmp(*argv, "wav")) encoder.codec = CODEC_WAV;
+			else if (stristr(*argv, "mp3")) {
+				encoder.codec = CODEC_MP3;
+				if (strchr(*argv, ':')) encoder.mp3.bitrate = atoi(strchr(*argv, ':') + 1);
+			} else {
+				encoder.codec = CODEC_FLAC;
+				if (strchr(*argv, ':')) encoder.flac.level = atoi(strchr(*argv, ':') + 1);
+			}
+		} else
+		if (!strcasecmp(arg, "metadata")) {
+			encoder.mp3.icy = atoi(*++argv);
 		} else
 		if (!strcasecmp(arg, "sync")) {
 			use_sync = true;
@@ -265,7 +277,7 @@ int main(int argc, char **argv) {
 		char line[128];
 		int in_line = 0, n;
 
-		ht = hairtunes_init(host_addr, codec, use_sync, drift, latencies,
+		ht = hairtunes_init(host_addr, encoder, use_sync, drift, latencies,
 							aeskey, aesiv, fmtp, cport, tport, NULL, hairtunes_cb);
 
 		sock_printf(ipc_sock, "port: %d\n", ht.aport);

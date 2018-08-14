@@ -83,9 +83,9 @@ $prefs->init({
 	squeezelite => 0, 
 	loglevel => '',
 	bufferThreshold => 32,
-	latency => 1500,
+	latency => 1000,
 	http_latency => 2000,
-	useFLAC => 1,
+	codec => 'flc',
 });
 
 my $shairtunes_helper;
@@ -111,6 +111,17 @@ my %connections = (); # ( [ slaveINETSock ]  => ('socket' => [MasterINETSock], '
 					  #							 'volume' => [player volume set by AirPlay]
 					  #							 'host' => IP of iXXX device
 my %covers		= (); # ( [ coverINETSock ]	 =>	 {'cover' => [blob], 'coverType' => [content-type]}
+
+
+# migrate existing prefs to new structure, bump prefs version by one tick
+$prefs->migrate(2, sub {
+	if ($prefs->get('useFLAC')) {
+		$prefs->set('codec', 'flc');
+	} else {
+		$prefs->set('codec', 'pcm');
+	}	
+	$prefs->remove('useFLAC');
+});
 
 
 sub logFile {
@@ -175,7 +186,7 @@ sub getAirTunesMetaData {
 			  #bitrate  => 44100 . " Hz",
 			  cover    => "",
 			  icon	   => "",	
-			  type     => 'ShairTunes Stream',
+			  type     => 'ShairTunes Stream, ' . $prefs->get('codec'),
 			  duration => undef,
 			} if !defined $slave;
 	
@@ -239,18 +250,6 @@ sub initPlugin {
 	
 	$rsa = Crypt::OpenSSL::RSA->new_private_key( $airport_pem )	|| do { $log->error( "RSA private key import failed" ); return; };
 		
-	if ( $version ne $prefs->get('version') ) {
-		$log->info("version change");
-		$prefs->set('version', $version);
-		
-		if ($version eq '0.80.1') {
-			$prefs->set("bufferThreshold", 32);
-			$prefs->set("latency", 1500);
-			$prefs->set("http_latency", 2000);
-			$prefs->set("usesync", 0);
-		}
-	}
-	
 	if ( main::WEBUI ) {
 		require Plugins::ShairTunes2W::Settings;
 		Plugins::ShairTunes2W::Settings->new;
@@ -845,6 +844,9 @@ sub conn_handle_request {
             $transport =~ s/;timing_port=(\d+)//;
             my $tport = $1;
             $resp->header( 'Session', 'DEADBEEF' );
+			
+			my $type = substr($prefs->get('codec'), 0, 3);
+			$type = 'wav' if $type eq 'pcm';
 
             my %socket_params = (   Listen    => 1,
 						ReuseAddr => 1,
@@ -864,7 +866,7 @@ sub conn_handle_request {
                 cport => $cport,
                 tport => $tport,
 				latencies => $prefs->get('latency') . ':' . $prefs->get('http_latency'),
-				codec => $prefs->get('useFLAC') ? "flac" : "wav",
+				codec => $type,
                 );
 				
 			push (@dec_args, ("iv", unpack('H*', $conn->{aesiv}), "key", unpack('H*', $conn->{aeskey}))) if $conn->{aesiv} && $conn->{aeskey};
@@ -911,7 +913,7 @@ sub conn_handle_request {
             );
 					
 			my $host = Slim::Utils::Network::serverAddr();
-			$conn->{url}  = "airplay://$host:$helper_ports{hport}/" . $conn->{decoder_pid}->pid . "_stream." . ($prefs->get('useFLAC') ? "flc" : "wav");
+			$conn->{url}  = "airplay://$host:$helper_ports{hport}/" . $conn->{decoder_pid}->pid . "_stream." . $type;
 								
 			# Add out to the select loop so we get notified of play after flush (pause)
 			Slim::Networking::Select::addRead( $helper_ipc, \&handleHelperOut );
@@ -941,7 +943,7 @@ sub conn_handle_request {
 			
             $conn->{poweredoff} = !$conn->{player}->power;
 			$conn->{metaData}->{offset} = 0;
-			$conn->{metaData}->{type}   = 'ShairTunes Stream';
+			$conn->{metaData}->{type}   = 'ShairTunes Stream, ' . $prefs->get('codec');
 			$conn->{player}->execute( [ 'playlist', 'play', $conn->{url} ] );
 			$client->currentPlaylistUpdateTime( Time::HiRes::time() );
             Slim::Control::Request::notifyFromArray( $conn->{player}, ['newmetadata'] );

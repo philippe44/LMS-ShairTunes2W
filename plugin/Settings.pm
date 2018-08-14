@@ -19,7 +19,7 @@ sub page {
 	return 'plugins/ShairTunes2W/settings/basic.html';
 }
 
-my @bool  = qw(squeezelite useFLAC drift syncVolume);
+my @bool  = qw(squeezelite drift syncVolume);
 
 sub prefs {
 	return (preferences('plugin.shairtunes'), (qw(bufferThreshold loglevel latency http_latency), @bool) );
@@ -31,10 +31,10 @@ sub handler {
 	my ($class, $client, $params, $callback, @args) = @_;
 	
 	$params->{logdir} = Plugins::ShairTunes2W::Plugin::logFile("[mac]");
-	
+		
 	# get all LMS players and filter out squeezelite if needed
 	my @players =  map { { id => $_->id, name => $_->name, model => $_->model, FW => $_->revision } } Slim::Player::Client::clients();
-		
+	
 	if ($params->{republish}) {
 		Plugins::ShairTunes2W::Plugin::revoke_publishPlayers();
 		Plugins::ShairTunes2W::Plugin::republishPlayers();
@@ -58,6 +58,10 @@ sub handler {
 			$params->{"pref_$param"} ||= 0;
 		}
 		
+		my $codec = $params->{codec_name} || 'flc';
+		$codec .=  ":$params->{codec_param}" if defined $params->{codec_param} && $params->{codec_param} ne '';
+		$prefs->set('codec', $codec);
+						
 		$params->{pref_bufferThreshold} = min($params->{pref_bufferThreshold}, 255);
 		$Plugins::ShairTunes2W::Utils::shairtunes_helper = Plugins::ShairTunes2W::Utils::helperPath( $params->{binary} || Plugins::ShairTunes2W::Utils::helperBinary() );
 		$prefs->set('helper', $params->{binary});
@@ -76,5 +80,13 @@ sub handler {
 	$callback->($client, $params, $class->SUPER::handler($client, $params), @args);
 }
 
+sub beforeRender {
+	my ($class, $params, $client) = @_;
+		
+	my $codec = $prefs->get('codec');
+	$codec =~ m|([^:]+):*(\d*)|i;
+	$params->{codec_name} = $1;
+	$params->{codec_param} = $2;
+}
 	
 1;

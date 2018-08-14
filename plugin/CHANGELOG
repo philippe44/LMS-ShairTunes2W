@@ -3,6 +3,10 @@ note:
 	because the lame conversion rule expects a wav file which means a header. 
 	- BEWARE OF VERSION NUMBER FOR PERL LIBS
 
+0.100.0
+ - add mp3 encoding
+ - add flac compression level
+
 0.92.1
  - authorize non-encrypted sessions
  - coverart can be jpeg or png

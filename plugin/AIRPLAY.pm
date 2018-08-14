@@ -82,8 +82,11 @@ sub new {
 	
 	$log->debug("NEW: $url");
 
-    ${*$sock}{contentType} = $prefs->get('useFLAC') ? 'flc' : 'wav';
-
+	my $type = substr($prefs->get('codec'), 0, 3);
+	$type = 'wav' if $type eq 'pcm';
+	
+	${*$sock}{contentType} = $type;
+	
     return $sock;
 }
 
