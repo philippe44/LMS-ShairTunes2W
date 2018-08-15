@@ -39,33 +39,46 @@
 	[% WRAPPER setting title="PLUGIN_SHAIRTUNES2_ENCODE" desc="PLUGIN_SHAIRTUNES2_ENCODE_DESC" %]
 	
 		<script type="text/javascript">
-		function combo() {
+		function codecchange() {
 			var codec = document.getElementById('codec_name');
 			var idx = codec.selectedIndex;
-			var param = document.getElementById('codec_param');
-			var	flac = document.getElementById('flac_comment');
-			var	mp3 = document.getElementById('mp3_comment');
+			var	flac = document.getElementById('codec_flac');
+			var	mp3 = document.getElementById('codec_mp3');
+			
 			codec = codec.options[idx].value;
-			param.style.display = flac.style.display = mp3.style.display = 'none';
-			param.value = '';
+			mp3.style.display = flac.style.display = 'none';
+			
 			if (codec === 'flc') {
-				param.style.display = flac.style.display = 'initial';
+				flac.style.display = 'inline';
 			} else if (codec === 'mp3') {
-				param.style.display = mp3.style.display = 'initial';
+				mp3.style.display = 'inline';
 			}	
 		}
 		</script>
 		
-		<select class="stdedit" id="codec_name" name="codec_name" onchange="combo()">
+		<select class="stdedit" id="codec_name" name="codec_name" onchange="codecchange()">
 		[% FOREACH entry IN [ ['',''], ['pcm','pcm'], ['flac','flc'], ['mp3', 'mp3'] ] %]
 			<option label="[% entry.0 %]" [% IF entry.1 == codec_name %]selected[% END %] value="[% entry.1 %]">
 		[% END %]
 		</select>
-		<span id="flac_comment" [% IF codec_name != 'flc' %]hidden[% END %]>&nbsp&nbsp[% "PLUGIN_SHAIRTUNES2_FLACLEVEL" | string %]&nbsp</span>
-		<span id="mp3_comment" [% IF codec_name != 'mp3' %]hidden[% END %] >&nbsp&nbsp[% "PLUGIN_SHAIRTUNES2_MP3BITRATE" | string %]&nbsp</span>
-		<input type="text" [% IF !codec_name || codec_name == 'pcm' %]hidden[% END %] class="stdedit" id="codec_param" name="codec_param" value="[% codec_param %]" size="3">
+		<span id="codec_flac" [% IF codec_name != 'flc' %]hidden[% END %]>
+		[% "PLUGIN_SHAIRTUNES2_FLACLEVEL" | string %]&nbsp
+		<select class="stdedit" name="codec_level" id="codec_level">
+		[% FOREACH entry IN [ '', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' ] %]
+			<option [% IF entry == codec_level %]selected[% END %] value="[% entry %]">[% entry %]</option>
+		[% END %]
+		</select>
+		</span>
+		<span id="codec_mp3" [% IF codec_name != 'mp3' %]hidden[% END %]>
+		[% "PLUGIN_UPNPBRIDGE_ENCODEMP3BITRATE" | string %]&nbsp
+		<select class="stdedit" name="codec_bitrate" id="codec_bitrate">
+		[% FOREACH entry IN [ '', '64', '96', '128', '144', '160', '192', '224', '256', '320' ] %]
+			<option [% IF entry == codec_bitrate %]selected[% END %] value="[% entry %]">[% entry %]</option>
+		[% END %]
+		</select>
+		</span>
 	[% END %]	
-	
+		
 	[% WRAPPER setting title="PLUGIN_SHAIRTUNES2_SYNCVOLUME" desc="PLUGIN_SHAIRTUNES2_SYNCVOLUME_DESC" %]
 		<input name="pref_syncVolume" id="pref_syncVolume" type="checkbox" [% IF prefs.pref_syncVolume %] checked [% END %]>
 	[% END %]

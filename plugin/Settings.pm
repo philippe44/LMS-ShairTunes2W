@@ -4,7 +4,6 @@ use base qw(Slim::Web::Settings);
 use strict;
 
 use List::Util qw(min max);
-use Data::Dumper;
 
 use Slim::Utils::Prefs;
 use Slim::Utils::Log;
@@ -22,7 +21,7 @@ sub page {
 my @bool  = qw(squeezelite drift syncVolume);
 
 sub prefs {
-	return (preferences('plugin.shairtunes'), (qw(bufferThreshold loglevel latency http_latency), @bool) );
+	return (preferences('plugin.shairtunes'), (qw(bufferThreshold codec loglevel latency http_latency), @bool) );
 }
 
 my $prefs = preferences('plugin.shairtunes');
@@ -58,10 +57,13 @@ sub handler {
 			$params->{"pref_$param"} ||= 0;
 		}
 		
-		my $codec = $params->{codec_name} || 'flc';
-		$codec .=  ":$params->{codec_param}" if defined $params->{codec_param} && $params->{codec_param} ne '';
-		$prefs->set('codec', $codec);
-						
+		$params->{pref_codec} = $params->{codec_name} || 'flc';
+		if ($params->{pref_codec} eq 'flc') {
+			$params->{pref_codec} .= ":$params->{codec_level}" if defined $params->{codec_level} && $params->{codec_level} ne '';
+		} elsif ($params->{pref_codec} eq 'mp3') {
+			$params->{pref_codec} .= ":$params->{codec_bitrate}" if $params->{codec_bitrate};
+		}	
+								
 		$params->{pref_bufferThreshold} = min($params->{pref_bufferThreshold}, 255);
 		$Plugins::ShairTunes2W::Utils::shairtunes_helper = Plugins::ShairTunes2W::Utils::helperPath( $params->{binary} || Plugins::ShairTunes2W::Utils::helperBinary() );
 		$prefs->set('helper', $params->{binary});
@@ -83,10 +85,11 @@ sub handler {
 sub beforeRender {
 	my ($class, $params, $client) = @_;
 		
-	my $codec = $prefs->get('codec');
-	$codec =~ m|([^:]+):*(\d*)|i;
+	$prefs->get('codec') =~ m|([^:]+):*(\d*)|i;
+	
 	$params->{codec_name} = $1;
-	$params->{codec_param} = $2;
+	$params->{codec_level} = $2 if $2 && $1 eq 'flc';
+	$params->{codec_bitrate} = $2 if $2 && $1 eq 'mp3';
 }
 	
 1;
