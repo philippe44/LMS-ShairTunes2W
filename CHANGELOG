@@ -4,6 +4,7 @@ note:
 	- BEWARE OF VERSION NUMBER FOR PERL LIBS
 
 0.101.1
+ - WebUI codec name for flac was wrong ('flc' instead of 'flac')
  - flac level 0 in UI was not handled
  
 0.101.0
