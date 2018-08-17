@@ -88,7 +88,7 @@ sub beforeRender {
 	$prefs->get('codec') =~ m|([^:]+):*(\d*)|i;
 	
 	$params->{codec_name} = $1;
-	$params->{codec_level} = $2 if $2 && $1 eq 'flc';
+	$params->{codec_level} = $2 if defined $2 && $1 eq 'flc';
 	$params->{codec_bitrate} = $2 if $2 && $1 eq 'mp3';
 }
 	
