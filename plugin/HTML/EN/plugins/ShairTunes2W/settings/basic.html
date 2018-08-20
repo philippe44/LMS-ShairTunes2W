@@ -48,7 +48,7 @@
 			codec = codec.options[idx].value;
 			mp3.style.display = flac.style.display = 'none';
 			
-			if (codec === 'flac') {
+			if (codec === 'flc') {
 				flac.style.display = 'inline';
 			} else if (codec === 'mp3') {
 				mp3.style.display = 'inline';
@@ -57,11 +57,11 @@
 		</script>
 		
 		<select class="stdedit" id="codec_name" name="codec_name" onchange="codecchange()">
-		[% FOREACH entry IN [ ['',''], ['wav','wav'], ['flac','flac'], ['mp3', 'mp3'] ] %]
+		[% FOREACH entry IN [ ['',''], ['wave','wav'], ['flac','flc'], ['mp3', 'mp3'] ] %]
 			<option label="[% entry.0 %]" [% IF entry.1 == codec_name %]selected[% END %] value="[% entry.1 %]">
 		[% END %]
 		</select>
-		<span id="codec_flac" [% IF codec_name != 'flac' %]hidden[% END %]>
+		<span id="codec_flac" [% IF codec_name != 'flc' %]hidden[% END %]>
 		[% "PLUGIN_SHAIRTUNES2_FLACLEVEL" | string %]&nbsp
 		<select class="stdedit" name="codec_level" id="codec_level">
 		[% FOREACH entry IN [ '', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' ] %]

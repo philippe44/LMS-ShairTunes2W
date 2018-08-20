@@ -51,7 +51,7 @@ static int 		sock_printf(int sock,...);
 static char*	sock_gets(int sock, char *str, int n);
 static void 	print_usage(int argc, char **argv);
 
-const char *version = "0.100.0";
+const char *version = "0.101.2";
 
 short unsigned cport = 0, tport = 0, ipc_port = 0;
 static int ipc_sock = -1;
@@ -172,7 +172,7 @@ static void print_usage(int argc, char **argv) {
 		   "[fmtp <n>]\n"
 		   "[cport <n>] [tport <n>]\n"
 		   "[log <file>] [dbg <error|warn|info|debug|sdebug>]\n"
-		   "[codec <mp3[:<rate>]|flac[:<level>]|wav|pcm>]\n"
+		   "[codec <mp3[:<rate>]|flc[:<level>]|wav|pcm>]\n"
 		   "[sync]\n"
    		   "[drift]\n"
 		   "[latency <airplay max ms hold[:http ms delay]>]\n"

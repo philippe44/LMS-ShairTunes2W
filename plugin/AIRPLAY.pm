@@ -82,8 +82,7 @@ sub new {
 	
 	$log->debug("NEW: $url");
 
-	$prefs->get('codec') =~ /([^:]+)/;
-	${*$sock}{contentType} = $1;
+	${*$sock}{contentType} = substr($prefs->get('codec'), 0, 3);
 	
     return $sock;
 }

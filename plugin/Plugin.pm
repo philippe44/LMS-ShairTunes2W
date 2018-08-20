@@ -85,7 +85,7 @@ $prefs->init({
 	bufferThreshold => 32,
 	latency => 1000,
 	http_latency => 2000,
-	codec => 'flac',
+	codec => 'flc',
 });
 
 my $shairtunes_helper;
@@ -116,7 +116,7 @@ my %covers		= (); # ( [ coverINETSock ]	 =>	 {'cover' => [blob], 'coverType' => 
 # migrate existing prefs to new structure, bump prefs version by one tick
 $prefs->migrate(2, sub {
 	if ($prefs->get('useFLAC')) {
-		$prefs->set('codec', 'flac');
+		$prefs->set('codec', 'flc');
 	} else {
 		$prefs->set('codec', 'wav');
 	}	
@@ -910,8 +910,7 @@ sub conn_handle_request {
             );
 					
 			my $host = Slim::Utils::Network::serverAddr();
-			$prefs->get('codec') =~ /([^:]+)/;
-			$conn->{url}  = "airplay://$host:$helper_ports{hport}/" . $conn->{decoder_pid}->pid . "_stream." . $1;
+			$conn->{url}  = "airplay://$host:$helper_ports{hport}/" . $conn->{decoder_pid}->pid . "_stream." . substr($prefs->get('codec'), 0, 3);
 								
 			# Add out to the select loop so we get notified of play after flush (pause)
 			Slim::Networking::Select::addRead( $helper_ipc, \&handleHelperOut );
