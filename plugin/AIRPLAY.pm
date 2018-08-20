@@ -4,6 +4,7 @@ use strict;
 use warnings;
 
 use base qw(Slim::Player::Protocols::HTTP);
+use List::Util qw(min);
 use Slim::Utils::Strings qw(string);
 use Slim::Utils::Misc;
 use Slim::Utils::Log;
@@ -15,7 +16,9 @@ my $log   = logger( 'plugin.shairtunes' );
 my $prefs = preferences( 'plugin.shairtunes' );
 
 sub isRemote { 1 }
-
+sub canSeek { 0 }
+sub canHandleTranscode { 0 }
+sub isAudioURL { 1 }
 sub bufferThreshold { $prefs->get('bufferThreshold') // 255; }
 
 sub canDoAction {
@@ -26,36 +29,18 @@ sub canDoAction {
     return Plugins::ShairTunes2W::Plugin->sendAction($client, $action);
 }
 
-sub canHandleTranscode {
-    my ( $self, $song ) = @_;
-
-    return 1;
-}
-
-sub getStreamBitrate {
-    my ( $self, $maxRate ) = @_;
-	
-	my $rate = Slim::Player::Song::guessBitrateFromFormat( ${*$self}{'contentType'}, $maxRate );
-	$log->info("bitrate: $rate");
-	
-	return $rate;
-}
-
-sub isAudioURL { 1 }
-
-# XXX - I think that we scan the track twice, once from the playlist and then again when playing
 sub scanUrl {
     my ( $class, $url, $args ) = @_;
 
-    Slim::Utils::Scanner::Remote->scanURL( $url, $args );
+	$args->{cb}->( $args->{song}->currentTrack() );
 }
 
-sub canDirectStream {
+sub canDirectStreamSong {
     my ( $class, $client, $url ) = @_;
 	
 	return 0 if $client->isSynced(1);
 	
-    $log->debug( "canDirectStream $url" );
+    $log->debug( "canDirectStreamSong $url" );
 
     $url =~ s{^airplay://}{http://};
 	
@@ -71,16 +56,27 @@ sub new {
     my $song   = $args->{song};
 	my $url    = $args->{url};
 	
+	my $rate;
+	
+	$prefs->get('codec') =~ m|([^:]+):*(\d*)|i;
+	if ($1 eq 'wav') {
+		$rate = 1_411_200;
+	} elsif ($1 eq 'flc') {
+		$rate = 705_000;
+	} elsif ($1 eq 'mp3') {
+		$rate = $2 * 1000 || 128_000;
+	}	
+	
 	$url =~ s/airplay/http/;
 	
 	my $sock = $class->SUPER::new( {
 		url     => $url,
         song    => $song,
         client  => $client,
-		bitrate => 1_411_200,
+		bitrate => $rate,
     } ) || return;
 	
-	$log->debug("NEW: $url");
+	$log->debug("new: $url");
 
 	${*$sock}{contentType} = substr($prefs->get('codec'), 0, 3);
 	
@@ -110,6 +106,7 @@ sub getMetadataFor {
 		
     return $metaData;
 }
+
 
 1;
 

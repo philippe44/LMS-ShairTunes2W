@@ -3,6 +3,12 @@ note:
 	because the lame conversion rule expects a wav file which means a header. 
 	- BEWARE OF VERSION NUMBER FOR PERL LIBS
 
+0.102.0
+ - correct misshandling of CanHandleTranscode (plugin can not)
+ - correct bitrate reponse when opening url
+ - add no seek capability
+ - add custom-convert.conf to finally handle wav and flc conversion when remote, which allows bitrate limitation
+ 
 0.101.2
  - wrong handling of 'wav/pcm' codec
  - change 'flac' codec name to 'flc'
