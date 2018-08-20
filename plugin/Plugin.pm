@@ -118,7 +118,7 @@ $prefs->migrate(2, sub {
 	if ($prefs->get('useFLAC')) {
 		$prefs->set('codec', 'flc');
 	} else {
-		$prefs->set('codec', 'pcm');
+		$prefs->set('codec', 'wav');
 	}	
 	$prefs->remove('useFLAC');
 });
@@ -186,7 +186,7 @@ sub getAirTunesMetaData {
 			  #bitrate  => 44100 . " Hz",
 			  cover    => "",
 			  icon	   => "",	
-			  type     => 'ShairTunes Stream, ' . $prefs->get('codec'),
+			  type     => 'ShairTunes Stream, ' . substr($prefs->get('codec'), 0, 3),
 			  duration => undef,
 			} if !defined $slave;
 	
@@ -845,10 +845,7 @@ sub conn_handle_request {
             my $tport = $1;
             $resp->header( 'Session', 'DEADBEEF' );
 			
-			my $type = substr($prefs->get('codec'), 0, 3);
-			$type = 'wav' if $type eq 'pcm';
-
-            my %socket_params = (   Listen    => 1,
+			my %socket_params = (   Listen    => 1,
 						ReuseAddr => 1,
 						LocalHost => 'localhost',
 						Proto     => 'tcp'
@@ -866,7 +863,7 @@ sub conn_handle_request {
                 cport => $cport,
                 tport => $tport,
 				latencies => $prefs->get('latency') . ':' . $prefs->get('http_latency'),
-				codec => $type,
+				codec => substr($prefs->get('codec'), 0, 3),
                 );
 				
 			push (@dec_args, ("iv", unpack('H*', $conn->{aesiv}), "key", unpack('H*', $conn->{aeskey}))) if $conn->{aesiv} && $conn->{aeskey};
@@ -913,7 +910,7 @@ sub conn_handle_request {
             );
 					
 			my $host = Slim::Utils::Network::serverAddr();
-			$conn->{url}  = "airplay://$host:$helper_ports{hport}/" . $conn->{decoder_pid}->pid . "_stream." . $type;
+			$conn->{url}  = "airplay://$host:$helper_ports{hport}/" . $conn->{decoder_pid}->pid . "_stream." . substr($prefs->get('codec'), 0, 3);
 								
 			# Add out to the select loop so we get notified of play after flush (pause)
 			Slim::Networking::Select::addRead( $helper_ipc, \&handleHelperOut );
@@ -943,7 +940,7 @@ sub conn_handle_request {
 			
             $conn->{poweredoff} = !$conn->{player}->power;
 			$conn->{metaData}->{offset} = 0;
-			$conn->{metaData}->{type}   = 'ShairTunes Stream, ' . $prefs->get('codec');
+			$conn->{metaData}->{type}   = 'ShairTunes Stream, ' . substr($prefs->get('codec'), 0, 3);
 			$conn->{player}->execute( [ 'playlist', 'play', $conn->{url} ] );
 			$client->currentPlaylistUpdateTime( Time::HiRes::time() );
             Slim::Control::Request::notifyFromArray( $conn->{player}, ['newmetadata'] );

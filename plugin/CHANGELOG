@@ -3,7 +3,10 @@ note:
 	because the lame conversion rule expects a wav file which means a header. 
 	- BEWARE OF VERSION NUMBER FOR PERL LIBS
 
-0.101.1
+0.101.2
+ - wrong handling of 'wav/pcm' codec
+
+ 0.101.1
  - WebUI codec name for flac was wrong ('flc' instead of 'flac')
  - flac level 0 in UI was not handled
  

@@ -82,10 +82,7 @@ sub new {
 	
 	$log->debug("NEW: $url");
 
-	my $type = substr($prefs->get('codec'), 0, 3);
-	$type = 'wav' if $type eq 'pcm';
-	
-	${*$sock}{contentType} = $type;
+	${*$sock}{contentType} = substr($prefs->get('codec'), 0, 3);
 	
     return $sock;
 }
