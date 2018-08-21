@@ -35,12 +35,12 @@ sub scanUrl {
 	$args->{cb}->( $args->{song}->currentTrack() );
 }
 
-sub canDirectStreamSong {
+sub canDirectStream {
     my ( $class, $client, $url ) = @_;
 	
 	return 0 if $client->isSynced(1);
 	
-    $log->debug( "canDirectStreamSong $url" );
+    $log->debug( "canDirectStream $url" );
 
     $url =~ s{^airplay://}{http://};
 	
