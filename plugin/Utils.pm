@@ -82,15 +82,7 @@ sub helperBinary {
 		
 	}	
 	
-	if ($os->{'os'} ne 'Windows') {
-		my $exec = catdir(Slim::Utils::PluginManager->allPlugins->{'ShairTunes2W'}->{'basedir'}, 'Bin', $bin);
-		$exec = Slim::Utils::OSDetect::getOS->decodeExternalHelperPath($exec);
-			
-		if (!((stat($exec))[2] & 0100)) {
-			$log->warn('executable not having \'x\' permission, correcting');
-			chmod (0555, $exec);
-		}	
-	}	
+	checkHelper($bin);
 	
 	my $shairtunes_helper = Slim::Utils::Misc::findbin($bin) || do {
 		$log->warn("$bin not found");
@@ -105,6 +97,21 @@ sub helperBinary {
 	}
 	
 	return $bin;
+}
+
+sub checkHelper {
+	my $bin = shift;
+	my $os = Slim::Utils::OSDetect::details();
+	
+	if ($os->{'os'} ne 'Windows') {
+		my $exec = catdir(Slim::Utils::PluginManager->allPlugins->{'ShairTunes2W'}->{'basedir'}, 'Bin', $bin);
+		$exec = Slim::Utils::OSDetect::getOS->decodeExternalHelperPath($exec);
+			
+		if (!((stat($exec))[2] & 0100)) {
+			$log->warn('executable not having \'x\' permission, correcting');
+			chmod (0555, $exec);
+		}	
+	}	
 }
 
 sub helperBinaries {

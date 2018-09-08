@@ -66,7 +66,8 @@ sub handler {
 								
 		$params->{pref_bufferThreshold} = min($params->{pref_bufferThreshold}, 255);
 		$Plugins::ShairTunes2W::Utils::shairtunes_helper = Plugins::ShairTunes2W::Utils::helperPath( $params->{binary} || Plugins::ShairTunes2W::Utils::helperBinary() );
-		$prefs->set('helper', $params->{binary});
+		Plugins::ShairTunes2W::Utils::checkHelper( $params->{binary} );
+		$prefs->set( 'helper', $params->{binary} );
 	}	
 	
 	@players = grep { $_->{model} ne 'squeezelite' || $_->{FW} } @players if !$prefs->get('squeezelite');

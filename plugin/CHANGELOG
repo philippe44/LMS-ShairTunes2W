@@ -3,6 +3,9 @@ note:
 	because the lame conversion rule expects a wav file which means a header. 
 	- BEWARE OF VERSION NUMBER FOR PERL LIBS
 
+0.102.2
+ - helper exec bit was not set when selected manually
+ 
 0.102.1
  - need overload CanStreamDirect and not CanStreamDirectSong
  - now wav-mp3 &flc-mp3 rules seems to be unless - loosing it
