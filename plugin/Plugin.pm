@@ -559,7 +559,7 @@ sub handleCoverRequest {
 	$resp->header( 'Connection' => 'close');
 	$resp->content( $covers{$socket}->{image} );
 	
-	my $data = $resp->as_string();
+	my $data = $resp->as_string("\r\n");
 	my $sent = 0;
 	while ($sent < length $data) {
 		my $bytes = send ($socket, substr($data, $sent), 0);
