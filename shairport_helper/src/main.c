@@ -51,7 +51,7 @@ static int 		sock_printf(int sock,...);
 static char*	sock_gets(int sock, char *str, int n);
 static void 	print_usage(int argc, char **argv);
 
-const char *version = "0.103.0";
+const char *version = "0.103.1";
 
 short unsigned cport = 0, tport = 0, ipc_port = 0;
 static int ipc_sock = -1;
@@ -165,8 +165,11 @@ static void hairtunes_cb(void *owner, hairtunes_event_t event)
 
 /*----------------------------------------------------------------------------*/
 static void print_usage(int argc, char **argv) {
+	printf("shairport_helper version %s\n", version);
+	printf("mDNS server mode mode:\n");
 	mdns_server(argc, argv);
-	printf("AIRPORT mode:\n\t[iv <n> key <n>]\n"
+	printf("AIRPORT mode:\n"
+		   "[iv <n> key <n>]\n"
 		   "[host <ip>]\n"
 		   "[socket <port>]\n"
 		   "[fmtp <n>]\n"

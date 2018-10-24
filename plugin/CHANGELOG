@@ -3,6 +3,10 @@ note:
 	because the lame conversion rule expects a wav file which means a header. 
 	- BEWARE OF VERSION NUMBER FOR PERL LIBS
 
+0.103.1
+ - set SO_REUSEPORT only if option supported
+ - full cross-compiling
+ 
 0.103.0
  - add SO_REUSEPORT for Linux in mDNS	
  

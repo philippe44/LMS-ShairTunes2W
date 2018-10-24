@@ -1,5 +1,11 @@
 BASE		= ..
 
+ifeq ($(OS),Darwin)
+LDFLAGS 	+= -Wl,-dead_strip
+else
+LDFLAGS 	+= -Wl,--gc-sections
+endif
+
 TOOLS		= ./src/tools
 VALGRIND	= ../valgrind
 SRC 		= ./src
