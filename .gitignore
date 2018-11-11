@@ -49,7 +49,9 @@ Temporary Items
 # C++ builder related
 test/
 misc/
-shairport_helper/bin/
+*.o
+*.obj
+/shairport_helper/bin/Win32/Debug
 __history
 /repo*.xml
 /package*.*
