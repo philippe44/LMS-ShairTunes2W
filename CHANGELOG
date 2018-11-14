@@ -3,6 +3,9 @@ note:
 	because the lame conversion rule expects a wav file which means a header. 
 	- BEWARE OF VERSION NUMBER FOR PERL LIBS
 
+0.103.4
+ - when adding mDNS instance, verify that background actually returned a pid
+ 
 0.103.3
  - sparc and ppc compiler required kernel > 3.2.0 due to glibc being 2.23+ ==> moved back cross-compiler to use glibc 2.19 (need OBSOLETE enabled)
 

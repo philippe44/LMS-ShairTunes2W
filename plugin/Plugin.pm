@@ -456,36 +456,36 @@ sub publishPlayer {
 	
 	if ( $path = which('avahi-publish-service') ) {
 		$log->info( "start avahi-publish-service \"$apname\"" );
-        eval { $proc = Proc::Background->new( $path, $id, "_raop._tcp", $port, @params ); };
 		$mDNShelper = $path;
-		return $proc unless ($@);
+        eval { $proc = Proc::Background->new( $path, $id, "_raop._tcp", $port, @params ); };
+		return $proc if $proc;
         $log->error( "start avahi-publish-service failed" );
 	}	
 	$log->info( "avahi-publish-player not in path" ) if (!$@);
     
 	if ( $path = which('dns-sd') ) {
         $log->info( "start dns-sd \"$apname\"" );
-		eval { $proc = Proc::Background->new( $path, '-R', $id, "_raop._tcp", ".", @params ); };
 		$mDNShelper = $path;
-		return $proc unless ($@);
+		eval { $proc = Proc::Background->new( $path, '-R', $id, "_raop._tcp", ".", @params ); };
+		return $proc if $proc;
         $log->error( "start dns-sd failed" );
     }
 	$log->info( "dns-sd not in path" ) if (!$@);
         
     if ( $path = which('mDNSPublish') ) {
         $log->info( "start mDNSPublish \"$apname\"" );
-        eval { $proc = Proc::Background->new($path, $id, "_raop._tcp", @params ); };
 		$mDNShelper = $path;
-		return $proc unless ($@);
+        eval { $proc = Proc::Background->new($path, $id, "_raop._tcp", @params ); };
+		return $proc if $proc;
         $log->error( "start mDNSPublish failed" );
     }
     $log->info( "mDNSPublish not in path" ) if (!$@);
         
     $log->info("using built-in helper: $shairtunes_helper");
 	
-	eval { $proc = Proc::Background->new( $shairtunes_helper, "-dns", "host", Slim::Utils::Network::serverAddr(), $id, "_raop._tcp", @params ); };
 	$mDNShelper = $shairtunes_helper;
-	return $proc unless ($@);
+	eval { $proc = Proc::Background->new( $shairtunes_helper, "-dns", "host", Slim::Utils::Network::serverAddr(), $id, "_raop._tcp", @params ); };
+	return $proc if $proc;
 	$log->error( "start $shairtunes_helper failed" ) if (!$@);
 	
     return undef;
