@@ -2,6 +2,10 @@ note:
 	- Playback will fail if PCM is used and target device requires MP3 conversion (eg it is a bridge) 
 	because the lame conversion rule expects a wav file which means a header. 
 	- BEWARE OF VERSION NUMBER FOR PERL LIBS
+	
+	
+0.103.5
+ - incorrect spelling of string for MP3 bitrate 
 
 0.103.4
  - when adding mDNS instance, verify that background actually returned a pid

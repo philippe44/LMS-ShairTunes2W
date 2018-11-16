@@ -70,7 +70,7 @@
 		</select>
 		</span>
 		<span id="codec_mp3" [% IF codec_name != 'mp3' %]hidden[% END %]>
-		[% "PLUGIN_SHAIRTUNES2_ENCODEMP3BITRATE" | string %]&nbsp
+		[% "PLUGIN_SHAIRTUNES2_MP3BITRATE" | string %]&nbsp
 		<select class="stdedit" name="codec_bitrate" id="codec_bitrate">
 		[% FOREACH entry IN [ '', '64', '96', '128', '144', '160', '192', '224', '256', '320' ] %]
 			<option [% IF entry == codec_bitrate %]selected[% END %] value="[% entry %]">[% entry %]</option>
