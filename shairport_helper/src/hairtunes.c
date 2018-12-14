@@ -847,7 +847,7 @@ static short *_buffer_get_frame(hairtunes_t *ctx) {
 	}
 
 	if (!curframe->ready) {
-		LOG_INFO("[%p]: created zero frame (fill:%hu,  W:%hu R:%hu)", ctx, buf_fill - 1, ctx->ab_write, ctx->ab_read);
+		LOG_INFO("[%p]: created zero frame (fill:%hu,  W:%hu R:%hu)", ctx, buf_fill - 1, ctx->ab_write, ctx->ab_read);
 		memset(curframe->data, 0, ctx->frame_size*4);
 		ctx->silent_frames++;
 	} else {
