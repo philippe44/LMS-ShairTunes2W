@@ -1000,14 +1000,14 @@ sub conn_handle_request {
 					$percent = 0 if $percent < 0;
 					
                    	# synchronize volume of other players, 		
-					if ($prefs->get('syncVolume')) {
-						my $client = $conn->{player};
-						
-						my @otherclients = grep { $_->name ne $client->name and $_->power } $client->syncGroupActiveMembers();
+					my $client = $conn->{player};
+					
+					if ($prefs->get('syncVolume') && !$client->controller->isa("Plugins::Groups::StreamingController")) {
+						my @otherclients = grep { $_->name ne $client->name and $_->power and !$sprefs->client($_)->get('syncVolume') } $client->syncGroupActiveMembers();
 						foreach my $otherclient ( @otherclients ) {
 							my $volume;
 							
-							if ( $client->volume) {
+							if ( $client->volume ) {
 								$volume = ceil( $otherclient->volume * $percent / $client->volume );
 							} else {
 								$volume = $percent; 
