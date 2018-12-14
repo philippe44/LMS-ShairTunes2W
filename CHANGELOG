@@ -17,7 +17,7 @@ note:
 		(on Solaris, need to specify mirror -M https://cpan.metacpan.org)
 	
 
-0.104.1 (not released)
+0.104.1 
  - update latency help 	
  - i686 build for Perl 5.18
  
