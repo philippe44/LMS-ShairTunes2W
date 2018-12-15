@@ -15,7 +15,7 @@ BEGIN {
 	my $arch = $Config::Config{'archname'};
 	
 	# Intel broken names
-	$arch = 'i686-linux-thread-multi-64int' if $arch =~ /^[3456]86-/;
+	$arch = 'i686-linux-thread-multi-64int' if $arch =~ /^i[3456]86-/;
 	$arch = 'x86_64-linux-thread-multi' if $arch =~ /^x86_64/;
 		
 	# Check for use64bitint Perls

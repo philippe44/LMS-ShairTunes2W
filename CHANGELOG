@@ -16,6 +16,9 @@ note:
 		cpan MIK/CryptX-0.060.tar.gz
 		(on Solaris, need to specify mirror -M https://cpan.metacpan.org)
 	
+0.104.3
+ - parse error in Intel CPUs Perl name
+ 
 0.104.2 
  - update latency help 	
  - i686 build for Perl 5.18
