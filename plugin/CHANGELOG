@@ -16,10 +16,10 @@ note:
 		cpan MIK/CryptX-0.060.tar.gz
 		(on Solaris, need to specify mirror -M https://cpan.metacpan.org)
 	
-
-0.104.1 
+0.104.2 
  - update latency help 	
  - i686 build for Perl 5.18
+ - directory names for elib where messed up ... again
  
 0.104.0
  - add perl 5.28

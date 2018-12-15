@@ -11,23 +11,28 @@ use File::Spec::Functions;
 
 # add libraries that might be missing at end of @INC unless we need a specific version
 BEGIN {
-	# Intel broken names
-	my $arch = $Config::Config{'archname'};
-	   $arch =~ s/^i[3456]86-/i386-/;
-	   $arch =~ s/gnu-//;
 	
+	my $arch = $Config::Config{'archname'};
+	
+	# Intel broken names
+	$arch = 'i686-linux-thread-multi-64int' if $arch =~ /^[3456]86-/;
+	$arch = 'x86_64-linux-thread-multi' if $arch =~ /^x86_64/;
+		
 	# Check for use64bitint Perls
 	my $is64bitint = $arch =~ /64int/ ;	
 
 	# ARM broken names.
 	if ( $arch =~ /^arm.*linux/ ) {
-		$arch = $arch =~ /gnueabihf/ 
+		$arch = $arch =~ /abihf/ 
 			? 'arm-linux-gnueabihf-thread-multi' 
 			: 'arm-linux-gnueabi-thread-multi';
 		$arch .= '-64int' if $is64bitint;
 	}
 	
-	# Same thing with PPC
+	# ARM 64 broken names.
+	$arch = 'aarch64-linux-gnu-thread-multi' if $arch =~ /^aarch64/;
+	
+	# PPC broken names
 	if ( $arch =~ /^(?:ppc|powerpc).*linux/ ) {
 		$arch = 'powerpc-linux-thread-multi';
 		$arch .= '-64int' if $is64bitint;
@@ -241,6 +246,7 @@ sub initPlugin {
 	my $version = $class->_pluginDataFor( 'version' );
 
     $log->info( "Initialising $version on " . $Config{'archname'} );
+	$log->info( "Using INC", Dumper(\@INC) );
 			
 	eval {require Crypt::OpenSSL::RSA};
     if ($@) {
