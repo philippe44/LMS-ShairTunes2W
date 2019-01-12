@@ -97,6 +97,7 @@ typedef struct hairtunes_s {
 	bool running;
 	unsigned char aesiv[16];
 	AES_KEY aes;
+	bool decrypt;
 	int frame_size;
 	int in_frames, out_frames;
 	u32_t	resent_frames, silent_frames;
@@ -283,6 +284,7 @@ hairtunes_resp_t hairtunes_init(struct in_addr host, encode_t codec,
 
 	memset(ctx, 0, sizeof(hairtunes_t));
 	ctx->host = host;
+	ctx->decrypt = false;
 	ctx->rtp_host.sin_family = AF_INET;
 	ctx->rtp_host.sin_addr.s_addr = INADDR_ANY;
 	pthread_mutex_init(&ctx->ab_mutex, 0);
@@ -306,9 +308,10 @@ hairtunes_resp_t hairtunes_init(struct in_addr host, encode_t codec,
 	ctx->rtp_sockets[CONTROL].rport = pCtrlPort;
 	ctx->rtp_sockets[TIMING].rport = pTimingPort;
 
-	if (aesiv && aeskey && *aesiv && *aeskey) {
+	if (aesiv && aeskey) {
 		memcpy(ctx->aesiv, aesiv, 16);
 		AES_set_decrypt_key((unsigned char*) aeskey, 128, &ctx->aes);
+		ctx->decrypt = true;
 	}
 
 	memset(fmtp, 0, sizeof(fmtp));
@@ -464,7 +467,7 @@ static void alac_decode(hairtunes_t *ctx, s16_t *dest, char *buf, int len, int *
 	int aeslen;
 	assert(len<=MAX_PACKET);
 
-	if (*ctx->aesiv) {
+	if (ctx->decrypt) {
 		aeslen = len & ~0xf;
 		memcpy(iv, ctx->aesiv, sizeof(iv));
 		AES_cbc_encrypt((unsigned char*)buf, packet, aeslen, &ctx->aes, iv, AES_DECRYPT);
@@ -845,7 +848,7 @@ static short *_buffer_get_frame(hairtunes_t *ctx, int *len) {
 	}
 
 	if (!curframe->ready) {
-		LOG_INFO("[%p]: created zero frame (fill:%hu,  W:%hu R:%hu)", ctx, buf_fill - 1, ctx->ab_write, ctx->ab_read);
+		LOG_INFO("[%p]: created zero frame (fill:%hu,  W:%hu R:%hu)", ctx, buf_fill - 1, ctx->ab_write, ctx->ab_read);
 		memset(curframe->data, 0, ctx->frame_size*4);
 		curframe->len = ctx->frame_size*4;
 		ctx->silent_frames++;
