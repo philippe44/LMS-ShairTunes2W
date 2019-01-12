@@ -16,6 +16,9 @@ note:
 		cpan MIK/CryptX-0.060.tar.gz
 		(on Solaris, need to specify mirror -M https://cpan.metacpan.org)
 	
+0.104.4
+ - handle variable size alac packets
+	
 0.104.3
  - parse error in Intel CPUs Perl name
  
