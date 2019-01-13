@@ -15,7 +15,10 @@ note:
 		cpan TODDR/Crypt-OpenSSL-RSA-0.30.tar.gz
 		cpan MIK/CryptX-0.060.tar.gz
 		(on Solaris, need to specify mirror -M https://cpan.metacpan.org)
-	
+
+0.104.6		
+ - set length for silent frame now that length must be returned	
+
 0.104.5
  - aesiv and aeskey can start with a '\0', use a decrypt explicit boolean
  
