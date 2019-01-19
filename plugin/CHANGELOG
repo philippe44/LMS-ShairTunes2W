@@ -16,6 +16,10 @@ note:
 		cpan MIK/CryptX-0.060.tar.gz
 		(on Solaris, need to specify mirror -M https://cpan.metacpan.org)
 
+0.104.7
+ - metadata was freed after ctx was released
+ - backport AirConnect 0.2.3.0 modifications
+ 
 0.104.6		
  - set length for silent frame now that length must be returned	
 

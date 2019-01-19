@@ -213,9 +213,12 @@ void QueueFlush(tQueue *queue)
 	while (list->item) {
 		struct sQueue_e *next = list->next;
 		if (queue->cleanup)	(*(queue->cleanup))(list->item);
-		list = list->next;
-		NFREE(next);
+		if (list != &queue->list) { NFREE(list); }
+		list = next;
 	}
+
+	if (list != &queue->list) { NFREE(list); }
+	queue->list.item = NULL;
 
 	if (queue->mutex) {
 		pthread_mutex_unlock(queue->mutex);
@@ -1445,12 +1448,9 @@ void free_metadata(struct metadata_s *metadata)
 }
 
 
-
-/*--------------------------------------------------------------------------*/
-
-void dup_metadata(struct metadata_s *dst, struct metadata_s *src)
-
-{
+/*--------------------------------------------------------------------------*/
+void dup_metadata(struct metadata_s *dst, struct metadata_s *src)
+{
 	free_metadata(dst);
 	if (src->artist) dst->artist = strdup(src->artist);
 	if (src->album) dst->album = strdup(src->album);
@@ -1466,8 +1466,7 @@ void dup_metadata(struct metadata_s *dst, struct metadata_s *src)
 }
 
 
-
-/*----------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------*/
 
 int _fprintf(FILE *file, ...)
 {
