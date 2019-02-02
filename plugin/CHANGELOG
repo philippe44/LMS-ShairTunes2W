@@ -16,6 +16,9 @@ note:
 		cpan MIK/CryptX-0.060.tar.gz
 		(on Solaris, need to specify mirror -M https://cpan.metacpan.org)
 
+0.105.0
+ - sort players by name
+ 
 0.104.7
  - metadata was freed after ctx was released
  - backport AirConnect 0.2.3.0 modifications

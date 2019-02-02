@@ -32,7 +32,7 @@ sub handler {
 	$params->{logdir} = Plugins::ShairTunes2W::Plugin::logFile("[mac]");
 		
 	# get all LMS players and filter out squeezelite if needed
-	my @players =  map { { id => $_->id, name => $_->name, model => $_->model, FW => $_->revision } } Slim::Player::Client::clients();
+	my @players =  sort { $a->{name} cmp $b->{name} } map { { id => $_->id, name => $_->name, model => $_->model, FW => $_->revision } } Slim::Player::Client::clients();
 	
 	if ($params->{republish}) {
 		Plugins::ShairTunes2W::Plugin::revoke_publishPlayers();
