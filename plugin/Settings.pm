@@ -57,6 +57,9 @@ sub handler {
 			$params->{"pref_$param"} ||= 0;
 		}
 		
+		# special case for squeezelite so that the get below is set
+		$prefs->set('squeezelite', $params->{pref_squeezelite});
+		
 		$params->{pref_codec} = $params->{codec_name} || 'flc';
 		if ($params->{pref_codec} eq 'flc') {
 			$params->{pref_codec} .= ":$params->{codec_level}" if defined $params->{codec_level} && $params->{codec_level} ne '';
@@ -68,7 +71,7 @@ sub handler {
 		$Plugins::ShairTunes2W::Utils::shairtunes_helper = Plugins::ShairTunes2W::Utils::helperPath( $params->{binary} || Plugins::ShairTunes2W::Utils::helperBinary() );
 		Plugins::ShairTunes2W::Utils::checkHelper( $params->{binary} );
 		$prefs->set( 'helper', $params->{binary} );
-	}	
+	} 
 	
 	@players = grep { $_->{model} ne 'squeezelite' || $_->{FW} } @players if !$prefs->get('squeezelite');
 	foreach my $player (@players) {
