@@ -16,6 +16,9 @@ note:
 		cpan MIK/CryptX-0.060.tar.gz
 		(on Solaris, need to specify mirror -M https://cpan.metacpan.org)
 
+0.105.2
+ - encode apname in utf8 before hashing & broadcasting
+ 
 0.105.1
  - setting "all squeezelite" option was only working after "apply"
  

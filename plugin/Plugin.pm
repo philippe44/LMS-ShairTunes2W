@@ -8,6 +8,7 @@ use base qw(Slim::Plugin::OPMLBased);
 use Config;
 use File::Spec;
 use File::Spec::Functions;
+use Encode qw(encode);
 
 # add libraries that might be missing at end of @INC unless we need a specific version
 BEGIN {
@@ -446,7 +447,7 @@ sub publishPlayer {
     my ( $apname, $password, $port ) = @_;
 
     my $pw_clause = ( length $password ) ? "pw=true" : "pw=false";
-    my @hw_addr = +( map( ord, split( //, md5( $apname ) ) ) )[ 0 .. 5 ];
+    my @hw_addr = +( map( ord, split( //, md5( encode('utf8', $apname) ) ) ) )[ 0 .. 5 ];
 	my $id =  join( '', map { sprintf "%02X", $_ } @hw_addr ) . "\@$apname";
 	
 	my $proc;
