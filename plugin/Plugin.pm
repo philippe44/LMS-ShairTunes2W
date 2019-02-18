@@ -776,7 +776,7 @@ sub conn_handle_request {
             $data .= Plugins::ShairTunes2W::Utils::ip6bin( $ip );
         }
 
-        my @hw_addr = +( map( ord, split( //, md5( $conn->{player}->name() ) ) ) )[ 0 .. 5 ];
+		my @hw_addr = +( map( ord, split( //, md5( encode('utf8', $conn->{player}->name()) ) ) ) )[ 0 .. 5 ];
 
         $data .= join '', map { chr } @hw_addr;
         $data .= chr( 0 ) x ( 0x20 - length( $data ) );
