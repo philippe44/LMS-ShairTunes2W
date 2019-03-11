@@ -90,27 +90,11 @@ sub contentType {
 }
 
 sub getMetadataFor {
-    my ( $class, $client, $url, $forceCurrent, $song ) = @_;
-
-	my $metaData = Plugins::ShairTunes2W::Plugin->getAirTunesMetaData($url);
+	my ( $class, $client ) = @_;
+	my $metadata = $client->master->pluginData('metadata');
 	
-	if ( $song && defined $metaData->{duration} ) {
-		$song->track->secs( $metaData->{duration} ) ;
-		$song->startOffset( $metaData->{position} -  $metaData->{offset} );
-	}	
-		
-	if ( $client->isPlaying && defined $metaData->{duration} )	{ 
-		$client->streamingSong->duration( $metaData->{duration} ) if $client->streamingSong;
-		$client->playingSong()->startOffset( $metaData->{position} -  $metaData->{offset} );
-	}	
-		
-    return $metaData;
+	return $metadata || {};
 }
 
 
 1;
-
-# Local Variables:
-# tab-width:4
-# indent-tabs-mode:t
-# End:

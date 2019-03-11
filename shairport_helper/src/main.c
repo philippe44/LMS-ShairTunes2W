@@ -51,7 +51,7 @@ static int 		sock_printf(int sock,...);
 static char*	sock_gets(int sock, char *str, int n);
 static void 	print_usage(int argc, char **argv);
 
-const char *version = "0.104.7";
+const char *version = "0.106.0";
 
 short unsigned cport = 0, tport = 0, ipc_port = 0;
 static int ipc_sock = -1;
@@ -280,7 +280,7 @@ int main(int argc, char **argv) {
 		char line[128];
 		int in_line = 0, n;
 
-		ht = hairtunes_init(host_addr, encoder, use_sync, drift, latencies,
+		ht = hairtunes_init(host_addr, encoder, use_sync, drift, false, latencies,
 							aeskey, aesiv, fmtp, cport, tport, NULL, hairtunes_cb);
 
 		sock_printf(ipc_sock, "port: %d\n", ht.aport);
@@ -304,13 +304,23 @@ int main(int argc, char **argv) {
 			}
 
 			if (strstr(line, "flush")) {
-				unsigned short flush_seqno;
+				unsigned short seqno;
+				unsigned rtptime;
 
-				sscanf(line, "flush %hu", &flush_seqno);
-				if (hairtunes_flush(ht.ctx, flush_seqno, 0)) {
-					sock_printf(ipc_sock, "flushed %hu\n", flush_seqno);
+				sscanf(line, "flush %hu %u", &seqno, &rtptime);
+				if (hairtunes_flush(ht.ctx, seqno, rtptime)) {
+					sock_printf(ipc_sock, "flushed %hu %u\n", seqno, rtptime);
 				}
 			}
+
+			if (strstr(line, "record")) {
+				unsigned short seqno;
+				unsigned rtptime;
+
+				sscanf(line, "record %hu %u", &seqno, &rtptime);
+				hairtunes_record(ht.ctx, seqno, rtptime);
+			}
+
 		}
 
 		hairtunes_end(ht.ctx);

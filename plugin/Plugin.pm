@@ -172,33 +172,6 @@ sub volumeChange {
 	$http->get($url, 'Active-Remote' => $conn->{activeRemote} );	
 }
 
-
-sub getAirTunesMetaData {
-	my $class  = shift;
-	my $url = shift;
-	my $slave;
-	
-	foreach my $s (keys %connections) {
-		if (!defined $connections{$s}->{url}) {
-			$log->debug($s, $connections{$s});
-		}	
-	}
-	
-	($slave) = grep { $connections{$_}->{url} eq $url } keys %connections;
-	
-	return  { artist   => "ShairTunes Artist",
-			  title    => "ShairTunes Title",
-			  album    => "ShairTunes Album",
-			  #bitrate  => 44100 . " Hz",
-			  cover    => "",
-			  icon	   => "",	
-			  type     => 'ShairTunes Stream, ' . $prefs->get('codec'),
-			  duration => undef,
-			} if !defined $slave;
-	
-	return $connections{$slave}->{metaData};
-}
-
 sub sendAction {
 	my $class = shift;
 	my $client = shift;
@@ -279,11 +252,6 @@ sub initPlugin {
     Slim::Control::Request::subscribe( \&playerSubscriptionChange,
         [ ['client'], [ 'new', 'reconnect', 'disconnect' ] ] );
 		
-	Slim::Formats::RemoteMetadata->registerProvider(
-		match => qr/airplay\:/,
-		func  => \&getAirTunesMetaData,
-	);		
-	
     $mDNSsock = new IO::Socket::INET(
         #LocalAddr 	=> '0.0.0.0',
         ReuseAddr 	=> 1,
@@ -466,7 +434,7 @@ sub publishPlayer {
 		$mDNShelper = $path;
         eval { $proc = Proc::Background->new( $path, $id, "_raop._tcp", $port, @params ); };
 		return $proc if $proc;
-        $log->error( "start avahi-publish-service failed" );
+        $log->warn( "start avahi-publish-service failed" );
 	}	
 	$log->info( "avahi-publish-player not in path" ) if (!$@);
     
@@ -475,7 +443,7 @@ sub publishPlayer {
 		$mDNShelper = $path;
 		eval { $proc = Proc::Background->new( $path, '-R', $id, "_raop._tcp", ".", @params ); };
 		return $proc if $proc;
-        $log->error( "start dns-sd failed" );
+        $log->warn( "start dns-sd failed" );
     }
 	$log->info( "dns-sd not in path" ) if (!$@);
         
@@ -484,7 +452,7 @@ sub publishPlayer {
 		$mDNShelper = $path;
         eval { $proc = Proc::Background->new($path, $id, "_raop._tcp", @params ); };
 		return $proc if $proc;
-        $log->error( "start mDNSPublish failed" );
+        $log->warn( "start mDNSPublish failed" );
     }
     $log->info( "mDNSPublish not in path" ) if (!$@);
         
@@ -510,18 +478,9 @@ sub handleSocketConnect {
     Slim::Utils::Network::blocking( $new, 0 );
     $connections{$new} = { self => $new, 
 						   socket => $socket, player => $player,
-						   metaData => { artist   => "ShairTunes Artist",
-										 title    => "ShairTunes Title",
-										 album    => "ShairTunes Album",
-										 bitrate  => $samplingRate . " Hz",
-										 cover    => "",
-										 duration => 0,
-										 position => 0,
-										 offset   => 0,
-										}, 
-							cover => '', cover_fh => createListenPort(5),	
-							remote => undef, DACPid => 'none',
-							volume => -1,
+						   cover => '', cover_fh => createListenPort(5),	
+						   remote => undef, DACPid => 'none',
+						   volume => -1,
 						};
 	
     # Add us to the select loop so we get notified
@@ -602,14 +561,13 @@ sub handleHelperOut {
 	if ($line =~ /play/) {
 		$connections{$slave}->{player}->execute( ['play'] );
 	} elsif ($line =~ /flushed/) {
-		$connections{$slave}->{metaData}->{offset} = 0;
 		$connections{$slave}->{player}->execute( ['stop'] );
 	}	
 }	
 
 sub handleSocketRead {
     my $socket = shift;
-
+                           
     my $conn = $connections{$socket};
 	my $contentLength = 0;
     my $buffer        = "";
@@ -736,23 +694,6 @@ sub cleanHelper {
 	}	
 }
 
-sub notifyUpdate {
-	my $client = shift;
-	my $metaData = shift;
-	
-	my $master = $client->master;
-	$master->playingSong->pluginData( wmaMeta => {
-										cover  => $metaData->{cover},
-										icon   => $metaData->{icon},
-										artist => $metaData->{artist},
-										title  => $metaData->{title},
-											} );
-											
-	$master->currentPlaylistUpdateTime( Time::HiRes::time() );
-	Slim::Control::Request::notifyFromArray( $master, ['newmetadata'] );  											
-	$master->execute( ['play'] );
-}											
-
 sub conn_handle_request {
     my ( $socket, $conn ) = @_;
 
@@ -797,9 +738,11 @@ sub conn_handle_request {
             $req->method( 'DENIED' );
         }
     }
+	
+	my $client = $conn->{player};
 
     for ( $req->method ) {
-        $log->debug( "got command / method: $_" );
+		$log->debug( "got command / method: $_" );
 
         /^OPTIONS$/ && do {
             $resp->header( 'Public',
@@ -876,7 +819,7 @@ sub conn_handle_request {
 			push (@dec_args, ("iv", unpack('H*', $conn->{aesiv}), "key", unpack('H*', $conn->{aeskey}))) if $conn->{aesiv} && $conn->{aeskey};
 			
 			if (my $loglevel = $prefs->get('loglevel')) {
-				my $id = $conn->{player}->id;
+				my $id = $client->id;
 				$id =~ s/:/-/g;
 				push @dec_args, ("log", logFile($id), "dbg", $loglevel);
 			}	
@@ -928,9 +871,6 @@ sub conn_handle_request {
         };
 
         /^RECORD$/ && do {
-
-			my $client = $conn->{player};
-			
 			# save current playlist
 			$client->pluginData(playlist => {
 					playlist 	=> [ @{$client->playlist} ],
@@ -938,38 +878,44 @@ sub conn_handle_request {
 					index   	=> Slim::Player::Source::streamingSongIndex($client),
 					shuffle  	=> $sprefs->client($client)->get('shuffle'),
 					repeat		=> $sprefs->client($client)->get('repeat'),
-			} );	
-			
+			} );
+
+			# set empty metadata in master
+			$client->master->pluginData(metadata => {
+						artist   => "ShairTunes Artist",
+						title    => "ShairTunes Title",
+						album    => "ShairTunes Album",
+						bitrate  => $samplingRate . " Hz",
+						type     => 'ShairTunes Stream, ' . $prefs->get('codec'),
+			} );			
+
 			# save volume 
 			$client->pluginData(volume => $client->volume);
 			
 			$log->info( "Playing url: $conn->{url}" );
 			
             $conn->{poweredoff} = !$conn->{player}->power;
-			$conn->{metaData}->{offset} = 0;
-			$conn->{metaData}->{type}   = 'ShairTunes Stream, ' . $prefs->get('codec');
-			$conn->{player}->execute( [ 'playlist', 'play', $conn->{url} ] );
-			$client->currentPlaylistUpdateTime( Time::HiRes::time() );
-            Slim::Control::Request::notifyFromArray( $conn->{player}, ['newmetadata'] );
+			$client->execute( [ 'playlist', 'load', $conn->{url} ] );
 			
 			$resp->header( 'Audio-Latency', '44100' );
+			
+			my ($seqno, $rtptime) = $req->header('RTP-Info') =~ m|seq=([^;]+);rtptime=([^;]+)|i;
+			send ($conn->{decoder_ipc}, "record $seqno $rtptime\n", 0);
+			$log->info("Record from $seqno, $rtptime");
 
             last;
         };
 		
         /^FLUSH$/ && do {
 
-            my $dfh = $conn->{decoder_ipc};
 			my ($seqno, $rtptime) = $req->header('RTP-Info') =~ m|seq=([^;]+);rtptime=([^;]+)|i;
+			send ($conn->{decoder_ipc}, "flush $seqno $rtptime\n", 0);
 			$log->info("Flush up to $seqno, $rtptime");
-            send ($dfh, "flush $seqno $rtptime\n", 0);
             
             last;
         };
 		
         /^TEARDOWN$/ && do {
-			my $client = $conn->{player};
-            
 			$resp->header( 'Connection', 'close' );
 					
 			cleanHelper($conn);
@@ -996,19 +942,21 @@ sub conn_handle_request {
         };
 		
         /^SET_PARAMETER$/ && do {
+			my $metadata = $client->master->pluginData('metadata');
+			
             if ( $req->header( 'Content-Type' ) eq "text/parameters" ) {
                 my @lines = split( /[\r\n]+/, $req->content );
-                $log->debug( "SET_PARAMETER req: " . $req->content );
                 my %content = map { /^(\S+): (.+)/; ( lc $1, $2 ) } @lines;
                 my $cfh = $conn->{decoder_ipc};
+				
+				$log->debug( "SET_PARAMETER req: " . $req->content );
+				
                 if ( exists $content{volume} ) {
                     my $volume = $content{volume};
                     my $percent = int( 100 + ( $volume * 99 / 30) + 0.5 );
 					$percent = 0 if $percent < 0;
 					
                    	# synchronize volume of other players, 		
-					my $client = $conn->{player};
-					
 					if ($prefs->get('syncVolume') && !$client->controller->isa("Plugins::Groups::StreamingController")) {
 						my @otherclients = grep { $_->name ne $client->name and $_->power and !$sprefs->client($_)->get('syncVolume') } $client->syncGroupActiveMembers();
 						foreach my $otherclient ( @otherclients ) {
@@ -1027,70 +975,58 @@ sub conn_handle_request {
 					
 					$log->info( "sending-> vol: " . $percent );
 					
-					$conn->{player}->execute( [ 'mixer', 'volume', $percent ] );
+					$client->execute( [ 'mixer', 'volume', $percent ] );
 					$conn->{volume} = $percent;
-	            }
-                elsif ( exists $content{progress} ) {
-					my $metaData = $conn->{metaData};
+	            } elsif ( exists $content{progress} ) {
                     my ( $start, $curr, $end ) = split( /\//, $content{progress} );
-                    my $positionRealTime = ( $curr - $start ) / $samplingRate;
-                    my $durationRealTime = ( $end - $start ) / $samplingRate;
+                    my $position = ( $curr - $start ) / $samplingRate;
+                    my $duration = ( $end - $start ) / $samplingRate;
 
 					# this is likely a bridge, so duration shall be set to 0 (live stream)
-					if ($conn->{player}->model =~ /squeezelite/ && !$conn->{player}->firmware) {
-						$metaData->{duration} = 0;
-					} else {
-						$metaData->{duration} = $durationRealTime;
-					}	
-					
-					$metaData->{position} = $positionRealTime;
-					
-					notifyUpdate ($conn->{player}, $metaData);
-                    $conn->{player}->execute( ['play'] );
+					$duration = 0 if ($client->model =~ /squeezelite/ && !$client->firmware) ;
 
-                    $log->debug( "Duration: " . $durationRealTime . "; Position: " . $positionRealTime );
-                }
-                else {
+					# the song might not be valid yet, so wait a bit (can't find a better solution)
+					Slim::Utils::Timers::setTimer(undef, time() + 1, sub { 
+											my $song = $client->playingSong;		
+											$song->duration( $duration );
+											$song->startOffset( $position - $client->master->songElapsedSeconds + 1 );
+										} );
+																				
+                    $log->debug( "Duration: " . $duration . "; Position: " . $position );
+                } else {
                     $log->error( "unable to perform content for req SET_PARAMETER text/parameters: " . $req->content );
                 }
-            }
-            elsif ( $req->header( 'Content-Type' ) eq "application/x-dmap-tagged" ) {
-				my $metaData = $conn->{metaData};
-                my %dmapData = Plugins::ShairTunes2W::Utils::getDmapData( $req->content );
-                $metaData->{artist} = $dmapData{artist};
-                $metaData->{album}  = $dmapData{album};
-                $metaData->{title}  = $dmapData{title};
+            } elsif ( $req->header( 'Content-Type' ) eq "application/x-dmap-tagged" ) {
+				my %dmapData = Plugins::ShairTunes2W::Utils::getDmapData( $req->content );
+                $metadata->{artist} = $dmapData{artist};
+                $metadata->{album}  = $dmapData{album};
+                $metadata->{title}  = $dmapData{title};
+				
+				$client->master->currentPlaylistUpdateTime( Time::HiRes::time() );
+				Slim::Control::Request::notifyFromArray( $client->master, ['newmetadata'] );  
 
-                $log->debug( "DMAP DATA found. Length: " . length( $req->content ) . " " . Dumper( \%dmapData ) );
-                
-                notifyUpdate($conn->{player}, $metaData);
-				$metaData->{offset} = $conn->{player}->songElapsedSeconds();
-			}
-            elsif ( $req->header( 'Content-Type' ) =~ /image\/(.+)/ ) {
+                $log->debug( "DMAP DATA found. Length: " . length( $req->content ) . " " . Dumper( \%dmapData ) );    
+			} elsif ( $req->header( 'Content-Type' ) =~ /image\/(.+)/ ) {
 				my $ext = $1;
-				my $metaData = $conn->{metaData};
-                                
-                my $host = Slim::Utils::Network::serverAddr();
+				my $host = Slim::Utils::Network::serverAddr();
 				my $url  = "http://$host:$conn->{iport}/" . md5_hex($req->content) . "/cover.$ext";
-				$metaData->{cover} = $url;
-				$metaData->{icon} = $url;
+				
+				$metadata->{cover} = $url;
+				$metadata->{icon} = $url;
 				$conn->{cover} = $req->content;
 				$conn->{coverType} = $req->header( 'Content-Type' );
+				
+				$client->master->currentPlaylistUpdateTime( Time::HiRes::time() );
+				Slim::Control::Request::notifyFromArray( $client->master, ['newmetadata'] );  
 				      								
 				$log->debug( "IMAGE DATA received, sending to: ", $url );
+			} elsif ( $req->header( 'Content-Type' ) eq "image/none" ) {
+            	$metadata->{cover} = '';
+				$metadata->{icon} = '';
 				
-				notifyUpdate($conn->{player}, $metaData);
-			}
-			elsif ( $req->header( 'Content-Type' ) eq "image/none" ) {
-				my $metaData = $conn->{metaData};
-                                
-            	$metaData->{cover} = '';
-				$metaData->{icon} = '';
-				
-				notifyUpdate($conn->{player}, $metaData);
-			}
-			
-            else {
+				$client->master->currentPlaylistUpdateTime( Time::HiRes::time() );
+				Slim::Control::Request::notifyFromArray( $client->master, ['newmetadata'] );  
+			} else {
                 $log->error( "Unknown content-type: \"" . $req->header( 'Content-Type' ) . "\"" );
             }
             last;
