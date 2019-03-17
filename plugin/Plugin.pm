@@ -92,6 +92,7 @@ $prefs->init({
 	latency => 1000,
 	http_latency => 2000,
 	codec => 'flc',
+	http_fill => 1,
 });
 
 my $shairtunes_helper;
@@ -812,7 +813,7 @@ sub conn_handle_request {
                 fmtp  => $conn->{fmtp},
                 cport => $cport,
                 tport => $tport,
-				latencies => $prefs->get('latency') . ':' . $prefs->get('http_latency'),
+				latencies => $prefs->get('latency') . ':' . $prefs->get('http_latency') . ($prefs->get('http_fill') ? ':f' : ''),
 				codec => $prefs->get('codec'),
                 );
 				
@@ -899,7 +900,8 @@ sub conn_handle_request {
 			
 			$resp->header( 'Audio-Latency', '44100' );
 			
-			my ($seqno, $rtptime) = $req->header('RTP-Info') =~ m|seq=([^;]+);rtptime=([^;]+)|i;
+			my ($seqno, $rtptime) = (0, 0);
+			($seqno, $rtptime) = $req->header('RTP-Info') =~ m|seq=([^;]+);rtptime=([^;]+)|i if $req->header('RTP-Info');
 			send ($conn->{decoder_ipc}, "record $seqno $rtptime\n", 0);
 			$log->info("Record from $seqno, $rtptime");
 

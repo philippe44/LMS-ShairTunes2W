@@ -18,7 +18,7 @@ sub page {
 	return 'plugins/ShairTunes2W/settings/basic.html';
 }
 
-my @bool  = qw(squeezelite drift syncVolume);
+my @bool  = qw(squeezelite drift syncVolume http_fill);
 
 sub prefs {
 	return (preferences('plugin.shairtunes'), (qw(bufferThreshold codec loglevel latency http_latency), @bool) );

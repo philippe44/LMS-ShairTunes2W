@@ -16,6 +16,11 @@ note:
 		cpan MIK/CryptX-0.060.tar.gz
 		(on Solaris, need to specify mirror -M https://cpan.metacpan.org)
 
+0.107.0
+ - silence frames count on http reconnect shall be 0 when already sending silence
+ - limit packet recovery to max of rtp latency and http delay
+ - misc network congestion corrections
+
 0.106.0
  - (p) duration & position handling correction
  - (p) use 'load' on RECORD instead of 'play'
@@ -23,6 +28,9 @@ note:
  - disable http range response (LMS requests range with flac)
  - send silence frames as soon as playtime reached to ensure continuous HTTP stream
  - discriminate FLUSH send at start to clean pipe from FLUSH used to stop playback using RECORD values and timer
+ - resend timeout was wrong (in http thread)
+ - silence frames count on http reconnect shall be 0 when already sending silence
+ - limit packet recovery to max of rtp latency and http delay
 		
 0.105.3
  - encode playername in hw_addr as well		

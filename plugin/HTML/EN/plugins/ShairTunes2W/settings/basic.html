@@ -30,6 +30,8 @@
 		<input name="pref_latency" id="pref_latency" type="stdedit" value="[% prefs.pref_latency %]" size="4" >
 		&nbsp&nbsp[% "PLUGIN_SHAIRTUNES2_HTTPLATENCY" | string %]&nbsp
 		<input name="pref_http_latency" id="pref_http_latency" type="stdedit" value="[% prefs.pref_http_latency %]" size="4" >
+		&nbsp[% "PLUGIN_SHAIRTUNES2_HTTPFILL" | string %]&nbsp
+		<input name="pref_http_fill" id="pref_http_fill" type="checkbox" [% IF prefs.pref_http_fill %] checked [% END %]>
 	[% END %]
 	
 	[% WRAPPER setting title="PLUGIN_SHAIRTUNES2_DRIFT" desc="PLUGIN_SHAIRTUNES2_DRIFT_DESC" %]
