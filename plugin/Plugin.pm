@@ -992,6 +992,7 @@ sub conn_handle_request {
 											my $song = $client->playingSong;		
 											$song->duration( $duration );
 											$song->startOffset( $position - $client->master->songElapsedSeconds + 1 );
+											Slim::Control::Request::notifyFromArray($client, ['newmetadata']);	
 										} );
 																				
                     $log->debug( "Duration: " . $duration . "; Position: " . $position );

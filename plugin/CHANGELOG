@@ -16,6 +16,9 @@ note:
 		cpan MIK/CryptX-0.060.tar.gz
 		(on Solaris, need to specify mirror -M https://cpan.metacpan.org)
 
+0.107.1
+ - notify for metadata update when receicing a progress indicator
+ 
 0.107.0
  - silence frames count on http reconnect shall be 0 when already sending silence
  - limit packet recovery to max of rtp latency and http delay
