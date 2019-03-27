@@ -985,7 +985,8 @@ sub conn_handle_request {
                     my $duration = ( $end - $start ) / $samplingRate;
 
 					# this is likely a bridge, so duration shall be set to 0 (live stream)
-					$duration = 0 if ($client->model =~ /squeezelite/ && !$client->firmware) ;
+					$duration = 0 if ($client->model =~ /squeezelite/ && !$client->firmware);
+					$metadata->{duration} = $duration;
 
 					# the song might not be valid yet, so wait a bit (can't find a better solution)
 					Slim::Utils::Timers::setTimer(undef, time() + 1, sub { 
