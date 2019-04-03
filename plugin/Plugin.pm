@@ -285,7 +285,7 @@ sub republishPlayers {
 	# then re-publish all authorized
 	foreach my $client (Slim::Player::Client::clients()) {
 		next if !($prefs->get($client->id) // 1);
-		next if $client->modelName() =~ /SqueezeLite/ && !$client->firmware && !$prefs->get('squeezelite');
+		next if ($client->model =~ /bridge/ || ($client->model =~ /squeezelite/ && !$client->firmware)) && !$prefs->get('squeezelite');
 		addPlayer($client);
 	}
 }
@@ -324,7 +324,7 @@ sub playerSubscriptionChange {
     $log->debug( "request=$reqstr client=$clientname" );
 	
 	return if !($prefs->get($client->id) // 1);
-	return if $client->modelName() =~ /SqueezeLite/ && !$client->firmware && !$prefs->get('squeezelite');
+	return if ($client->model() =~/bridge/ || ($client->modelName() =~ /squeezelite/ && !$client->firmware)) && !$prefs->get('squeezelite');
 		
     if ( ( $reqstr eq "client new" ) || ( $reqstr eq "client reconnect" ) ) {
 		addPlayer($client);
@@ -985,7 +985,7 @@ sub conn_handle_request {
                     my $duration = ( $end - $start ) / $samplingRate;
 
 					# this is likely a bridge, so duration shall be set to 0 (live stream)
-					$duration = 0 if ($client->model =~ /squeezelite/ && !$client->firmware);
+					$duration = 0 if $client->model =~ /bridge/ || ($client->model =~ /squeezelite/ && !$client->firmware);
 					$metadata->{duration} = $duration;
 
 					# the song might not be valid yet, so wait a bit (can't find a better solution)

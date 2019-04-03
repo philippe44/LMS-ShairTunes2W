@@ -16,6 +16,9 @@ note:
 		cpan MIK/CryptX-0.060.tar.gz
 		(on Solaris, need to specify mirror -M https://cpan.metacpan.org)
 
+0.107.2
+ - add 'bridge' to excluded models
+ 
 0.107.1
  - notify for metadata update when receiving a progress indicator
  - set duration in metadata as well
