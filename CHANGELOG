@@ -16,6 +16,9 @@ note:
 		cpan MIK/CryptX-0.060.tar.gz
 		(on Solaris, need to specify mirror -M https://cpan.metacpan.org)
 
+0.107.3
+ - ancient 32 bits overflow bug in expected playtime calculation
+
 0.107.2
  - add 'bridge' to excluded models
  
