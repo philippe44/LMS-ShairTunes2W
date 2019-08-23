@@ -16,6 +16,10 @@ note:
 		cpan MIK/CryptX-0.060.tar.gz
 		(on Solaris, need to specify mirror -M https://cpan.metacpan.org)
 
+0.107.5
+ - UDP socket don't need shutdown
+ - destroy ab_mutex on thread termination
+ 
 0.107.4
  - revert previous change
  - promote buf_fil to s16 before arithmetic
