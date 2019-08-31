@@ -16,9 +16,11 @@ note:
 		cpan MIK/CryptX-0.060.tar.gz
 		(on Solaris, need to specify mirror -M https://cpan.metacpan.org)
 
-
+0.107.7
+ - revert buffer indexing modifications
+ 
 0.107.6
- - correct a key problem with circula buffer management and fill estimation
+ - correct a key problem with circular buffer management and fill estimation
  - integer promotion caused u16 comparisons to be wrong
 
 0.107.5
