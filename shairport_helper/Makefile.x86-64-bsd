@@ -1,0 +1,8 @@
+CFLAGS  ?= -Wall -fPIC -ggdb -m64 -O2 $(OPTS) -I$(INCLUDE) $(DEFINES)
+LDFLAGS ?= -s -m64 -lpthread -lcrypto -ldl -lm -lrt -L. -static
+
+OBJ			= bin/x86-64-bsd
+EXECUTABLE 	= bin/shairport_helper-x64-bsd
+
+include Makefile
+
