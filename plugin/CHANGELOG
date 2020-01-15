@@ -16,6 +16,9 @@ note:
 		cpan MIK/CryptX-0.060.tar.gz
 		(on Solaris, need to specify mirror -M https://cpan.metacpan.org)
 
+0.108.0
+ - LMS version update
+
 0.107.7
  - revert buffer indexing modifications
  
