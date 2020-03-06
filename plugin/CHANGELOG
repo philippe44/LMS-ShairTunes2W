@@ -18,6 +18,7 @@ note:
 
 0.108.0
  - LMS version update
+ - add FreeBSD
 
 0.107.7
  - revert buffer indexing modifications

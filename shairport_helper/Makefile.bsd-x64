@@ -1,0 +1,8 @@
+CC=x86_64-cross-freebsd11-gcc
+CFLAGS  ?= -Wall -fPIC -ggdb -m64 -O2 $(OPTS) -I$(INCLUDE) $(DEFINES)
+LDFLAGS ?= -s -m64 -lpthread -lcrypto -lm -lrt -L. -static
+
+OBJ			= bin/bsd-x64
+EXECUTABLE 	= bin/shairport_helper-bsd-x64
+
+include Makefile
