@@ -51,7 +51,7 @@ static int 		sock_printf(int sock,...);
 static char*	sock_gets(int sock, char *str, int n);
 static void 	print_usage(int argc, char **argv);
 
-const char *version = "0.107.7";
+const char *version = "0.108.1";
 
 short unsigned cport = 0, tport = 0, ipc_port = 0;
 static int ipc_sock = -1;
@@ -308,7 +308,7 @@ int main(int argc, char **argv) {
 				unsigned rtptime;
 
 				sscanf(line, "flush %hu %u", &seqno, &rtptime);
-				if (hairtunes_flush(ht.ctx, seqno, rtptime)) {
+				if (hairtunes_flush(ht.ctx, seqno, rtptime, false)) {
 					sock_printf(ipc_sock, "flushed %hu %u\n", seqno, rtptime);
 				}
 			}

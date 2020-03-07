@@ -462,7 +462,7 @@ void hairtunes_end(hairtunes_t *ctx)
 }
 
 /*---------------------------------------------------------------------------*/
-bool hairtunes_flush(hairtunes_t *ctx, unsigned short seqno, unsigned int rtptime)
+bool hairtunes_flush(hairtunes_t *ctx, unsigned short seqno, unsigned int rtptime, bool exit_locked)
 {
 	bool rc = true;
 	u32_t now = gettime_ms();
@@ -478,12 +478,18 @@ bool hairtunes_flush(hairtunes_t *ctx, unsigned short seqno, unsigned int rtptim
 		ctx->synchro.first = false;
 		ctx->http_ready = false;
 		encoder_close(ctx);
-		pthread_mutex_unlock(&ctx->ab_mutex);
+		if (!exit_locked) pthread_mutex_unlock(&ctx->ab_mutex);
 	}
 
 	LOG_INFO("[%p]: flush %hu %u", ctx, seqno, rtptime);
 
 	return rc;
+}
+
+/*---------------------------------------------------------------------------*/
+void hairtunes_flush_release(hairtunes_t *ctx)
+{
+	pthread_mutex_unlock(&ctx->ab_mutex);
 }
 
 /*---------------------------------------------------------------------------*/
@@ -749,7 +755,7 @@ static void *rtp_thread_func(void *arg) {
 				u64_t remote 	  =(((u64_t) ntohl(*(u32_t*)(pktp+16))) << 32) + ntohl(*(u32_t*)(pktp+20));
 				u32_t roundtrip   = gettime_ms() - reference;
 
-				// better discard sync packets when roundtrip is suspicious
+				// better discard sync packets when roundtrip is suspicious and get another one
 				if (roundtrip > 100) {
 					LOG_WARN("[%p]: discarding NTP roundtrip of %u ms", ctx, roundtrip);
 					break;
@@ -1282,6 +1288,9 @@ static bool handle_http(hairtunes_t *ctx, int sock)
 	NFREE(str);
 	kd_free(resp);
 	kd_free(headers);
+
+	// nothing else to do if this is a HEAD request
+	if (strstr(method, "HEAD")) return false;
 
 	// need to re-send the range
 	if (offset) {
