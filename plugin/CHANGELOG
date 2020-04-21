@@ -16,6 +16,9 @@ note:
 		cpan MIK/CryptX-0.060.tar.gz
 		(on Solaris, need to specify mirror -M https://cpan.metacpan.org)
 
+0.108.2
+ - memorize volume from prefs not from $client->volume() as it might be ramping up 
+ 
 0.108.1
  - backported a few non-impacting issues from RAOP and UPnP core 
  

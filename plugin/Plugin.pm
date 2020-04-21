@@ -891,7 +891,7 @@ sub conn_handle_request {
 			} );			
 
 			# save volume 
-			$client->pluginData(volume => $client->volume);
+			$client->pluginData(volume => $sprefs->client($client)->get('volume'));
 			
 			$log->info( "Playing url: $conn->{url}" );
 			
