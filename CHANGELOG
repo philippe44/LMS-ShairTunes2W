@@ -16,6 +16,12 @@ note:
 		cpan MIK/CryptX-0.060.tar.gz
 		(on Solaris, need to specify mirror -M https://cpan.metacpan.org)
 
+0.110.0
+ - check modelName against "Bridge"
+ 
+0.109.0
+ - only check client->model instead of client->modelName
+ 
 0.108.2
  - memorize volume from prefs not from $client->volume() as it might be ramping up 
  
