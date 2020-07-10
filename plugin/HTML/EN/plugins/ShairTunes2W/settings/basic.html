@@ -59,7 +59,7 @@
 		</script>
 		
 		<select class="stdedit" id="codec_name" name="codec_name" onchange="codecchange()">
-		[% FOREACH entry IN [ ['',''], ['wav','wav'], ['flac','flc'], ['mp3', 'mp3'] ] %]
+		[% FOREACH entry IN [ ['',''], ['wave','wav'], ['flac','flc'], ['mp3', 'mp3'] ] %]
 			<option label="[% entry.0 %]" [% IF entry.1 == codec_name %]selected[% END %] value="[% entry.1 %]">
 		[% END %]
 		</select>

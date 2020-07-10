@@ -3,25 +3,18 @@ note:
 	because the lame conversion rule expects a wav file which means a header. 
 	- BEWARE OF VERSION NUMBER FOR PERL LIBS
 	- to create perl libs
-		perlbrew install --multi --64int --thread --notest -j 4 perl-x.yy.z (add -Dcc=gcc on solaris)
-		source ~/perl5/perlbrew/etc/bashrc
+		perlbrew install --multi --64int --thread --notest perl-x.yy.z (add -Dcc=gcc on solaris)
 		perlbrew switch perl-x.yy.z
 		
-		cpan -T Crypt::OpenSSL::RSA
-		cpan -T Crypt::Ed25519
-		cpan -T CryptX
+		cpan Crypt::OpenSSL::RSA
+		capn Crypt::Ed25519
+		cpan CryptX
 		
 		with version number:
 		
-		cpan -T TODDR/Crypt-OpenSSL-RSA-0.30.tar.gz
-		cpan -T MIK/CryptX-0.060.tar.gz
-		(on Solaris and a few debian - arm & aarch64 now, need to specify mirror -M https://cpan.metacpan.org before the lib name)
-
-0.112.0
- - add freebsd crypto for 5.28 and 5.30
- 
-0.111.0
- - add crypto for perl 5.30
+		cpan TODDR/Crypt-OpenSSL-RSA-0.30.tar.gz
+		cpan MIK/CryptX-0.060.tar.gz
+		(on Solaris, need to specify mirror -M https://cpan.metacpan.org)
 
 0.110.0
  - check modelName against "Bridge"
