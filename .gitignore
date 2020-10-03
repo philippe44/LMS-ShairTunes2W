@@ -51,7 +51,7 @@ test/
 misc/
 *.o
 *.obj
-/shairport_helper/bin/Win32/Debug
+/application/bin/Win32/Debug
 __history
 /repo*.xml
 /package*.*
