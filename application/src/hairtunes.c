@@ -874,7 +874,7 @@ static bool rtp_request_resend(hairtunes_t *ctx, seq_t first, seq_t last) {
 	req[1] = 0x55|0x80;  // Apple 'resend'
 	*(u16_t*)(req+2) = htons(1);  // our seqnum
 	*(u16_t*)(req+4) = htons(first);  // missed seqnum
-	*(u16_t*)(req+6) = htons(last-first+1);  // count
+	*(u16_t*)(req+6) = htons((seq_t) (last-first)+1);  // count
 
 	ctx->rtp_host.sin_port = htons(ctx->rtp_sockets[CONTROL].rport);
 
@@ -1249,12 +1249,17 @@ static bool handle_http(hairtunes_t *ctx, int sock)
 #else
 		sscanf(str, "bytes=%zu", &offset);
 #endif
+        offset = ctx->http_count ? min(offset, ctx->http_count - 1) : 0;
 		if (offset) {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-result"
 			asprintf(&str, "bytes %zu-%zu/*", offset, ctx->http_count);
-#pragma GCC diagnostic pop            }
+#pragma GCC diagnostic pop
+#ifdef CHUNKED
 			head = "HTTP/1.1 206 Partial Content";
+#else
+            head = "HTTP/1.0 206 Partial Content";
+#endif
 			kd_add(resp, "Content-Range", str);
 			free(str);
 		}

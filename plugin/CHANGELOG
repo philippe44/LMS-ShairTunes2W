@@ -17,6 +17,9 @@ note:
 		cpan -T MIK/CryptX-0.060.tar.gz
 		(on Solaris and a few debian - arm & aarch64 now, need to specify mirror -M https://cpan.metacpan.org before the lib name)
 
+0.112.0
+ - better handling of partial content in HTTP 1.1 and over-count offset        
+
 0.111.0
  - add crypto for perl 5.30
 
