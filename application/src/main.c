@@ -51,7 +51,7 @@ static int 		sock_printf(int sock,...);
 static char*	sock_gets(int sock, char *str, int n);
 static void 	print_usage(int argc, char **argv);
 
-const char *version = "0.112.0";
+const char *version = "0.112.2";
 
 short unsigned cport = 0, tport = 0, ipc_port = 0;
 static int ipc_sock = -1;
@@ -244,7 +244,7 @@ int main(int argc, char **argv) {
 			++argv;
 			if (!strcasecmp(*argv, "pcm")) encoder.codec = CODEC_PCM;
 			else if (!strcasecmp(*argv, "wav")) encoder.codec = CODEC_WAV;
-			else if (stristr(*argv, "mp3")) {
+			else if (strcasestr(*argv, "mp3")) {
 				encoder.codec = CODEC_MP3;
 				if (strchr(*argv, ':')) encoder.mp3.bitrate = atoi(strchr(*argv, ':') + 1);
 			} else {

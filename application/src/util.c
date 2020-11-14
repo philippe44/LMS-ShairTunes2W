@@ -947,25 +947,22 @@ char *strlwr(char *str)
 }
 #endif
 
-
+#if WIN
 /*---------------------------------------------------------------------------*/
-char *stristr(char *s1, char *s2)
+char *strcasestr(const char *haystack, const char *needle)
 {
- char *s1_lwr, *s2_lwr, *p;
+	char *haystack_lwr, *needle_lwr, *p;
 
- if (!s1 || !s2) return NULL;
+	haystack_lwr = strlwr(strdup(haystack));
+	needle_lwr = strlwr(strdup(needle));
+	p = strstr(haystack_lwr, needle_lwr);
 
- s1_lwr = strlwr(strdup(s1));
- s2_lwr = strlwr(strdup(s2));
- p = strstr(s1_lwr, s2_lwr);
-
- if (p) p = s1 + (p - s1_lwr);
- free(s1_lwr);
- free(s2_lwr);
- return p;
+	if (p) p = haystack + (p - haystack_lwr);
+	free(haystack_lwr);
+	free(needle_lwr);
+	return p;
 }
 
-#if WIN
 /*---------------------------------------------------------------------------*/
 char* strsep(char** stringp, const char* delim)
 {
@@ -992,32 +989,18 @@ char *strndup(const char *s, size_t n) {
 
 	return p;
 }
-
-/*---------------------------------------------------------------------------*/
-char *strcasestr(const char *haystack, const char *needle)
-{
- char *haystack_lwr = strlwr(strdup(haystack));
- char *needle_lwr = strlwr(strdup(needle));
- char *p = strstr(haystack_lwr, needle_lwr);
-
- if (p) p = haystack + (p - haystack_lwr);
- free(haystack_lwr);
- free(needle_lwr);
- return p;
-}
 #endif
-
 
 /*----------------------------------------------------------------------------*/
 char* strextract(char *s1, char *beg, char *end)
 {
 	char *p1, *p2, *res;
 
-	p1 = stristr(s1, beg);
+	p1 = strcasestr(s1, beg);
 	if (!p1) return NULL;
 
 	p1 += strlen(beg);
-	p2 = stristr(p1, end);
+	p2 = strcasestr(p1, end);
 	if (!p2) return strdup(p1);
 
 	res = malloc(p2 - p1 + 1);
@@ -1115,7 +1098,7 @@ bool http_parse(int sock, char *method, key_data_t *rkd, char **body, int *len)
 
 	while (read_line(sock, line, sizeof(line), timeout) > 0) {
 
-		LOG_SDEBUG("sock: %u, received %s", line);
+		LOG_SDEBUG("sock: %u, received %s", sock, line);
 
 		// line folding should be deprecated
 		if (i && rkd[i].key && (line[0] == ' ' || line[0] == '\t')) {
@@ -1423,7 +1406,7 @@ bool XMLMatchDocumentItem(IXML_Document *doc, const char *item, const char *s, b
 		textNode = ixmlNode_getFirstChild(tmpNode);
 		if (!textNode) continue;
 		value = ixmlNode_getNodeValue(textNode);
-		if ((match && !strcmp(value, s)) || (!match && strcasestr(value, s))) {
+		if ((match && !strcmp(value, s)) || (!match && value && strcasestr(value, s))) {
 			ret = true;
 			break;
 		}
