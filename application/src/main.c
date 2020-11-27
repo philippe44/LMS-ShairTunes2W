@@ -53,7 +53,8 @@ static void 	print_usage(int argc, char **argv);
 
 const char *version = "0.112.2";
 
-short unsigned cport = 0, tport = 0, ipc_port = 0;
+static unsigned short cport, tport, ipc_port;
+static unsigned short port_base, port_range;
 static int ipc_sock = -1;
 
 log_level 			raop_loglevel = lERROR;
@@ -179,6 +180,7 @@ static void print_usage(int argc, char **argv) {
 		   "[sync]\n"
    		   "[drift]\n"
 		   "[latency <airplay max ms hold[:http ms delay]>]\n"
+		   "[ports <start[:<range|128>]>]\n"
 		   );
 }
 
@@ -225,6 +227,10 @@ int main(int argc, char **argv) {
 		} else
 		if (!strcasecmp(arg, "latencies")) {
 			latencies = *++argv;
+		} else
+		if (!strcasecmp(arg, "ports")) {
+			sscanf(*++argv, "%hu:%hu", &port_base, &port_range);
+			if (!port_range) port_range = 32;
 		} else
 		if (!strcasecmp(arg, "socket")) {
 			ipc_port = atoi(*++argv);
@@ -281,7 +287,8 @@ int main(int argc, char **argv) {
 		int in_line = 0, n;
 
 		ht = hairtunes_init(host_addr, encoder, use_sync, drift, false, latencies,
-							aeskey, aesiv, fmtp, cport, tport, NULL, hairtunes_cb);
+							aeskey, aesiv, fmtp, cport, tport, NULL, hairtunes_cb,
+							port_base, port_range);
 
 		sock_printf(ipc_sock, "port: %d\n", ht.aport);
 		sock_printf(ipc_sock, "cport: %d\n", ht.cport);

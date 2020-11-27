@@ -13,6 +13,13 @@
 		&nbsp&nbsp<input name="wipe" type="submit" value=[% "PLUGIN_SHAIRTUNES2_WIPE" | string %]>
 	[% END %]
 	
+	[% WRAPPER setting title="PLUGIN_SHAIRTUNES2_INBOUNDPORT" desc="PLUGIN_SHAIRTUNES2_INBOUNDPORT_DESC" %]
+		[% "PLUGIN_SHAIRTUNES2_INBOUNDBASE" | string %]&nbsp
+		<input name="pref_port_base" id="pref_port_base" type="stdedit" value="[% prefs.pref_port_base %]" size="4">
+		&nbsp&nbsp[% "PLUGIN_SHAIRTUNES2_INBOUNDCOUNT" | string %]&nbsp
+		<input name="pref_port_count" id="pref_port_count" type="number" min="0" max="128" step="8" value="[% prefs.pref_port_count %]">
+	[% END %]
+	
 	[% WRAPPER setting title="PLUGIN_SHAIRTUNES2_LOGLEVEL" desc="PLUGIN_SHAIRTUNES2_LOGLEVEL_DESC" %]
 		<select class="stdedit" name="pref_loglevel" id="pref_loglevel">
 		[% FOREACH entry IN [ ['none',''], ['error','error'], ['warning','warn'], ['info','info'], ['debug','debug'], ['extra debug','sdebug'] ] %]

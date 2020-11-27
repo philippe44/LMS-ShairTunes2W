@@ -93,6 +93,7 @@ $prefs->init({
 	http_latency => 2000,
 	codec => 'flc',
 	http_fill => 1,
+	port_base => '',
 });
 
 my $shairtunes_helper;
@@ -817,6 +818,7 @@ sub conn_handle_request {
 				codec => $prefs->get('codec'),
                 );
 				
+			push (@dec_args, "ports", $prefs->get("port_base") . ($prefs->get('port_range') ? (':' . $prefs->get('port_range')) : '')) if $prefs->get("port_base");
 			push (@dec_args, ("iv", unpack('H*', $conn->{aesiv}), "key", unpack('H*', $conn->{aeskey}))) if $conn->{aesiv} && $conn->{aeskey};
 			
 			if (my $loglevel = $prefs->get('loglevel')) {

@@ -17,6 +17,9 @@ note:
 		cpan -T MIK/CryptX-0.060.tar.gz
 		(on Solaris and a few debian - arm & aarch64 now, need to specify mirror -M https://cpan.metacpan.org before the lib name)
 
+0.120.0
+ - let user select port range		
+
 0.112.3 
  - replace stristr by strcasestr
  - tweak HTTP logs

@@ -21,7 +21,7 @@ sub page {
 my @bool  = qw(squeezelite drift syncVolume http_fill);
 
 sub prefs {
-	return (preferences('plugin.shairtunes'), (qw(bufferThreshold codec loglevel latency http_latency), @bool) );
+	return (preferences('plugin.shairtunes'), (qw(bufferThreshold codec loglevel latency http_latency port_base port_range), @bool) );
 }
 
 my $prefs = preferences('plugin.shairtunes');

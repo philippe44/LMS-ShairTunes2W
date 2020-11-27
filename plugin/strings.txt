@@ -23,6 +23,19 @@ PLUGIN_SHAIRTUNES2_BINARIES_DESC
 	EN	<br>Re-Publish will stop all ShairTunes2 clients and republish them
 	EN	<br>Wipe will kill all DNS publishers with the same name and republish ShairTunes2 client - DANGEROUS
 	
+PLUGIN_SHAIRTUNES2_INBOUNDPORT
+	EN	Inbound ports
+
+PLUGIN_SHAIRTUNES2_INBOUNDPORT_DESC
+	EN	AirPlay protocol requires three incoming ports and the built-in webserver needs another one. Set the
+	EN	base value and count (don't forget to open these in your firewall). Leave empty for automatic selection
+	
+PLUGIN_SHAIRTUNES2_INBOUNDBASE
+	EN	Base
+	
+PLUGIN_SHAIRTUNES2_INBOUNDCOUNT
+	EN	Count
+	
 PLUGIN_SHAIRTUNES2_LOGLEVEL
 	EN	Enable logging 
 	
