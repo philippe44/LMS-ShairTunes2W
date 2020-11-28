@@ -82,6 +82,7 @@ sub handler {
 	
 	$params->{'binary'} = $prefs->get('helper') || Plugins::ShairTunes2W::Utils::helperBinary();
 	$params->{'binaries'} = [ '', Plugins::ShairTunes2W::Utils::helperBinaries() ];
+	$params->{'codec'} = $prefs->get('codec'); 
 	
 	$callback->($client, $params, $class->SUPER::handler($client, $params), @args);
 }
@@ -90,7 +91,7 @@ sub beforeRender {
 	my ($class, $params, $client) = @_;
 		
 	$prefs->get('codec') =~ m|([^:]+):*(\d*)|i;
-	
+
 	$params->{codec_name} = $1;
 	$params->{codec_level} = $2 if defined $2 && $1 eq 'flc';
 	$params->{codec_bitrate} = $2 if $2 && $1 eq 'mp3';
