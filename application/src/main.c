@@ -51,7 +51,7 @@ static int 		sock_printf(int sock,...);
 static char*	sock_gets(int sock, char *str, int n);
 static void 	print_usage(int argc, char **argv);
 
-const char *version = "0.112.2";
+const char *version = "0.120.2";
 
 static unsigned short cport, tport, ipc_port;
 static unsigned short port_base, port_range;

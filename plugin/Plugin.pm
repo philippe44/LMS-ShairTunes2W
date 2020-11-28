@@ -381,26 +381,25 @@ sub removePlayer {
 sub createListenPort {
 	my $max = shift || 1;
     my $listen;
+	my $range = $prefs->get('port_base') ? ($prefs->get('port_range') || 128) : 1;
+	my $offset = rand($range);
+	my $count;
+	
+	do {
+		$listen = new IO::Socket::INET(
+			Listen    	=> $max,
+			ReuseAddr	=> 1,
+			Proto    	=> 'tcp',
+			LocalPort	=> $prefs->get('port_base') + (($offset + $count++) % $range),
+		);
+	} until	($listen || $count >= $range);
 
-=comment	
-    $listen = new IO::Socket::INET6(
-        Listen    => $max || 1,
-        Domain    => AF_INET6,
-        ReuseAddr => 1,
-        Proto     => 'tcp',
-    );
-=cut	
-
-	$listen = new IO::Socket::INET(
-        Listen    => $max,
-	    ReuseAddr => 1,
-		Proto     => 'tcp',
-    );
-
-    if ( !$listen ) {
-        $log->error( "Socket creation failed!: $!" );
-    }
-
+	if ($listen) {
+		$log->info( "Created listener on port ", $listen->sockport );
+	} else {
+		$log->error( "Listener creation failed!: $!" );
+	}	
+	
     return $listen;
 }
 

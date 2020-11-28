@@ -663,7 +663,7 @@ static void *rtp_thread_func(void *arg) {
 
 	for (i = 0; i < 3; i++) {
 		if (ctx->rtp_sockets[i].sock > sock) sock = ctx->rtp_sockets[i].sock;
-		// send synchro requets 3 times
+		// send synchro requests 3 times
 		ntp_sent = rtp_request_timing(ctx);
 	}
 
