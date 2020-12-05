@@ -16,6 +16,9 @@ note:
 		cpan -T TODDR/Crypt-OpenSSL-RSA-0.30.tar.gz
 		cpan -T MIK/CryptX-0.060.tar.gz
 		(on Solaris and a few debian - arm & aarch64 now, need to specify mirror -M https://cpan.metacpan.org before the lib name)
+		
+0.120.4
+ - disconnecting client was not using clientid so no actual client was deleted, potentially causing socket exhaustion		
 
 0.120.3
  - finally sorted out why "codec" was being erased in settings => any preferenece that is not "represented/set" in HTML must be re-written

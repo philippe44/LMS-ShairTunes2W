@@ -317,12 +317,16 @@ sub stop_mDNS {
 
 sub playerSubscriptionChange {
     my $request = shift;
-    my $client  = $request->client;
-
     my $reqstr     = $request->getRequestString();
-    my $clientname = $client->name();
-
-    $log->debug( "request=$reqstr client=$clientname" );
+	my $client = $request->client || Slim::Player::Client::getClient($request->clientid);
+	my $clientname = $client ? $client->name() : 'N/A';
+	
+    $log->info( "request=$reqstr client=", $request->clientid, " ($clientname)" );
+	
+	unless ($client) {
+		$log->warn("Missing client");
+		return;
+	}
 	
 	return if !($prefs->get($client->id) // 1);
 	return if ($client->modelName =~/Bridge/ || ($client->model =~ /squeezelite/ && !$client->firmware)) && !$prefs->get('squeezelite');
@@ -338,6 +342,8 @@ sub addPlayer {
 	my $client = shift;
 	my $name = $client->name;
     
+	return if $clients{$client};
+	
     $sockets{$client} = createListenPort(1);
     $players{ $sockets{$client} } = $client;
 	
@@ -356,6 +362,8 @@ sub addPlayer {
 sub removePlayer {	
 	my $client = shift;
 	my $name = $client->name;
+	
+	return unless $clients{$client};
 	
     $log->info( "publisher for $name PID $clients{$client} will be terminated." );
     $clients{$client}->die();
@@ -390,7 +398,7 @@ sub createListenPort {
 			Listen    	=> $max,
 			ReuseAddr	=> 1,
 			Proto    	=> 'tcp',
-			LocalPort	=> $prefs->get('port_base') + (($offset + $count++) % $range),
+			LocalPort	=> ($prefs->get('port_base') || 0) + (($offset + $count++) % $range),
 		);
 	} until	($listen || $count >= $range);
 
