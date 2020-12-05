@@ -8,6 +8,7 @@ use base qw(Slim::Plugin::OPMLBased);
 use Config;
 use File::Spec;
 use File::Spec::Functions;
+use File::Basename qw(basename);
 use Encode qw(encode);
 
 # add libraries that might be missing at end of @INC unless we need a specific version
@@ -106,10 +107,9 @@ my $rsa;
 
 my $samplingRate = 44100;  
   
-my %clients     = (); # ( [ LMSclient ]      => [mDNSPID],       ...)
-my %sockets     = (); # ( [ LMSclient ]      => [masterINETsock], ...)
-my %players     = (); # ( [ masterINETsock ] => [LMSclient],      ...)
-my %connections = (); # ( [ slaveINETSock ]  => ('socket' => [MasterINETSock], 'player' => [LMSclient],
+my %daemons     = (); # ( [ clientId ]       => [mDNSPID],       ...)
+my %listeners   = (); # ( [ clientId ]       => [masterINETsock], ...)
+my %connections = (); # ( [ slaveINETSock ]  => ('socket' => [MasterINETSock], 'player' => [client],
 					  #							 'url' => [URL where LMS get the audio], 
 					  #							 'decoder_ipc' => [INETSockIn], 'decoder_pid' => [helper],
 					  #							 'poweroff', 'iport' => [image proxy]
@@ -131,12 +131,10 @@ $prefs->migrate(2, sub {
 	$prefs->remove('useFLAC');
 });
 
-
 sub logFile {
 	my $id = shift;
 	return catdir(Slim::Utils::OSDetect::dirsFor('log'), "shairtunes2-$id.log");
 }
-
 
 sub volumeChange {
 	my $request = shift;
@@ -273,19 +271,16 @@ sub getDisplayName {
 
 sub republishPlayers {
 	# first stop all existing players	
-	foreach my $client (keys %clients) {
-		next if (!defined($clients{$client}));
-				
-		my $player = $players{$sockets{$client}};
-		next if !$player;
-		removePlayer($player);
+	foreach my $id (keys %daemons) {
+		next unless defined $daemons{$id};
+		removePlayer($id);
 	}	
 	
-	%clients = %sockets = %players = %connections = ();
+	%daemons = %listeners = %connections = ();
 	
 	# then re-publish all authorized
 	foreach my $client (Slim::Player::Client::clients()) {
-		next if !($prefs->get($client->id) // 1);
+		next unless $prefs->get($client->id) // 1;
 		next if ($client->modelName =~ /Bridge/ || ($client->model =~ /squeezelite/ && !$client->firmware)) && !$prefs->get('squeezelite');
 		addPlayer($client);
 	}
@@ -309,7 +304,7 @@ sub stop_mDNS {
 	my $os = Slim::Utils::OSDetect::details();
 		
 	if ($os->{'os'} eq 'Windows') {
-		system("taskkill /F /IM $mDNShelper /T");
+		system("taskkill /F /T /IM ". basename($mDNShelper));
 	} else {	
 		system("killall $mDNShelper");
 	}	
@@ -319,59 +314,59 @@ sub playerSubscriptionChange {
     my $request = shift;
     my $reqstr = $request->getRequestString();
 	my $client = $request->client;
+	my $id = $request->clientid;
 	
-	$log->info( "request=$reqstr client=$client ", $request->clientid );
+	return unless $prefs->get($id) // 1;
 	
-	unless ($client) {
-		my ($key) = grep { $players{$_}->id eq $request->clientid } keys %players;
-		$log->info("Searched client from players: ", $key ? $players{$key}->name : 'N/A');
-		return unless $key;
-		$client = $players{$key};
-	}
-
-	return if !($prefs->get($client->id) // 1);
-	return if ($client->modelName =~/Bridge/ || ($client->model =~ /squeezelite/ && !$client->firmware)) && !$prefs->get('squeezelite');
+	$log->info( "request=$reqstr client=$client ", $id );
 		
-    if ( ( $reqstr eq "client new" ) || ( $reqstr eq "client reconnect" ) ) {
+    if ( ($reqstr eq "client new" || $reqstr eq "client reconnect") &&
+		($prefs->get('squeezelite') || ($client->modelName !~ /Bridge/ && ($client->model !~ /squeezelite/ || $client->firmware)))) {
 		addPlayer($client);
     } elsif ( $reqstr eq "client disconnect" ) {
-		removePlayer($client);
+		removePlayer($id);
 	}	
 }
 
 sub addPlayer {
 	my $client = shift;
 	my $name = $client->name;
+	my $id = $client->id;
     
-	return if $clients{$client};
+	# cleanup in case of reconnect with unattached players
+	removePlayer($id) if $daemons{$id};
 	
-    $sockets{$client} = createListenPort(1);
-    $players{ $sockets{$client} } = $client;
+	my $sock = createListenPort(1);
 	
-    if ( $sockets{$client} ) {
-         # Add us to the select loop so we get notified
-        Slim::Networking::Select::addRead( $sockets{$client}, \&handleSocketConnect );
-
-        $clients{$client} = publishPlayer( $name, "", $sockets{$client}->sockport() );
-		$log->info("create client $client with proc $clients{$client}");
+    if ( $sock ) {
+	    # Add ourself to the select loop so we get notified
+		$listeners{$id} = $sock;
+        Slim::Networking::Select::addRead( $sock, \&handleSocketConnect );
+		
+		# now we can publish ourself
+        $daemons{$id} = publishPlayer( $name, "", $sock->sockport() );
+		$log->info("create client $client with proc $daemons{$id}");
     } else {
         $log->error( "could not create ShairTunes socket for $name" );
-        delete $sockets{$client};
     }
 }
 
 sub removePlayer {	
-	my $client = shift;
-	my $name = $client->name;
+	my $id = shift;
+	my $client = Slim::Player::Client::getClient($id);		
 	
-	return unless $clients{$client};
+	return unless $daemons{$id};
 	
-    $log->info( "publisher for $name PID $clients{$client} will be terminated." );
-    $clients{$client}->die();
-    Slim::Networking::Select::removeRead( $sockets{$client} );
-	my ($slave) = grep { $connections{$_}->{player} eq $client } keys %connections;
-	if (defined $slave) {
-		my $conn = $connections{$slave};
+    $log->info( "publisher for ", $client ? $client->name : 'n/a', " with $id, PID $daemons{$id} will be terminated." );
+	
+    $daemons{$id}->die();
+	delete $daemons{$id};
+	
+    Slim::Networking::Select::removeRead( $listeners{$id} );
+	my ($sock) = grep { $connections{$_}->{player}->id eq $id } keys %connections;
+
+	if ($sock) {
+		my $conn = $connections{$sock};
 			
 		$log->debug("Cleaning connection: $conn->{self}");
 		cleanHelper( $conn );
@@ -379,12 +374,11 @@ sub removePlayer {
 		Slim::Networking::Select::removeRead( $conn->{cover_fh} );
 		close $conn->{self};
 		close $conn->{cover_fh};
-		delete $connections{$slave};
+		delete $connections{$sock};
 	}	
-	delete $players{ $sockets{$client} };
-	close $sockets{$client};
-	delete $sockets{$client};
-	delete $clients{$client};
+	
+	close $listeners{$id};
+	delete $listeners{$id};
  }
 
 sub createListenPort {
@@ -413,11 +407,10 @@ sub createListenPort {
 }
 
 sub revoke_publishPlayers {
-
-	foreach my $client (keys %clients) {
-		next if (!defined($clients{$client}));
-		$log->info( "Stop old publish players services:", $clients{$client}->pid()  );
-		$clients{$client}->die();
+	foreach my $id (keys %daemons) {
+		next unless defined $daemons{$id};
+		$log->info( "Stop old publish players services:", $daemons{$id}->pid()  );
+		$daemons{$id}->die();
     }
 }
 
@@ -478,7 +471,8 @@ sub publishPlayer {
 
 sub handleSocketConnect {
     my $socket = shift;
-    my $player = $players{$socket};
+	my ($id) = grep { $listeners{$_} eq $socket } keys %listeners;
+	my $player = Slim::Player::Client::getClient($id);
 
     my $new = $socket->accept;
 	
@@ -700,7 +694,7 @@ sub cleanHelper {
 		$conn->{decoder_pid}->die;
 		
 		# disconnect from volume 
-		Slim::Control::Request::unsubscribe( \&volumeChange, $conn->{player} );
+		Slim::Control::Request::unsubscribe( \&volumeChange, Slim::Player::Client::getClient($conn->{id}) );
 	}	
 }
 
