@@ -20,7 +20,8 @@ note:
 0.200.0	
  - major refactor to simplify data structure
  - delete properly players even when there is no client
- - remove zombie client before reconnecting 
+ - remove zombie client before reconnecting
+ - remove use of 'codec' as a parameter in settings 
 		
 0.120.5
  - no quite...

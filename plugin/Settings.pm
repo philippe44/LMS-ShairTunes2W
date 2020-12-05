@@ -21,7 +21,7 @@ sub page {
 my @bool  = qw(squeezelite drift syncVolume http_fill);
 
 sub prefs {
-	return (preferences('plugin.shairtunes'), (qw(bufferThreshold codec loglevel latency http_latency port_base port_range), @bool) );
+	return (preferences('plugin.shairtunes'), (qw(bufferThreshold loglevel latency http_latency port_base port_range), @bool) );
 }
 
 my $prefs = preferences('plugin.shairtunes');
@@ -60,12 +60,13 @@ sub handler {
 		# special case for squeezelite so that the get below is set
 		$prefs->set('squeezelite', $params->{pref_squeezelite});
 		
-		$params->{pref_codec} = $params->{codec_name} || 'flc';
-		if ($params->{pref_codec} eq 'flc') {
-			$params->{pref_codec} .= ":$params->{codec_level}" if defined $params->{codec_level} && $params->{codec_level} ne '';
-		} elsif ($params->{pref_codec} eq 'mp3') {
-			$params->{pref_codec} .= ":$params->{codec_bitrate}" if $params->{codec_bitrate};
+		my $codec = $params->{codec_name} || 'flc';
+		if ($codec eq 'flc') {
+			$codec .= ":$params->{codec_level}" if defined $params->{codec_level} && $params->{codec_level} ne '';
+		} elsif ($codec eq 'mp3') {
+			$codec .= ":$params->{codec_bitrate}" if $params->{codec_bitrate};
 		}	
+		$prefs->set( 'codec', $codec );
 								
 		$params->{pref_bufferThreshold} = min($params->{pref_bufferThreshold}, 255);
 		$Plugins::ShairTunes2W::Utils::shairtunes_helper = Plugins::ShairTunes2W::Utils::helperPath( $params->{binary} || Plugins::ShairTunes2W::Utils::helperBinary() );
@@ -80,9 +81,9 @@ sub handler {
 
 	@{$params->{players}} = @players;
 	
-	$params->{'binary'} = $prefs->get('helper') || Plugins::ShairTunes2W::Utils::helperBinary();
-	$params->{'binaries'} = [ '', Plugins::ShairTunes2W::Utils::helperBinaries() ];
-	$params->{'codec'} = $prefs->get('codec'); 
+	$params->{binary} = $prefs->get('helper') || Plugins::ShairTunes2W::Utils::helperBinary();
+	$params->{binaries} = [ '', Plugins::ShairTunes2W::Utils::helperBinaries() ];
+	#$params->{codec} = $prefs->get('codec'); 
 	
 	$callback->($client, $params, $class->SUPER::handler($client, $params), @args);
 }
