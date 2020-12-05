@@ -317,17 +317,18 @@ sub stop_mDNS {
 
 sub playerSubscriptionChange {
     my $request = shift;
-    my $reqstr     = $request->getRequestString();
-	my $client = $request->client || Slim::Player::Client::getClient($request->clientid);
-	my $clientname = $client ? $client->name() : 'N/A';
+    my $reqstr = $request->getRequestString();
+	my $client = $request->client;
 	
-    $log->info( "request=$reqstr client=", $request->clientid, " ($clientname)" );
+	$log->info( "request=$reqstr client=$client ", $request->clientid );
 	
 	unless ($client) {
-		$log->warn("Missing client");
-		return;
+		my ($key) = grep { $players{$_}->id eq $request->clientid } keys %players;
+		$log->info("Searched client from players: ", $key ? $players{$key}->name : 'N/A');
+		return unless $key;
+		$client = $players{$key};
 	}
-	
+
 	return if !($prefs->get($client->id) // 1);
 	return if ($client->modelName =~/Bridge/ || ($client->model =~ /squeezelite/ && !$client->firmware)) && !$prefs->get('squeezelite');
 		
