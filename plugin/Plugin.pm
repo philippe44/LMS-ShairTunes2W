@@ -107,20 +107,18 @@ my $rsa;
 
 my $samplingRate = 44100;  
   
-my %daemons     = (); # ( [ clientId ]       => [mDNSPID],       ...)
-my %listeners   = (); # ( [ clientId ]       => [masterINETsock], ...)
-my %connections = (); # ( [ slaveINETSock ]  => ('socket' => [MasterINETSock], 'player' => [client],
-					  #							 'url' => [URL where LMS get the audio], 
-					  #							 'decoder_ipc' => [INETSockIn], 'decoder_pid' => [helper],
-					  #							 'poweroff', 'iport' => [image proxy]
-					  #							 'cover_fh' => [INETSockCover], 'cover' => [blob] }, 'coverType' => [content-type]		
-					  #							 'DACPid' => [DACP ID], 'activeRemote' => [remote ID], 
-					  #						     'remote' => [IP::port of remote]	
-					  #							 'volume' => [player volume set by AirPlay]
-					  #							 'host' => IP of iXXX device
-my %covers		= (); # ( [ coverINETSock ]	 =>	 {'cover' => [blob], 'coverType' => [content-type]}
-
-
+my %daemons   = (); # ( [ clientId ]       => [mDNSPID],       ...)
+my %listeners = (); # ( [ clientId ]       => [masterINETsock], ...)
+my %covers    = (); # ( [ coverINETSock ]  => {'cover' => [blob], 'coverType' => [content-type]}
+my %sessions  = (); # ( [ slaveINETSock ]  => ('socket' => [MasterINETSock], 'player' => [client],
+                    #                          'url' => [URL where LMS get the audio], 
+                    #                          'decoder_ipc' => [INETSockIn], 'decoder_pid' => [helper],
+                    #                          'poweroff', 'iport' => [image proxy]
+                    #                          'cover_fh' => [INETSockCover], 'cover' => [blob] }, 'coverType' => [content-type]		
+                    #                          'DACPid' => [DACP ID], 'activeRemote' => [remote ID], 
+                    #                          'remote' => [IP::port of remote]	
+                    #                          'volume' => [player volume set by AirPlay]
+                    #						   'host' => IP of iXXX device
 # migrate existing prefs to new structure, bump prefs version by one tick
 $prefs->migrate(2, sub {
 	if ($prefs->get('useFLAC')) {
@@ -142,14 +140,14 @@ sub volumeChange {
 	my $volume = $client->volume();
 	
 	# is there a player registered ?
-	my ($slave) = grep { $connections{$_}->{player} == $client } keys %connections;
+	my ($slave) = grep { $sessions{$_}->{player} == $client } keys %sessions;
 	return 0 if !defined $slave;
 	
-	my $conn = $connections{$slave};
+	my $session = $sessions{$slave};
 			
 	# nothing to do if there is no remote or volume change is the result of AirPlay request		
-	return 0 if !defined $conn->{remote} || $conn->{volume} == $volume;
-	$log->info("Volume new:$volume current:$conn->{volume}");
+	return 0 if !defined $session->{remote} || $session->{volume} == $volume;
+	$log->info("Volume new:$volume current:$session->{volume}");
 
 	if (!$volume) {
 		$volume = -144;
@@ -167,9 +165,9 @@ sub volumeChange {
 						$log->error( "Volume error: ", Dumper($error) );
 					} );
 					
-	my $url = "http://$conn->{remote}/ctrl-int/1/setproperty?dmcp.device-volume=$volume";
+	my $url = "http://$session->{remote}/ctrl-int/1/setproperty?dmcp.device-volume=$volume";
 		
-	$http->get($url, 'Active-Remote' => $conn->{activeRemote} );	
+	$http->get($url, 'Active-Remote' => $session->{activeRemote} );	
 }
 
 sub sendAction {
@@ -177,15 +175,15 @@ sub sendAction {
 	my $client = shift;
 	my $action = shift;
 	
-	foreach my $master (keys %connections) {
-		my $conn = $connections{$master};
-		$log->debug("Player matching: p: $conn->{player}, c: $client, m: ", $conn->{player}->master);
+	foreach my $master (keys %sessions) {
+		my $session = $sessions{$master};
+		$log->debug("Player matching: p: $session->{player}, c: $client, m: ", $session->{player}->master);
 	}
 	
-	my ($slave) = grep { $connections{$_}->{player}->master == $client } keys %connections;
-	return 0 if !defined $slave || !defined $connections{$slave}->{remote};
+	my ($slave) = grep { $sessions{$_}->{player}->master == $client } keys %sessions;
+	return 0 if !defined $slave || !defined $sessions{$slave}->{remote};
 	
-	my $conn = $connections{$slave};
+	my $session = $sessions{$slave};
 	
 	my $http = Slim::Networking::SimpleAsyncHTTP->new(
 					sub { 
@@ -207,10 +205,10 @@ sub sendAction {
 	
 	return 1 if !defined $command;
 	
-	my $url = "http://$conn->{remote}/ctrl-int/1/$command";
+	my $url = "http://$session->{remote}/ctrl-int/1/$command";
 	$log->debug("Sending action: $url");
 	
-	$http->get($url, 'Active-Remote' => $conn->{activeRemote} );			
+	$http->get($url, 'Active-Remote' => $session->{activeRemote} );			
 	
 	return $doAction;
 }	
@@ -276,7 +274,7 @@ sub republishPlayers {
 		removePlayer($id);
 	}	
 	
-	%daemons = %listeners = %connections = ();
+	%daemons = %listeners = %sessions = ();
 	
 	# then re-publish all authorized
 	foreach my $client (Slim::Player::Client::clients()) {
@@ -363,18 +361,18 @@ sub removePlayer {
 	delete $daemons{$id};
 	
     Slim::Networking::Select::removeRead( $listeners{$id} );
-	my ($sock) = grep { $connections{$_}->{player}->id eq $id } keys %connections;
+	my ($sock) = grep { $sessions{$_}->{player}->id eq $id } keys %sessions;
 
 	if ($sock) {
-		my $conn = $connections{$sock};
+		my $session = $sessions{$sock};
 			
-		$log->debug("Cleaning connection: $conn->{self}");
-		cleanHelper( $conn );
-		Slim::Networking::Select::removeRead( $conn->{self} );
-		Slim::Networking::Select::removeRead( $conn->{cover_fh} );
-		close $conn->{self};
-		close $conn->{cover_fh};
-		delete $connections{$sock};
+		$log->debug("Cleaning connection: $session->{self}");
+		cleanHelper( $session );
+		Slim::Networking::Select::removeRead( $session->{self} );
+		Slim::Networking::Select::removeRead( $session->{cover_fh} );
+		close $session->{self};
+		close $session->{cover_fh};
+		delete $sessions{$sock};
 	}	
 	
 	close $listeners{$id};
@@ -480,7 +478,7 @@ sub handleSocketConnect {
 	
     # set socket to unblocking mode => 0
     Slim::Utils::Network::blocking( $new, 0 );
-    $connections{$new} = { self => $new, 
+    $sessions{$new} = { self => $new, 
 						   socket => $socket, player => $player,
 						   cover => '', cover_fh => createListenPort(5),	
 						   remote => undef, DACPid => 'none',
@@ -491,7 +489,7 @@ sub handleSocketConnect {
     Slim::Networking::Select::addRead( $new, \&handleSocketRead );
 		
 	# Add us to the select loop so we get notified
-    Slim::Networking::Select::addRead( $connections{$new}->{cover_fh}, \&handleCoverConnect );
+    Slim::Networking::Select::addRead( $sessions{$new}->{cover_fh}, \&handleCoverConnect );
 	
 	#subscribe to volume changes
 	Slim::Control::Request::subscribe( \&volumeChange, [['mixer'], ['volume']], $player );
@@ -503,9 +501,9 @@ sub handleCoverConnect {
     my $new = $socket->accept;
 	Slim::Utils::Network::blocking( $new, 0 );
 	
-	my ($slave) = grep { $connections{$_}->{cover_fh} == $socket } keys %connections;
-	$covers{$new}->{image} = $connections{$slave}->{cover};
-	$covers{$new}->{type} = $connections{$slave}->{coverType};
+	my ($slave) = grep { $sessions{$_}->{cover_fh} == $socket } keys %sessions;
+	$covers{$new}->{image} = $sessions{$slave}->{cover};
+	$covers{$new}->{type} = $sessions{$slave}->{coverType};
 				
     $log->info( "New cover proxy connection from " . $new->peerhost );
 	
@@ -550,12 +548,12 @@ sub handleCoverRequest {
 sub handleHelperOut {
     my $socket = shift;
 	
-	my ($slave) = grep { $connections{$_}->{decoder_ipc} == $socket } keys %connections;
+	my ($slave) = grep { $sessions{$_}->{decoder_ipc} == $socket } keys %sessions;
 	my $line = _readline($socket);
 	
 	if (!defined $line) {
 		$log->error("helper crash");
-		cleanHelper($connections{$slave}) if defined $slave;
+		cleanHelper($sessions{$slave}) if defined $slave;
 		Slim::Networking::Select::removeRead( $socket ) if !defined $slave;
 		return;
 	}
@@ -563,16 +561,16 @@ sub handleHelperOut {
 	$log->info("From helper: ", $line);
 	
 	if ($line =~ /play/) {
-		$connections{$slave}->{player}->execute( ['play'] );
+		$sessions{$slave}->{player}->execute( ['play'] );
 	} elsif ($line =~ /flushed/) {
-		$connections{$slave}->{player}->execute( ['stop'] );
+		$sessions{$slave}->{player}->execute( ['stop'] );
 	}	
 }	
 
 sub handleSocketRead {
     my $socket = shift;
                            
-    my $conn = $connections{$socket};
+    my $session = $sessions{$socket};
 	my $contentLength = 0;
     my $buffer        = "";
     my $bytesToRead = 1024;
@@ -594,10 +592,10 @@ sub handleSocketRead {
         $log->info( "Closed: " . $socket );
 		
 		Slim::Networking::Select::removeRead( $socket );
-		Slim::Networking::Select::removeRead( $conn->{cover_fh} );
+		Slim::Networking::Select::removeRead( $session->{cover_fh} );
 		close $socket;
-		close $conn->{cover_fh};
-		delete $connections{$socket};
+		close $session->{cover_fh};
+		delete $sessions{$socket};
 		
 		return;
 	}
@@ -629,10 +627,10 @@ sub handleSocketRead {
     }
 
     ### START: Not yet updated.
-    $conn->{req} = HTTP::Request->parse( $header );
-    $conn->{req}->content( $contentBody );
+    $session->{req} = HTTP::Request->parse( $header );
+    $session->{req}->content( $contentBody );
 
-    conn_handle_request( $socket, $conn );
+    conn_handle_request( $socket, $session );
     ### END: Not yet updated.
 }
 
@@ -675,33 +673,33 @@ sub _readline {
 }
 
 sub cleanHelper {
-	my $conn = shift;
+	my $session = shift;
 
-	if (defined $conn->{decoder_ipc} && $conn->{decoder_ipc}->connected) { 
-        $conn->{player}->execute( ['stop'] );
+	if (defined $session->{decoder_ipc} && $session->{decoder_ipc}->connected) { 
+        $session->{player}->execute( ['stop'] );
 		
         # read all left output
-        my $dfh = $conn->{decoder_ipc};
+        my $dfh = $session->{decoder_ipc};
         while ( my $out = _readline($dfh) ) { $log->info( "Decoder output: " . $out ); }
 
-        Slim::Networking::Select::removeRead( $conn->{decoder_ipc} );
-		close $conn->{decoder_ipc};
+        Slim::Networking::Select::removeRead( $session->{decoder_ipc} );
+		close $session->{decoder_ipc};
 				
-        if ( $conn->{poweredoff} ) {
-            $conn->{player}->execute( [ 'power', 0 ] );
+        if ( $session->{poweredoff} ) {
+            $session->{player}->execute( [ 'power', 0 ] );
         }
 		
-		$conn->{decoder_pid}->die;
+		$session->{decoder_pid}->die;
 		
 		# disconnect from volume 
-		Slim::Control::Request::unsubscribe( \&volumeChange, Slim::Player::Client::getClient($conn->{id}) );
+		Slim::Control::Request::unsubscribe( \&volumeChange, Slim::Player::Client::getClient($session->{id}) );
 	}	
 }
 
 sub conn_handle_request {
-    my ( $socket, $conn ) = @_;
+    my ( $socket, $session ) = @_;
 
-    my $req  = $conn->{req};
+    my $req  = $session->{req};
     my $resp = HTTP::Response->new( 200 );
 	
     $resp->request( $req );
@@ -721,7 +719,7 @@ sub conn_handle_request {
             $data .= Plugins::ShairTunes2W::Utils::ip6bin( $ip );
         }
 
-		my @hw_addr = +( map( ord, split( //, md5( encode('utf8', $conn->{player}->name()) ) ) ) )[ 0 .. 5 ];
+		my @hw_addr = +( map( ord, split( //, md5( encode('utf8', $session->{player}->name()) ) ) ) )[ 0 .. 5 ];
 
         $data .= join '', map { chr } @hw_addr;
         $data .= chr( 0 ) x ( 0x20 - length( $data ) );
@@ -732,18 +730,18 @@ sub conn_handle_request {
         $resp->header( 'Apple-Response', $signature );
     }
 
-    if ( defined $conn->{password} && length $conn->{password} ) {
-        if ( !Plugins::ShairTunes2W::Utils::digest_ok( $req, $conn ) ) {
+    if ( defined $session->{password} && length $session->{password} ) {
+        if ( !Plugins::ShairTunes2W::Utils::digest_ok( $req, $session ) ) {
             my $nonce = md5_hex( map { rand } 1 .. 20 );
-            $conn->{nonce} = $nonce;
-            my $apname = $conn->{player}->name();
+            $session->{nonce} = $nonce;
+            my $apname = $session->{player}->name();
             $resp->header( 'WWW-Authenticate', "Digest realm=\"$apname\", nonce=\"$nonce\"" );
             $resp->code( 401 );
             $req->method( 'DENIED' );
         }
     }
 	
-	my $client = $conn->{player};
+	my $client = $session->{player};
 
     for ( $req->method ) {
 		$log->debug( "got command / method: $_" );
@@ -752,13 +750,13 @@ sub conn_handle_request {
             $resp->header( 'Public',
                 'ANNOUNCE, SETUP, RECORD, PAUSE, FLUSH, TEARDOWN, OPTIONS, GET_PARAMETER, SET_PARAMETER' );
 
-            if ( !defined $conn->{remote} ) {
-				$conn->{DACPid} = $req->header( 'DACP-ID' );
-				$conn->{activeRemote} = $req->header( 'Active-Remote' );
+            if ( !defined $session->{remote} ) {
+				$session->{DACPid} = $req->header( 'DACP-ID' );
+				$session->{activeRemote} = $req->header( 'Active-Remote' );
 				my $mDNSdata = AnyEvent::DNS::dns_pack { rd => 1, qd => [[$DACPfqdn, "ptr"]] };	
 				send $mDNSsock, $mDNSdata, 0, sockaddr_in(5353, Socket::inet_aton('224.0.0.251'));
 				
-				$log->info("DACP-ID: $conn->{DACPid}, Active Remote: $conn->{activeRemote}");
+				$log->info("DACP-ID: $session->{DACPid}, Active Remote: $session->{activeRemote}");
 				$log->debug("Send mDNS data: $DACPfqdn, ", Dumper($mDNSdata));
 			}	
 
@@ -778,14 +776,14 @@ sub conn_handle_request {
 				$aeskey = $rsa->decrypt( $rsaaeskey ) || do { $log->error( "RSA decrypt failed" ); return; };
 			}	
 
-            $conn->{aesiv}  = $aesiv;
-            $conn->{aeskey} = $aeskey;
-            $conn->{fmtp}   = $audio->attribute( 'fmtp' );
+            $session->{aesiv}  = $aesiv;
+            $session->{aeskey} = $aeskey;
+            $session->{fmtp}   = $audio->attribute( 'fmtp' );
 			# there is a bug in some client like AirAudio who puts the target IN addr in the o= fiekd of the SDP session
-			$conn->{host}   = $sdp->session_origin_address();
-			if ($conn->{host} eq Slim::Utils::Network::serverAddr()) {
-				$conn->{host}   = $socket->peerhost();
-				$log->info("suspicious peer in SDP, using socket $conn->{host}");
+			$session->{host}   = $sdp->session_origin_address();
+			if ($session->{host} eq Slim::Utils::Network::serverAddr()) {
+				$session->{host}   = $socket->peerhost();
+				$log->info("suspicious peer in SDP, using socket $session->{host}");
 			}	
 						
 			last;
@@ -808,12 +806,12 @@ sub conn_handle_request {
 			my $h_ipc  = new IO::Socket::INET(%socket_params);
 			IO::Handle::blocking($h_ipc, 0);
 			
-			my @fmtp = split( / /, $conn->{fmtp} );
+			my @fmtp = split( / /, $session->{fmtp} );
 					
 			my @dec_args = (
-				host  => $conn->{host},
+				host  => $session->{host},
 				socket => $h_ipc->sockport, 
-                fmtp  => $conn->{fmtp},
+                fmtp  => $session->{fmtp},
                 cport => $cport,
                 tport => $tport,
 				latencies => $prefs->get('latency') . ':' . $prefs->get('http_latency') . ($prefs->get('http_fill') ? ':f' : ''),
@@ -821,7 +819,7 @@ sub conn_handle_request {
                 );
 				
 			push (@dec_args, "ports", $prefs->get("port_base") . ($prefs->get('port_range') ? (':' . $prefs->get('port_range')) : '')) if $prefs->get("port_base");
-			push (@dec_args, ("iv", unpack('H*', $conn->{aesiv}), "key", unpack('H*', $conn->{aeskey}))) if $conn->{aesiv} && $conn->{aeskey};
+			push (@dec_args, ("iv", unpack('H*', $session->{aesiv}), "key", unpack('H*', $session->{aeskey}))) if $session->{aesiv} && $session->{aeskey};
 			
 			if (my $loglevel = $prefs->get('loglevel')) {
 				my $id = $client->id;
@@ -856,16 +854,16 @@ sub conn_handle_request {
 			
             $sel->remove( $helper_ipc );
                    
-			$conn->{decoder_pid}  = $helper_pid;
-            $conn->{decoder_ipc}  = $helper_ipc;
-            $conn->{iport}		  = $conn->{cover_fh}->sockport;	
+			$session->{decoder_pid} = $helper_pid;
+            $session->{decoder_ipc} = $helper_ipc;
+            $session->{iport} = $session->{cover_fh}->sockport;	
 			
 			$log->info(
-                "launched decoder: $helper_pid on ports: $helper_ports{port}/$helper_ports{cport}/$helper_ports{tport}/$helper_ports{hport}, http port: $conn->{iport}"
+                "launched decoder: $helper_pid on ports: $helper_ports{port}/$helper_ports{cport}/$helper_ports{tport}/$helper_ports{hport}, http port: $session->{iport}"
             );
 					
 			my $host = Slim::Utils::Network::serverAddr();
-			$conn->{url}  = "airplay://$host:$helper_ports{hport}/" . $conn->{decoder_pid}->pid . "_stream." . substr($prefs->get('codec'), 0, 3);
+			$session->{url}  = "airplay://$host:$helper_ports{hport}/" . $session->{decoder_pid}->pid . "_stream." . substr($prefs->get('codec'), 0, 3);
 								
 			# Add out to the select loop so we get notified of play after flush (pause)
 			Slim::Networking::Select::addRead( $helper_ipc, \&handleHelperOut );
@@ -897,16 +895,16 @@ sub conn_handle_request {
 			# save volume 
 			$client->pluginData(volume => $sprefs->client($client)->get('volume'));
 			
-			$log->info( "Playing url: $conn->{url}" );
+			$log->info( "Playing url: $session->{url}" );
 			
-            $conn->{poweredoff} = !$conn->{player}->power;
-			$client->execute( [ 'playlist', 'load', $conn->{url} ] );
+            $session->{poweredoff} = !$session->{player}->power;
+			$client->execute( [ 'playlist', 'load', $session->{url} ] );
 			
 			$resp->header( 'Audio-Latency', '44100' );
 			
 			my ($seqno, $rtptime) = (0, 0);
 			($seqno, $rtptime) = $req->header('RTP-Info') =~ m|seq=([^;]+);rtptime=([^;]+)|i if $req->header('RTP-Info');
-			send ($conn->{decoder_ipc}, "record $seqno $rtptime\n", 0);
+			send ($session->{decoder_ipc}, "record $seqno $rtptime\n", 0);
 			$log->info("Record from $seqno, $rtptime");
 
             last;
@@ -915,7 +913,7 @@ sub conn_handle_request {
         /^FLUSH$/ && do {
 
 			my ($seqno, $rtptime) = $req->header('RTP-Info') =~ m|seq=([^;]+);rtptime=([^;]+)|i;
-			send ($conn->{decoder_ipc}, "flush $seqno $rtptime\n", 0);
+			send ($session->{decoder_ipc}, "flush $seqno $rtptime\n", 0);
 			$log->info("Flush up to $seqno, $rtptime");
             
             last;
@@ -924,7 +922,7 @@ sub conn_handle_request {
         /^TEARDOWN$/ && do {
 			$resp->header( 'Connection', 'close' );
 					
-			cleanHelper($conn);
+			cleanHelper($session);
 			
 			# restore playlist
 			my $playlist = $client->pluginData('playlist');
@@ -953,7 +951,7 @@ sub conn_handle_request {
             if ( $req->header( 'Content-Type' ) eq "text/parameters" ) {
                 my @lines = split( /[\r\n]+/, $req->content );
                 my %content = map { /^(\S+): (.+)/; ( lc $1, $2 ) } @lines;
-                my $cfh = $conn->{decoder_ipc};
+                my $cfh = $session->{decoder_ipc};
 				
 				$log->debug( "SET_PARAMETER req: " . $req->content );
 				
@@ -982,7 +980,7 @@ sub conn_handle_request {
 					$log->info( "sending-> vol: " . $percent );
 					
 					$client->execute( [ 'mixer', 'volume', $percent ] );
-					$conn->{volume} = $percent;
+					$session->{volume} = $percent;
 	            } elsif ( exists $content{progress} ) {
                     my ( $start, $curr, $end ) = split( /\//, $content{progress} );
                     my $position = ( $curr - $start ) / $samplingRate;
@@ -1017,12 +1015,12 @@ sub conn_handle_request {
 			} elsif ( $req->header( 'Content-Type' ) =~ /image\/(.+)/ ) {
 				my $ext = $1;
 				my $host = Slim::Utils::Network::serverAddr();
-				my $url  = "http://$host:$conn->{iport}/" . md5_hex($req->content) . "/cover.$ext";
+				my $url  = "http://$host:$session->{iport}/" . md5_hex($req->content) . "/cover.$ext";
 				
 				$metadata->{cover} = $url;
 				$metadata->{icon} = $url;
-				$conn->{cover} = $req->content;
-				$conn->{coverType} = $req->header( 'Content-Type' );
+				$session->{cover} = $req->content;
+				$session->{coverType} = $req->header( 'Content-Type' );
 				
 				$client->master->currentPlaylistUpdateTime( Time::HiRes::time() );
 				Slim::Control::Request::notifyFromArray( $client->master, ['newmetadata'] );  
@@ -1070,11 +1068,11 @@ sub mDNSlistener {
 		 
 	my @answers = (@{$res->{an}}, @{$res->{ar}});
 	
-	foreach my $socket (keys %connections) {
-		my $conn = $connections{$socket};
-		next if defined $conn->{remote};
+	foreach my $socket (keys %sessions) {
+		my $session = $sessions{$socket};
+		next if defined $session->{remote};
 		
-		my $DACPid = $conn->{DACPid};
+		my $DACPid = $session->{DACPid};
 		
 		my ($service) = grep { $_->[1] eq 'srv' && $_->[0] =~ /$DACPid/ } @answers;
 		return if !defined $service;
@@ -1082,8 +1080,8 @@ sub mDNSlistener {
 		my ($addr) = grep { $_->[1] eq 'a' && $_->[0] eq $service->[6] } @answers;
 		return if !defined $addr;
 		
-		$conn->{remote} = "$addr->[3]:$service->[5]";
-		$log->info("Found remote: $DACPid, $conn->{remote}");
+		$session->{remote} = "$addr->[3]:$service->[5]";
+		$log->info("Found remote: $DACPid, $session->{remote}");
 	}	
 }
 
