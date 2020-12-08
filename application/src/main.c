@@ -51,7 +51,7 @@ static int 		sock_printf(int sock,...);
 static char*	sock_gets(int sock, char *str, int n);
 static void 	print_usage(int argc, char **argv);
 
-const char *version = "0.120.2";
+const char *version = "0.202.0";
 
 static unsigned short cport, tport, ipc_port;
 static unsigned short port_base, port_range;
@@ -287,8 +287,8 @@ int main(int argc, char **argv) {
 		int in_line = 0, n;
 
 		ht = hairtunes_init(host_addr, encoder, use_sync, drift, false, latencies,
-							aeskey, aesiv, fmtp, cport, tport, NULL, hairtunes_cb,
-							port_base, port_range);
+							aeskey, aesiv, fmtp, cport, tport, NULL,
+							hairtunes_cb, NULL, port_base, port_range);
 
 		sock_printf(ipc_sock, "port: %d\n", ht.aport);
 		sock_printf(ipc_sock, "cport: %d\n", ht.cport);

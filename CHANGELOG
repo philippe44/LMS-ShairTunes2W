@@ -16,6 +16,9 @@ note:
 		cpan -T TODDR/Crypt-OpenSSL-RSA-0.30.tar.gz
 		cpan -T MIK/CryptX-0.060.tar.gz
 		(on Solaris and a few debian - arm & aarch64 now, need to specify mirror -M https://cpan.metacpan.org before the lib name)
+
+0.202.0
+ - align hairtunes with AirConnect (no change)
 		
 0.201.0
  - change variable names for better clarity
