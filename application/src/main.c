@@ -51,7 +51,7 @@ static int 		sock_printf(int sock,...);
 static char*	sock_gets(int sock, char *str, int n);
 static void 	print_usage(int argc, char **argv);
 
-const char *version = "0.203.0";
+const char *version = "0.203.1";
 
 static unsigned short cport, tport, ipc_port;
 static unsigned short port_base, port_range;
@@ -240,11 +240,11 @@ int main(int argc, char **argv) {
 		} else
 		if (!strcasecmp(arg, "dbg")) {
 			++argv;
-			if (!strcmp(*argv, "error"))  *loglevel = lERROR;
-			if (!strcmp(*argv, "warn"))   *loglevel = lWARN;
-			if (!strcmp(*argv, "info"))   *loglevel = lINFO;
-			if (!strcmp(*argv, "debug"))  *loglevel = lDEBUG;
-			if (!strcmp(*argv, "sdebug")) *loglevel = lSDEBUG;
+			if (!strcmp(*argv, "error"))  *loglevel = util_loglevel = lERROR;
+			if (!strcmp(*argv, "warn"))   *loglevel = util_loglevel = lWARN;
+			if (!strcmp(*argv, "info"))   *loglevel = util_loglevel = lINFO;
+			if (!strcmp(*argv, "debug"))  *loglevel = util_loglevel = lDEBUG;
+			if (!strcmp(*argv, "sdebug")) *loglevel = util_loglevel = lSDEBUG;
 		} else
 		if (!strcasecmp(arg, "codec")) {
 			++argv;
