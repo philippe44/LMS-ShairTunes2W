@@ -17,8 +17,9 @@ note:
 		cpan -T MIK/CryptX-0.060.tar.gz
 		(on Solaris and a few debian - arm & aarch64 now, need to specify mirror -M https://cpan.metacpan.org before the lib name)
 
-0.203.1
+0.203.2
  - util_loglevel should follow cmd line settings
+ - update util log levels
  
 0.203.0
  - align with AirConnect (allow chunked mode & fixed http length)
