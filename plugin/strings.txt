@@ -107,5 +107,6 @@ PLUGIN_SHAIRTUNES2_SQUEEZELITE
 	EN	Allow all Squeezelite-based Players
 	
 PLUGIN_SHAIRTUNES2_SQUEEZELITE_DESC
-	EN	Allow Squeezelite version lower than 1.8 and AirPlay, ChromeCast and UPnP bridge "virtual" players to be used
+	EN	Allow squeezelite version lower than 1.8 and AirPlay, ChromeCast and UPnP bridge "virtual" players to be used 
+	EN	as well as squeezelite-esp32 based devices (SqueezeAMP, DAC32 and WROVER/A1S/ESP32 boards)
 	

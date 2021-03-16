@@ -1,14 +1,14 @@
 <?xml version='1.0' standalone='yes'?>
 <extensions>
   <icon></icon>
+  <optionsURL>plugins/ShairTunes2W/settings/basic.html</optionsURL>
   <targetApplication>
     <maxVersion>*</maxVersion>
     <id>Squeezecenter</id>
     <minVersion>7.7</minVersion>
   </targetApplication>
-  <optionsURL>plugins/ShairTunes2W/settings/basic.html</optionsURL>
   <creator>Philippe</creator>
-  <version>0.203.4</version>
+  <version>0.204.0</version>
   <name>PLUGIN_SHAIRTUNES2</name>
   <description>PLUGIN_SHAIRTUNES2_DESC</description>
   <homepageURL></homepageURL>

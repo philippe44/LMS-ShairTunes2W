@@ -42,7 +42,7 @@ sub handler {
 		Plugins::ShairTunes2W::Plugin::stop_mDNS;		
 		Plugins::ShairTunes2W::Plugin::republishPlayers();
 	} elsif ($params->{saveSettings}) {
-		@players = grep { $_->{model} ne 'squeezelite' || $_->{FW} } @players if !$params->{pref_squeezelite};
+		@players = grep { $_->{model} ne 'squeezeesp32' && ($_->{model} ne 'squeezelite' || $_->{FW}) } @players if !$params->{pref_squeezelite};
 		foreach my $player (@players) {
 			my $enabled = $params->{'enabled.'.$player->{id}} // 0;
 			my $client = Slim::Player::Client::getClient($player->{id});
@@ -74,7 +74,7 @@ sub handler {
 		$prefs->set( 'helper', $params->{binary} );
 	} 
 	
-	@players = grep { $_->{model} ne 'squeezelite' || $_->{FW} } @players if !$prefs->get('squeezelite');
+	@players = grep { $_->{model} ne 'squeezeesp32' && ($_->{model} ne 'squeezelite' || $_->{FW}) } @players if !$prefs->get('squeezelite');
 	foreach my $player (@players) {
 		$player->{enabled} = $prefs->get($player->{id}) // 1;
 	}	

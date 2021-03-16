@@ -279,7 +279,7 @@ sub republishPlayers {
 	# then re-publish all authorized
 	foreach my $client (Slim::Player::Client::clients()) {
 		next unless $prefs->get($client->id) // 1;
-		next if ($client->modelName =~ /Bridge/ || ($client->model =~ /squeezelite/ && !$client->firmware)) && !$prefs->get('squeezelite');
+		next if ($client->modelName =~ /Bridge/ || $client->model =~/squeezeesp32/ || ($client->model =~ /squeezelite/ && !$client->firmware)) && !$prefs->get('squeezelite');
 		addPlayer($client);
 	}
 }
@@ -319,7 +319,7 @@ sub playerSubscriptionChange {
 	$log->info( "request=$reqstr client=$client ", $id );
 		
     if ( ($reqstr eq "client new" || $reqstr eq "client reconnect") &&
-		($prefs->get('squeezelite') || ($client->modelName !~ /Bridge/ && ($client->model !~ /squeezelite/ || $client->firmware)))) {
+		($prefs->get('squeezelite') || ($client->model != /squeezeesp32/ && $client->modelName !~ /Bridge/ && ($client->model !~ /squeezelite/ || $client->firmware)))) {
 		addPlayer($client);
     } elsif ( $reqstr eq "client disconnect" ) {
 		removePlayer($id);

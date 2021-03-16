@@ -17,6 +17,9 @@ note:
 		cpan -T MIK/CryptX-0.060.tar.gz
 		(on Solaris and a few debian - arm & aarch64 now, need to specify mirror -M https://cpan.metacpan.org before the lib name)
 
+0.204.0
+ - do not load squeezeesp32 by default 
+ 
 0.203.4
  - hairtunes update to align with AirConnect (silence when flush)
 
