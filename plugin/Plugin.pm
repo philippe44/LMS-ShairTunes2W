@@ -319,7 +319,7 @@ sub playerSubscriptionChange {
 	$log->info( "request=$reqstr client=$client ", $id );
 		
     if ( ($reqstr eq "client new" || $reqstr eq "client reconnect") &&
-		($prefs->get('squeezelite') || ($client->model != /squeezeesp32/ && $client->modelName !~ /Bridge/ && ($client->model !~ /squeezelite/ || $client->firmware)))) {
+		($prefs->get('squeezelite') || ($client->model !~ /squeezeesp32/ && $client->modelName !~ /Bridge/ && ($client->model !~ /squeezelite/ || $client->firmware)))) {
 		addPlayer($client);
     } elsif ( $reqstr eq "client disconnect" ) {
 		removePlayer($id);
