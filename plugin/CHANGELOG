@@ -16,7 +16,11 @@ note:
 		cpan -T TODDR/Crypt-OpenSSL-RSA-0.30.tar.gz
 		cpan -T MIK/CryptX-0.060.tar.gz
 		(on Solaris and a few debian - arm & aarch64 now, need to specify mirror -M https://cpan.metacpan.org before the lib name)
-
+	- on FreeBSD, use cshrc instead of bashrc	
+		
+0.205.0
+ - add Perl 5.32.x support for Linux (x86, x64, armv7, aarch64) and freebsd (x64)
+ 
 0.204.1
  - comparison mistake with squeezeesp32 (!= instead of !~)
  
