@@ -781,8 +781,10 @@ sub conn_handle_request {
             $session->{fmtp}   = $audio->attribute( 'fmtp' );
 			# there is a bug in some client like AirAudio who puts the target IN addr in the o= fiekd of the SDP session
 			$session->{host}   = $sdp->session_origin_address();
-			if ($session->{host} eq Slim::Utils::Network::serverAddr()) {
-				$session->{host}   = $socket->peerhost();
+			if ($session->{host} eq Slim::Utils::Network::serverAddr() || 
+			    $session->{host} eq Socket::inet_ntoa(INADDR_BROADCAST) || 
+				$session->{host} eq Socket::inet_ntoa(INADDR_ANY)) {
+				$session->{host} = $socket->peerhost();
 				$log->info("suspicious peer in SDP, using socket $session->{host}");
 			}	
 						
@@ -991,8 +993,8 @@ sub conn_handle_request {
 					$metadata->{duration} = $duration;
 
 					# the song might not be valid yet, so wait a bit (can't find a better solution)
-					Slim::Utils::Timers::setTimer(undef, time() + 1, sub { 
-											my $song = $client->playingSong;		
+					Slim::Utils::Timers::setTimer(undef, time() + 2, sub { 
+											my $song = $client->playingSong || $client->streamingSong;		
 											$song->duration( $duration );
 											$song->startOffset( $position - $client->master->songElapsedSeconds + 1 );
 											Slim::Control::Request::notifyFromArray($client, ['newmetadata']);	
