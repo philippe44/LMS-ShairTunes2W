@@ -68,3 +68,4 @@ _backup/
 *.tds
 *-idx*
 *.save*
+*.bak

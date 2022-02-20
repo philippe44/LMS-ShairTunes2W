@@ -1010,8 +1010,7 @@ sub conn_handle_request {
                 $metadata->{album}  = $dmapData{album};
                 $metadata->{title}  = $dmapData{title};
 				
-				$client->master->currentPlaylistUpdateTime( Time::HiRes::time() );
-				Slim::Control::Request::notifyFromArray( $client->master, ['newmetadata'] );  
+				Slim::Music::Info::setCurrentTitle($session->{url}, $metadata->{title}, $client);
 
                 $log->debug( "DMAP DATA found. Length: " . length( $req->content ) . " " . Dumper( \%dmapData ) );    
 			} elsif ( $req->header( 'Content-Type' ) =~ /image\/(.+)/ ) {
