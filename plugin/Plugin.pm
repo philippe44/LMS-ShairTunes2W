@@ -251,7 +251,7 @@ sub initPlugin {
         [ ['client'], [ 'new', 'reconnect', 'disconnect' ] ] );
 		
     $mDNSsock = new IO::Socket::INET(
-        #LocalAddr 	=> '0.0.0.0',
+        LocalAddr 	=> Slim::Utils::Network::serverAddr(),
         ReuseAddr 	=> 1,
 		#ReusePort 	=> 1,
 		Proto     	=> 'udp',
@@ -388,6 +388,7 @@ sub createListenPort {
 	
 	do {
 		$listen = new IO::Socket::INET(
+			LocalAddr	=> Slim::Utils::Network::serverAddr(),
 			Listen    	=> $max,
 			ReuseAddr	=> 1,
 			Proto    	=> 'tcp',
