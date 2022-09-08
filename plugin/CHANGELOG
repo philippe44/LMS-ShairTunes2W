@@ -18,6 +18,9 @@ note:
 		(on Solaris and a few debian - arm & aarch64 now, need to specify mirror -M https://cpan.metacpan.org before the lib name)
 	- on FreeBSD, use cshrc instead of bashrc	
 	
+0.205.3
+ - (P) bind listening socket to LMS' address (thanks@chincheta0815)
+	
 0.205.2
  - fix "Connection" response to HTTP2
  - use SetCurrentTitel instead of newmetadata
