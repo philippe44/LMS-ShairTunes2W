@@ -1,4 +1,12 @@
-BASE		= ..
+ifeq ($(CC),cc)
+CC=$(lastword $(subst /, ,$(shell readlink -f `which cc`)))
+endif
+
+PLATFORM ?= $(firstword $(subst -, ,$(CC)))
+HOST ?= $(word 2, $(subst -, ,$(CC)))
+
+BUILDDIR	= build/$(PLATFORM)
+BIN		 	= bin/shairport_helper-$(PLATFORM)
 
 ifeq ($(OS),Darwin)
 LDFLAGS 	+= -Wl,-dead_strip
@@ -6,46 +14,41 @@ else
 LDFLAGS 	+= -Wl,--gc-sections
 endif
 
-TOOLS		= ./src/tools
-VALGRIND	= ../valgrind
-SRC 		= ./src
-LIBRARY 	= $(OBJ)/libFLAC.a $(OBJ)/libshine.a
-DEFINES 	= -DHAIRTUNES_STANDALONE -DHTTP_PARSER_STRICT=0 -D_POSIX_PTHREAD_SEMANTICS -D_REENTRANT -DMDNS_SVC -DNDEBUG -D_GNU_SOURCE 
+TOOLS		= tools
+#VALGRIND	= ../valgrind
+SRC 		= src
+MDNS		= libmdns/targets
+CODECS		= libcodecs/targets
+OPENSSL		= libopenssl/targets/$(HOST)/$(PLATFORM)
 
-TINYMDNS	= $(BASE)/tinysvcmdns
+DEFINES 	= -DHAIRTUNES_STANDALONE -DHTTP_PARSER_STRICT=0 -D_GNU_SOURCE
+CFLAGS  	+= -Wall -Wno-deprecated-declarations -Wno-format-truncation -fPIC -ggdb -O2 $(DEFINES) -fdata-sections -ffunction-sections 
+LDFLAGS 	+= -s -lpthread -ldl -lm -lrt -L. 
 
-vpath %.c $(TOOLS):$(SRC):$(TINYMDNS)
+vpath %.c $(TOOLS):$(SRC)
 
-INCLUDE = -I. \
-		  -I$(BASE)/shine/src/lib \
-		  -I$(VALGRIND)/memcheck -I$(VALGRIND)/include \
-		  -I$(TINYMDNS) \
-		  -I$(SRC) \
+INCLUDE = -I$(CODECS)/include/flac \
+		  -I$(CODECS)/include/shine \
 		  -I$(TOOLS) \
-		  -I$(BASE)/flac/include
+		  -I$(MDNS)/include/tinysvcmdns \
+		  -I$(OPENSSL)/include
 
 SOURCES = alac.c hairtunes.c main.c \
-		  mdns.c mdnsd.c tinysvcmdns.c \
 		  log_util.c util.c
 		
-OBJECTS = $(patsubst %.c,$(OBJ)/%.o,$(SOURCES)) 
+OBJECTS = $(patsubst %.c,$(BUILDDIR)/%.o,$(SOURCES)) 
+LIBRARY = $(CODECS)/$(HOST)/$(PLATFORM)/libcodecs.a $(MDNS)/$(HOST)/$(PLATFORM)/libmdns.a $(OPENSSL)/libopenssl.a
 
-all: $(EXECUTABLE)
-
-$(EXECUTABLE): $(OBJECTS)
-	$(CC) $(OBJECTS) $(LIBRARY) $(LDFLAGS) -o $@
-
-$(OBJECTS): | bin $(OBJ)
-
-$(OBJ):
-	@mkdir -p $@
-	
-bin:	
+all: directory $(BIN)
+directory:
+	@mkdir -p $(BUILDDIR)
 	@mkdir -p bin
 
-$(OBJ)/%.o : %.c
-	$(CC) $(CFLAGS) $(CPPFLAGS) $(INCLUDE) $< -c -o $@
-	
-clean:
-	rm -f $(OBJECTS) $(EXECUTABLE) 
+$(BIN): $(OBJECTS) $(DEPS)
+	$(CC) $(OBJECTS) $(LIBRARY) $(LDFLAGS) -o $@
 
+$(BUILDDIR)/%.o : %.c
+	$(CC) $(CFLAGS) $(CPPFLAGS) $(INCLUDE) $< -c -o $@
+
+clean:
+	rm -f $(OBJECTS) $(BIN)

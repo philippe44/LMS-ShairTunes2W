@@ -1,7 +1,7 @@
 /*
  *  AirConnect: Chromecast & UPnP to AirPlay
  *
- *  (c) Philippe 2016-2017, philippe_44@outlook.com
+ *  (c) Philippe, philippe_44@outlook.com
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -91,7 +91,7 @@ void EndUtils(void) {
 /*----------------------------------------------------------------------------*/
 
 /*----------------------------------------------------------------------------*/
-void WakeableSleep(u32_t ms) {
+void WakeableSleep(uint32_t ms) {
 	pthread_mutex_lock(&wakeMutex);
 	if (ms) pthread_cond_reltimedwait(&wakeCond, &wakeMutex, ms);
 	else pthread_cond_wait(&wakeCond, &wakeMutex);
@@ -113,10 +113,10 @@ void WakeAll(void) {
 /*----------------------------------------------------------------------------*/
 
 /*----------------------------------------------------------------------------*/
-int pthread_cond_reltimedwait(pthread_cond_t *cond, pthread_mutex_t *mutex, u32_t msWait)
+int pthread_cond_reltimedwait(pthread_cond_t *cond, pthread_mutex_t *mutex, uint32_t msWait)
 {
 	struct timespec ts;
-	u32_t	nsec;
+	uint32_t	nsec;
 #if OSX || SUNOS
 	struct timeval tv;
 #endif
@@ -146,7 +146,7 @@ int pthread_cond_reltimedwait(pthread_cond_t *cond, pthread_mutex_t *mutex, u32_
 
 // mutex wait with timeout
 #if LINUX || FREEBSD
-int _mutex_timedlock(pthread_mutex_t *m, u32_t ms_wait)
+int _mutex_timedlock(pthread_mutex_t *m, uint32_t ms_wait)
 {
 	int rc = -1;
 	struct timespec ts;
@@ -162,7 +162,7 @@ int _mutex_timedlock(pthread_mutex_t *m, u32_t ms_wait)
 #endif
 
 #if OSX
-int _mutex_timedlock(pthread_mutex_t *m, u32_t ms_wait)
+int _mutex_timedlock(pthread_mutex_t *m, uint32_t ms_wait)
 {
 	int rc;
 	s32_t wait = (s32_t) ms_wait;
@@ -264,6 +264,13 @@ void QueueFlush(tQueue *queue)
 	}
 }
 
+/*----------------------------------------------------------------------------*/
+void QueueFreeItem(tQueue* queue, void* item)
+{
+	if (queue->cleanup)	(*(queue->cleanup))(item);
+}
+
+
 
 /*----------------------------------------------------------------------------*/
 /* 																			  */
@@ -359,7 +366,7 @@ void clear_list(list_t **list, void (*free_func)(void *)) {
 // mac address
 #if LINUX
 // search first 4 interfaces returned by IFCONF
-void get_mac(u8_t mac[]) {
+void get_mac(uint8_t mac[]) {
 	struct ifconf ifc;
 	struct ifreq *ifr, *ifend;
 	struct ifreq ifreq;
@@ -392,7 +399,7 @@ void get_mac(u8_t mac[]) {
 	close(s);
 }
 #elif OSX || FREEBSD
-void get_mac(u8_t mac[]) {
+void get_mac(uint8_t mac[]) {
 	struct ifaddrs *addrs, *ptr;
 	const struct sockaddr_dl *dlAddr;
 	const unsigned char *base;
@@ -415,7 +422,7 @@ void get_mac(u8_t mac[]) {
 }
 #elif WIN
 #pragma comment(lib, "IPHLPAPI.lib")
-void get_mac(u8_t mac[]) {
+void get_mac(uint8_t mac[]) {
 	IP_ADAPTER_INFO AdapterInfo[16];
 	DWORD dwBufLen = sizeof(AdapterInfo);
 	DWORD dwStatus = GetAdaptersInfo(AdapterInfo, &dwBufLen);
@@ -427,11 +434,11 @@ void get_mac(u8_t mac[]) {
 	}
 }
 #endif
-
+
 
 /*----------------------------------------------------------------------------*/
 #if LINUX
-int SendARP(in_addr_t src, in_addr_t dst, u8_t mac[], unsigned long *size) {
+int SendARP(in_addr_t src, in_addr_t dst, uint8_t mac[], uint32_t * size) {
 	int                 s;
 	struct arpreq       areq;
 	struct sockaddr_in *sin;
@@ -460,7 +467,7 @@ int SendARP(in_addr_t src, in_addr_t dst, u8_t mac[], unsigned long *size) {
 	return 0;
 }
 #elif OSX
-int SendARP(in_addr_t src, in_addr_t dst, u8_t mac[], unsigned long *size)
+int SendARP(in_addr_t src, in_addr_t dst, uint8_t mac[], uint32_t* size) {
 {
 	int mib[6];
 	size_t needed;
@@ -510,9 +517,9 @@ int SendARP(in_addr_t src, in_addr_t dst, u8_t mac[], unsigned long *size)
 	return (found_entry);
 }
 #elif !WIN
-int SendARP(in_addr_t src, in_addr_t dst, u8_t mac[], unsigned long *size)
+int SendARP(in_addr_t src, in_addr_t dst, uint8_t mac[], uint32_t * size) {
 {
-	LOG_ERROR("No SendARP build for this platform", NULL);
+	LOG_WARN("No SendARP build for this platform", NULL);
 	return 1;
 }
 #endif
@@ -552,37 +559,29 @@ bool get_interface(struct in_addr *addr)
 	close(fd);
 	return valid;
 }
-#endif
-
-
-#if WIN
-bool get_interface(struct in_addr *addr)
+#elif WIN
+bool get_interface(struct in_addr* addr)
 {
-	INTERFACE_INFO ifList[20];
-	unsigned bytes;
-	int i, nb;
-	bool valid = false;
-	int fd;
+	struct sockaddr_in* host = NULL;
+	ULONG size = sizeof(IP_ADAPTER_ADDRESSES) * 32;
+	IP_ADAPTER_ADDRESSES* adapters = (IP_ADAPTER_ADDRESSES*)malloc(size);
+	int ret = GetAdaptersAddresses(AF_UNSPEC, GAA_FLAG_INCLUDE_GATEWAYS | GAA_FLAG_SKIP_MULTICAST | GAA_FLAG_SKIP_ANYCAST, 0, adapters, &size);
 
-	memset(addr, 0, sizeof(struct in_addr));
-	fd = socket(AF_INET, SOCK_DGRAM, 0);
+	for (PIP_ADAPTER_ADDRESSES adapter = adapters; adapter && !host; adapter = adapter->Next) {
+		if (adapter->TunnelType == TUNNEL_TYPE_TEREDO) continue;
+		if (adapter->OperStatus != IfOperStatusUp) continue;
 
-	if (WSAIoctl(fd, SIO_GET_INTERFACE_LIST, 0, 0, (void*) &ifList, sizeof(ifList), (void*) &bytes, 0, 0) == SOCKET_ERROR) return false;
-
-	nb = bytes / sizeof(INTERFACE_INFO);
-	for (i = 0; i < nb; i++) {
-		if ((ifList[i].iiFlags & IFF_UP) &&
-			!(ifList[i].iiFlags & IFF_POINTTOPOINT) &&
-			!(ifList[i].iiFlags & IFF_LOOPBACK) &&
-			(ifList[i].iiFlags & IFF_MULTICAST)) {
-				*addr = ((struct sockaddr_in *) &(ifList[i].iiAddress))->sin_addr;
-				valid = true;
-			break;
+		for (IP_ADAPTER_UNICAST_ADDRESS* unicast = adapter->FirstUnicastAddress; unicast;
+			unicast = unicast->Next) {
+			if (adapter->FirstGatewayAddress && unicast->Address.lpSockaddr->sa_family == AF_INET) {
+				*addr = ((struct sockaddr_in*)unicast->Address.lpSockaddr)->sin_addr;
+				return true;
+			}
 		}
 	}
 
-	close(fd);
-	return valid;
+	addr->S_un.S_addr = INADDR_ANY;
+	return false;
 }
 #endif
 
@@ -591,12 +590,12 @@ bool get_interface(struct in_addr *addr)
 /*---------------------------------------------------------------------------*/
 #define MAX_INTERFACES 256
 #define DEFAULT_INTERFACE 1
-#if !defined(WIN32)
+#if !defined(_WIN32)
 #define INVALID_SOCKET (-1)
 #endif
 in_addr_t get_localhost(char **name)
 {
-#ifdef WIN32
+#ifdef _WIN32
 	char buf[256];
 	struct hostent *h = NULL;
 	struct sockaddr_in LocalAddr;
@@ -604,6 +603,7 @@ in_addr_t get_localhost(char **name)
 	memset(&LocalAddr, 0, sizeof(LocalAddr));
 
 	gethostname(buf, 256);
+	printf("FUCKING BUF %s", buf);
 	h = gethostbyname(buf);
 
 	if (name) *name = strdup(buf);
@@ -685,7 +685,7 @@ in_addr_t get_localhost(char **name)
 		i += sizeof *pifReq;
 		/* See if this is the sort of interface we want to deal with. */
 		memset(ifReq.ifr_name, 0, sizeof(ifReq.ifr_name));
-		strncpy(ifReq.ifr_name, pifReq->ifr_name,
+		memcpy(ifReq.ifr_name, pifReq->ifr_name,
 			sizeof(ifReq.ifr_name) - 1);
 		/* Skip loopback, point-to-point and down interfaces,
 		 * except don't skip down interfaces
@@ -743,7 +743,7 @@ int shutdown_socket(int sd)
 {
 	if (sd <= 0) return -1;
 
-#ifdef WIN32
+#ifdef _WIN32
 	shutdown(sd, SD_BOTH);
 #else
 	shutdown(sd, SHUT_RDWR);
@@ -756,7 +756,7 @@ int shutdown_socket(int sd)
 
 
 /*----------------------------------------------------------------------------*/
-int bind_socket(unsigned short *port, int mode)
+int bind_socket(struct in_addr host, unsigned short* port, int mode)
 {
 	int sock;
 	socklen_t len = sizeof(struct sockaddr);
@@ -770,7 +770,7 @@ int bind_socket(unsigned short *port, int mode)
 	/*  Populate socket address structure  */
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_family      = AF_INET;
-	addr.sin_addr.s_addr = htonl(INADDR_ANY);
+	addr.sin_addr		 = host;
 	addr.sin_port        = htons(*port);
 #ifdef SIN_LEN
 	si.sin_len = sizeof(si);
@@ -852,8 +852,8 @@ char *dlerror(void) {
 
 /*----------------------------------------------------------------------------*/
 #if LINUX || FREEBSD
-void touch_memory(u8_t *buf, size_t size) {
-	u8_t *ptr;
+void touch_memory(uint8_t *buf, size_t size) {
+	uint8_t *ptr;
 	for (ptr = buf; ptr < buf + size; ptr += sysconf(_SC_PAGESIZE)) {
 		*ptr = 0;
 	}
@@ -863,7 +863,7 @@ void touch_memory(u8_t *buf, size_t size) {
 
 /*----------------------------------------------------------------------------*/
 #if LINUX || FREEBSD || OSX
-char *GetTempPath(u16_t size, char *path)
+char *GetTempPath(uint16_t size, char *path)
 {
 	strncpy(path, P_tmpdir, size);
 	if (!strlen(path)) strncpy(path, "/var/tmp", size);
@@ -897,7 +897,7 @@ char *next_param(char *src, char c) {
 /*----------------------------------------------------------------------------*/
 
 /*----------------------------------------------------------------------------*/
-u32_t gettime_ms(void) {
+uint32_t gettime_ms(void) {
 #if WIN
 	return GetTickCount();
 #else
@@ -915,15 +915,15 @@ u32_t gettime_ms(void) {
 
 
 /*----------------------------------------------------------------------------*/
-u64_t gettime_ms64(void) {
+uint64_t gettime_ms64(void) {
 #if WIN
 	FILETIME ft;
 	GetSystemTimeAsFileTime(&ft);
-	return (((u64_t) ft.dwHighDateTime) << 32 | ft.dwLowDateTime) / 10000;
+	return (((uint64_t) ft.dwHighDateTime) << 32 | ft.dwLowDateTime) / 10000;
 #else
 	struct timeval tv;
 	gettimeofday(&tv, NULL);
-	return (u64_t) (tv.tv_sec + 0x83AA7E80) * 1000 + tv.tv_usec / 1000;
+	return (uint64_t) (tv.tv_sec + 0x83AA7E80) * 1000 + tv.tv_usec / 1000;
 #endif
 }
 
@@ -957,7 +957,7 @@ char *strcasestr(const char *haystack, const char *needle)
 	needle_lwr = strlwr(strdup(needle));
 	p = strstr(haystack_lwr, needle_lwr);
 
-	if (p) p = haystack + (p - haystack_lwr);
+	if (p) p = (char*) haystack + (p - haystack_lwr);
 	free(haystack_lwr);
 	free(needle_lwr);
 	return p;
@@ -1010,39 +1010,7 @@ char* strextract(char *s1, char *beg, char *end)
 	return res;
 }
 
-
-#if WIN
-/*----------------------------------------------------------------------------*/
-int asprintf(char **strp, const char *fmt, ...)
-{
-	va_list args;
-	int len, ret = 0;
-
-	va_start(args, fmt);
-	len = vsnprintf(NULL, 0, fmt, args);
-	*strp = malloc(len + 1);
-
-	if (*strp) ret = vsprintf(*strp, fmt, args);
-
-	va_end(args);
-
-	return ret;
-}
-
-/*----------------------------------------------------------------------------*/
-int vasprintf(char **strp, const char *fmt, va_list args)
-{
-	int len, ret = 0;
-
-	len = vsnprintf(NULL, 0, fmt, args);
-	*strp = malloc(len + 1);
-
-	if (*strp) ret = vsprintf(*strp, fmt, args);
-
-	return ret;
-}
-
-#else
+#if !WIN
  /*---------------------------------------------------------------------------*/
 char* itoa(int value, char* str, int radix) {
 	static char dig[] =
@@ -1073,10 +1041,10 @@ char* itoa(int value, char* str, int radix) {
 #endif
 
 /*---------------------------------------------------------------------------*/
-u32_t hash32(char *str)
+uint32_t hash32(char *str)
 {
-	u32_t hash = 5381;
-	s32_t c;
+	uint32_t hash = 5381;
+	int32_t c;
 
 	if (!str) return 0;
 
@@ -1361,7 +1329,7 @@ char *kd_dump(key_data_t *kd)
 /* 																			  */
 /*----------------------------------------------------------------------------*/
 
-#ifdef _USE_XML_
+#ifdef HAS_IXML
 /*----------------------------------------------------------------------------*/
 IXML_Node *XMLAddNode(IXML_Document *doc, IXML_Node *parent, char *name, char *fmt, ...)
 {
@@ -1539,9 +1507,11 @@ const char *XMLGetLocalName(IXML_Document *doc, int Depth)
 	while (Depth--) {
 		node = ixmlNode_getFirstChild(node);
 		if (!node) return NULL;
-	}
 
-	return ixmlNode_getLocalName(node);
+	}
+
+
+	return ixmlNode_getLocalName(node);
 }
 #endif
 
@@ -1559,9 +1529,12 @@ void free_metadata(struct metadata_s *metadata)
 }
 
 
-/*--------------------------------------------------------------------------*/
-void dup_metadata(struct metadata_s *dst, struct metadata_s *src)
-{
+
+/*--------------------------------------------------------------------------*/
+
+void dup_metadata(struct metadata_s *dst, struct metadata_s *src)
+
+{
 	free_metadata(dst);
 	if (src->artist) dst->artist = strdup(src->artist);
 	if (src->album) dst->album = strdup(src->album);
@@ -1577,7 +1550,8 @@ void free_metadata(struct metadata_s *metadata)
 }
 
 
-/*----------------------------------------------------------------------------*/
+
+/*----------------------------------------------------------------------------*/
 
 int _fprintf(FILE *file, ...)
 {
@@ -1592,12 +1566,3 @@ int _fprintf(FILE *file, ...)
 	va_end(args);
 	return n;
 }
-
-
-
-
-
-
-
-
-

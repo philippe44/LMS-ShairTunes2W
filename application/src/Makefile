@@ -1,7 +1,14 @@
+ifeq ($(CC),cc)
+CC=$(lastword $(subst /, ,$(shell readlink -f `which cc`)))
+endif
 
-DEFINES = -DHAIRTUNES_STANDALONE -DHTTP_PARSER_STRICT=0 -D_POSIX_PTHREAD_SEMANTICS -D_REENTRANT 
-CFLAGS  += -s -march=armv5te -Wall -O3 -fPIC $(DEFINES)
-LDFLAGS += -static -lm -lpthread
+PLATFORM ?= $(firstword $(subst -, ,$(CC)))
+HOST ?= $(word 2, $(subst -, ,$(CC)))
+
+
+DEFINES = -DHAIRTUNES_STANDALONE -DHTTP_PARSER_STRICT=0 
+CFLAGS  += -Wall -O2 -fPIC $(DEFINES) -fdata-sections -ffunction-sections 
+LDFLAGS += -lm -lpthread -static
 
 CFLAGS += $(shell pkg-config --cflags ao)
 LDFLAGS += $(shell pkg-config --libs ao)

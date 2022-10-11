@@ -32,15 +32,13 @@
 #include <stdarg.h>
 #include <sys/types.h>
 #include <pthread.h>
+#include <openssl/aes.h>
 #include <math.h>
 #include <errno.h>
 #include <sys/stat.h>
 #include <stdint.h>
 #include <fcntl.h>
 #include <assert.h>
-#include <inttypes.h>
-
-#include "openssl/aes.h"
 
 #include "platform.h"
 #include "hairtunes.h"
@@ -51,10 +49,10 @@
 #include "util.h"
 
 #define NTP2MS(ntp) ((((ntp) >> 10) * 1000L) >> 22)
-#define MS2NTP(ms) (((((uint64_t) (ms)) << 22) / 1000) << 10)
+#define MS2NTP(ms) (((((u64_t) (ms)) << 22) / 1000) << 10)
 #define NTP2TS(ntp, rate) ((((ntp) >> 16) * (rate)) >> 16)
-#define TS2NTP(ts, rate)  (((((uint64_t) (ts)) << 16) / (rate)) << 16)
-#define MS2TS(ms, rate) ((((uint64_t) (ms)) * (rate)) / 1000)
+#define TS2NTP(ts, rate)  (((((u64_t) (ts)) << 16) / (rate)) << 16)
+#define MS2TS(ms, rate) ((((u64_t) (ms)) * (rate)) / 1000)
 #define TS2MS(ts, rate) NTP2MS(TS2NTP(ts,rate))
 
 
@@ -87,19 +85,19 @@ enum { DATA, CONTROL, TIMING };
 static char *mime_types[] = { "audio/mpeg", "audio/flac", "audio/L16;rate=44100;channels=2", "audio/wav" };
 
 static struct wave_header_s {
-	uint8_t	chunk_id[4];
-	uint8_t	chunk_size[4];
-	uint8_t	format[4];
-	uint8_t	subchunk1_id[4];
-	uint8_t	subchunk1_size[4];
-	uint8_t	audio_format[2];
-	uint8_t	channels[2];
-	uint8_t	sample_rate[4];
-	uint8_t byte_rate[4];
-	uint8_t	block_align[2];
-	uint8_t	bits_per_sample[2];
-	uint8_t	subchunk2_id[4];
-	uint8_t	subchunk2_size[4];
+	u8_t 	chunk_id[4];
+	u8_t	chunk_size[4];
+	u8_t	format[4];
+	u8_t	subchunk1_id[4];
+	u8_t	subchunk1_size[4];
+	u8_t	audio_format[2];
+	u8_t	channels[2];
+	u8_t	sample_rate[4];
+	u8_t    byte_rate[4];
+	u8_t	block_align[2];
+	u8_t	bits_per_sample[2];
+	u8_t	subchunk2_id[4];
+	u8_t	subchunk2_size[4];
 } wave_header = {
 		{ 'R', 'I', 'F', 'F' },
 		{ 0x24, 0xff, 0xff, 0xff },
@@ -116,11 +114,11 @@ static struct wave_header_s {
 		{ 0x00, 0xff, 0xff, 0xff },
 	};
 
-typedef uint16_t seq_t;
+typedef u16_t seq_t;
 typedef struct audio_buffer_entry {   // decoded audio packets
 	int ready;
-	uint32_t rtptime, last_resend;
-	int16_t *data;
+	u32_t rtptime, last_resend;
+	s16_t *data;
 	int len;
 } abuf_t;
 
@@ -134,7 +132,7 @@ typedef struct hairtunes_s {
 	bool decrypt, range;
 	int frame_size;
 	int in_frames, out_frames;
-	struct in_addr host, peer;
+	struct in_addr host;
 	struct sockaddr_in rtp_host;
 	struct {
 		unsigned short rport, lport;
@@ -142,26 +140,26 @@ typedef struct hairtunes_s {
 	} rtp_sockets[3]; 					 // data, control, timing
 	struct timing_s {
 		bool drift;
-		uint64_t local, remote;
-		uint32_t count, gap_count;
-		int64_t gap_sum, gap_adjust;
+		u64_t local, remote;
+		u32_t count, gap_count;
+		s64_t gap_sum, gap_adjust;
 	} timing;
 	struct {
-		uint32_t 	rtp, time;
-		uint8_t  	status;
+		u32_t 	rtp, time;
+		u8_t  	status;
 		bool	first, required;
 	} synchro;
 	struct {
-		uint32_t time;
+		u32_t time;
 		seq_t seqno;
-		uint32_t rtptime;
+		u32_t rtptime;
 	} record;
 	int latency;			// rtp hold depth in samples
 	int delay;              // http startup silence fill frames
-	uint32_t resent_frames;	// total recovered frames
-	uint32_t silent_frames;	// total silence frames
-	uint32_t silence_count;	// counter for startup silence frames
-	uint32_t filled_frames;    // silence frames in current silence episode
+	u32_t resent_frames;	// total recovered frames
+	u32_t silent_frames;	// total silence frames
+	u32_t silence_count;	// counter for startup silence frames
+	u32_t filled_frames;    // silence frames in current silence episode
 	bool http_fill;         // fill when missing or just wait
 	bool pause;				// set when pause and silent frames must be produced
 	int skip;				// number of frames to skip to keep sync alignement
@@ -260,7 +258,6 @@ static void mp3_init(hairtunes_t *ctx) {
 	config.wave.channels = 2;
 	config.mpeg.bitr = ctx->encode.config.mp3.bitrate ? ctx->encode.config.mp3.bitrate : 128;
 	config.mpeg.mode = STEREO;
-
 	ctx->encode.codec = shine_initialise(&config);
 	LOG_INFO("[%p]: Using shine MP3-%u (%p)", ctx, ctx->encode.config.mp3.bitrate, ctx->encode.codec);
 }
@@ -315,7 +312,7 @@ static alac_file* alac_init(int fmtp[32]) {
 }
 
 /*---------------------------------------------------------------------------*/
-hairtunes_resp_t hairtunes_init(struct in_addr host, struct in_addr peer, encode_t codec,
+hairtunes_resp_t hairtunes_init(struct in_addr host, encode_t codec,
 								bool sync, bool drift, bool range, char *latencies,
 								char *aeskey, char *aesiv, char *fmtpstr,
 								short unsigned pCtrlPort, short unsigned pTimingPort,
@@ -345,7 +342,6 @@ hairtunes_resp_t hairtunes_init(struct in_addr host, struct in_addr peer, encode
 	}
 	ctx->http_length = http_length;
 	ctx->host = host;
-	ctx->peer = peer;
 	ctx->rtp_host.sin_family = AF_INET;
 	ctx->rtp_host.sin_addr.s_addr = INADDR_ANY;
 	pthread_mutex_init(&ctx->ab_mutex, 0);
@@ -399,7 +395,7 @@ hairtunes_resp_t hairtunes_init(struct in_addr host, struct in_addr peer, encode
 	for (i = 0; rc && i < 3; i++) {
 		do {
 			ctx->rtp_sockets[i].lport = port_base + ((port.offset + port.count++) % port_range);
-			ctx->rtp_sockets[i].sock = bind_socket(ctx->host, &ctx->rtp_sockets[i].lport, SOCK_DGRAM);
+			ctx->rtp_sockets[i].sock = bind_socket(&ctx->rtp_sockets[i].lport, SOCK_DGRAM);
 		} while (ctx->rtp_sockets[i].sock < 0 && port.count < port_range);
 
 		rc &= ctx->rtp_sockets[i].sock > 0;
@@ -410,7 +406,7 @@ hairtunes_resp_t hairtunes_init(struct in_addr host, struct in_addr peer, encode
 	// create http port and start listening
 	do {
 		resp.hport = port_base + ((port.offset + port.count++) % port_range);
-		ctx->http_listener = bind_socket(ctx->host, &resp.hport, SOCK_STREAM);
+		ctx->http_listener = bind_socket(&resp.hport, SOCK_STREAM);
 	} while (ctx->http_listener < 0 && port.count < port_range);
 
 	i = 128*1024;
@@ -491,7 +487,7 @@ void hairtunes_end(hairtunes_t *ctx)
 bool hairtunes_flush(hairtunes_t *ctx, unsigned short seqno, unsigned int rtptime, bool exit_locked, bool silence)
 {
 	bool rc = true;
-	uint32_t now = gettime_ms();
+	u32_t now = gettime_ms();
 
 	if (now < ctx->record.time + 250 || (ctx->record.seqno == seqno && ctx->record.rtptime == rtptime)) {
 		rc = false;
@@ -559,12 +555,12 @@ static void buffer_reset(abuf_t *audio_buffer) {
 // the sequence numbers will wrap pretty often.
 // this returns true if the second arg is after the first
 static int seq_order(seq_t a, seq_t b) {
-	int16_t d = b - a;
+	s16_t d = b - a;
 	return d > 0;
 }
 
 /*---------------------------------------------------------------------------*/
-static void alac_decode(hairtunes_t *ctx, int16_t *dest, char *buf, int len, int *outsize) {
+static void alac_decode(hairtunes_t *ctx, s16_t *dest, char *buf, int len, int *outsize) {
 	unsigned char packet[MAX_PACKET];
 	unsigned char iv[16];
 	int aeslen;
@@ -610,7 +606,7 @@ static void buffer_put_packet(hairtunes_t *ctx, seq_t seqno, unsigned rtptime, b
 	// release as soon as one recent frame is received
 	if (ctx->pause && seq_order(ctx->flush_seqno, seqno)) ctx->pause = false;
 
-	if (seqno == (uint16_t) (ctx->ab_write + 1)) {
+	if (seqno == (u16_t) (ctx->ab_write + 1)) {
 		// expected packet
 		abuf = ctx->audio_buffer + BUFIDX(seqno);
 		ctx->ab_write = seqno;
@@ -629,7 +625,7 @@ static void buffer_put_packet(hairtunes_t *ctx, seq_t seqno, unsigned rtptime, b
 		}
 		if (rtp_request_resend(ctx, ctx->ab_write + 1, seqno-1)) {
 			seq_t i;
-			uint32_t now = gettime_ms();
+			u32_t now = gettime_ms();
 			for (i = ctx->ab_write + 1; seq_order(i, seqno); i++) {
 				ctx->audio_buffer[BUFIDX(i)].rtptime = rtptime - (seqno-i)*ctx->frame_size;
 				ctx->audio_buffer[BUFIDX(i)].last_resend = now;
@@ -724,8 +720,8 @@ static void *rtp_thread_func(void *arg) {
 
 			// data packet
 			case 0x60: {
-				seqno = ntohs(*(uint16_t*)(pktp+2));
-				rtptime = ntohl(*(uint32_t*)(pktp+4));
+				seqno = ntohs(*(u16_t*)(pktp+2));
+				rtptime = ntohl(*(u32_t*)(pktp+4));
 
 				// adjust pointer and length
 				pktp += 12;
@@ -747,16 +743,16 @@ static void *rtp_thread_func(void *arg) {
 
 			// sync packet
 			case 0x54: {
-				uint32_t rtp_now_latency = ntohl(*(uint32_t*)(pktp+4));
-				uint64_t remote = (((uint64_t) ntohl(*(uint32_t*)(pktp+8))) << 32) + ntohl(*(uint32_t*)(pktp+12));
-				uint32_t rtp_now = ntohl(*(uint32_t*)(pktp+16));
+				u32_t rtp_now_latency = ntohl(*(u32_t*)(pktp+4));
+				u64_t remote = (((u64_t) ntohl(*(u32_t*)(pktp+8))) << 32) + ntohl(*(u32_t*)(pktp+12));
+				u32_t rtp_now = ntohl(*(u32_t*)(pktp+16));
 
 				pthread_mutex_lock(&ctx->ab_mutex);
 
 				// re-align timestamp and expected local playback time
 				if (!ctx->latency) ctx->latency = rtp_now - rtp_now_latency;
 				ctx->synchro.rtp = rtp_now - ctx->latency;
-				ctx->synchro.time = ctx->timing.local + (uint32_t) NTP2MS(remote - ctx->timing.remote);
+				ctx->synchro.time = ctx->timing.local + (u32_t) NTP2MS(remote - ctx->timing.remote);
 
 				// now we are synced on RTP frames
 				ctx->synchro.status |= RTP_SYNC;
@@ -769,7 +765,7 @@ static void *rtp_thread_func(void *arg) {
 
 				pthread_mutex_unlock(&ctx->ab_mutex);
 
-				LOG_DEBUG("[%p]: sync packet rtp_latency:%u rtp:%u remote ntp:%" PRIx64 ", local time % u(now: % u)",
+				LOG_DEBUG("[%p]: sync packet rtp_latency:%u rtp:%u remote ntp:%Lx, local time %u (now:%u)",
 						  ctx, rtp_now_latency, rtp_now, remote, ctx->synchro.time, gettime_ms());
 
 				if (!count--) {
@@ -782,11 +778,11 @@ static void *rtp_thread_func(void *arg) {
 
 			// NTP timing packet
 			case 0x53: {
-				uint64_t expected;
-				int64_t delta = 0;
-				uint32_t reference   = ntohl(*(uint32_t*)(pktp+12)); // only low 32 bits in our case
-				uint64_t remote 	  =(((uint64_t) ntohl(*(uint32_t*)(pktp+16))) << 32) + ntohl(*(uint32_t*)(pktp+20));
-				uint32_t roundtrip   = gettime_ms() - reference;
+				u64_t expected;
+				s64_t delta = 0;
+				u32_t reference   = ntohl(*(u32_t*)(pktp+12)); // only low 32 bits in our case
+				u64_t remote 	  =(((u64_t) ntohl(*(u32_t*)(pktp+16))) << 32) + ntohl(*(u32_t*)(pktp+20));
+				u32_t roundtrip   = gettime_ms() - reference;
 
 				// better discard sync packets when roundtrip is suspicious and get another one
 				if (roundtrip > 100) {
@@ -806,7 +802,7 @@ static void *rtp_thread_func(void *arg) {
 				ctx->timing.count++;
 
 				if (!ctx->timing.drift && (ctx->synchro.status & NTP_SYNC)) {
-					delta = NTP2MS((int64_t) expected - (int64_t) ctx->timing.remote);
+					delta = NTP2MS((s64_t) expected - (s64_t) ctx->timing.remote);
 					ctx->timing.gap_sum += delta;
 
 					pthread_mutex_lock(&ctx->ab_mutex);
@@ -817,7 +813,7 @@ static void *rtp_thread_func(void *arg) {
 					 so we'll run out of frames, need to add one
 					*/
 					if (ctx->timing.gap_sum > GAP_THRES && ctx->timing.gap_count++ > GAP_COUNT) {
-						LOG_INFO("[%p]: Sending packets too fast %" PRId64 " [W:% hu R : % hu]", ctx, ctx->timing.gap_sum, ctx->ab_write, ctx->ab_read);
+						LOG_INFO("[%p]: Sending packets too fast %Ld [W:%hu R:%hu]", ctx, ctx->timing.gap_sum, ctx->ab_write, ctx->ab_read);
 						ctx->ab_read--;
 						ctx->audio_buffer[BUFIDX(ctx->ab_read)].ready = 1;
 						ctx->timing.gap_sum -= GAP_THRES;
@@ -834,7 +830,7 @@ static void *rtp_thread_func(void *arg) {
 						} else ctx->skip++;
 						ctx->timing.gap_sum += GAP_THRES;
 						ctx->timing.gap_adjust += GAP_THRES;
-						LOG_INFO("[%p]: Sending packets too slow %" PRId64 " (skip: % d)[W:% hu R : % hu]", ctx, ctx->timing.gap_sum, ctx->skip, ctx->ab_write, ctx->ab_read);
+						LOG_INFO("[%p]: Sending packets too slow %Ld (skip: %d)  [W:%hu R:%hu]", ctx, ctx->timing.gap_sum, ctx->skip, ctx->ab_write, ctx->ab_read);
 					}
 
 					if (llabs(ctx->timing.gap_sum) < 8) ctx->timing.gap_count = 0;
@@ -845,7 +841,7 @@ static void *rtp_thread_func(void *arg) {
 				// now we are synced on NTP (mutex not needed)
 				ctx->synchro.status |= NTP_SYNC;
 
-				LOG_DEBUG("[%p]: Timing references local:%" PRIu64 ", remote: %" PRIx64 " (delta : %" PRId64 ", sum : %" PRId64 ", adjust : %" PRId64 ", gaps : % d)",
+				LOG_DEBUG("[%p]: Timing references local:%Lu, remote:%Lx (delta:%Ld, sum:%Ld, adjust:%Ld, gaps:%d)",
 						  ctx, ctx->timing.local, ctx->timing.remote, delta, ctx->timing.gap_sum, ctx->timing.gap_adjust, ctx->timing.gap_count);
 
 				break;
@@ -861,7 +857,7 @@ static void *rtp_thread_func(void *arg) {
 /*---------------------------------------------------------------------------*/
 static bool rtp_request_timing(hairtunes_t *ctx) {
 	unsigned char req[32];
-	uint32_t now = gettime_ms();
+	u32_t now = gettime_ms();
 	int i;
 	struct sockaddr_in host;
 
@@ -869,15 +865,15 @@ static bool rtp_request_timing(hairtunes_t *ctx) {
 
 	req[0] = 0x80;
 	req[1] = 0x52|0x80;
-	*(uint16_t*)(req+2) = htons(7);
-	*(uint32_t*)(req+4) = htonl(0);  // dummy
+	*(u16_t*)(req+2) = htons(7);
+	*(u32_t*)(req+4) = htonl(0);  // dummy
 	for (i = 0; i < 16; i++) req[i+8] = 0;
-	*(uint32_t*)(req+24) = 0;
-	*(uint32_t*)(req+28) = htonl(now); // this is not a real NTP, but a 32 ms counter in the low part of the NTP
+	*(u32_t*)(req+24) = 0;
+	*(u32_t*)(req+28) = htonl(now); // this is not a real NTP, but a 32 ms counter in the low part of the NTP
 
-	if (ctx->peer.s_addr != INADDR_ANY) {
+	if (ctx->host.s_addr != INADDR_ANY) {
 		host.sin_family = AF_INET;
-		host.sin_addr =	ctx->peer;
+		host.sin_addr =	ctx->host;
 	} else host = ctx->rtp_host;
 
 	// no address from sender, need to wait for 1st packet to be received
@@ -905,9 +901,9 @@ static bool rtp_request_resend(hairtunes_t *ctx, seq_t first, seq_t last) {
 
 	req[0] = 0x80;
 	req[1] = 0x55|0x80;  // Apple 'resend'
-	*(uint16_t*)(req+2) = htons(1);  // our seqnum
-	*(uint16_t*)(req+4) = htons(first);  // missed seqnum
-	*(uint16_t*)(req+6) = htons((seq_t) (last-first)+1);  // count
+	*(u16_t*)(req+2) = htons(1);  // our seqnum
+	*(u16_t*)(req+4) = htons(first);  // missed seqnum
+	*(u16_t*)(req+6) = htons((seq_t) (last-first)+1);  // count
 
 	ctx->rtp_host.sin_port = htons(ctx->rtp_sockets[CONTROL].rport);
 
@@ -925,7 +921,7 @@ static short *_buffer_get_frame(hairtunes_t *ctx, int *len) {
 	short buf_fill;
 	abuf_t *curframe = 0;
 	int i;
-	uint32_t now, playtime;
+	u32_t now, playtime;
 
 	if (!ctx->playing) return NULL;
 
@@ -958,7 +954,7 @@ static short *_buffer_get_frame(hairtunes_t *ctx, int *len) {
 	if (!buf_fill) curframe->rtptime = ctx->audio_buffer[BUFIDX(ctx->ab_read - 1)].rtptime + ctx->frame_size;
 
 	// watch out for 32 bits overflow
-	playtime = ctx->synchro.time + (((int32_t)(curframe->rtptime - ctx->synchro.rtp)) * 1000) / 44100;
+	playtime = ctx->synchro.time + (((s32_t)(curframe->rtptime - ctx->synchro.rtp)) * 1000) / 44100;
 
 	LOG_SDEBUG("playtime %u %d [W:%hu R:%hu] %d", playtime, playtime - now, ctx->ab_write, ctx->ab_read, curframe->ready);
 
@@ -1029,7 +1025,7 @@ int send_data(bool chunked, int sock, void *data, int len, int flags) {
 	}
 
 	while (bytes) {
-		int sent = send(sock, (uint8_t*) data + len - bytes, bytes, flags);
+		int sent = send(sock, (u8_t*) data + len - bytes, bytes, flags);
 		if (sent < 0) {
 			LOG_ERROR("Error sending data %u", len);
 			return -1;
@@ -1044,7 +1040,7 @@ int send_data(bool chunked, int sock, void *data, int len, int flags) {
 
 /*---------------------------------------------------------------------------*/
 static void *http_thread_func(void *arg) {
-	int16_t *inbuf;
+	s16_t *inbuf;
 	int frame_count = 0;
 	FLAC__int32 *flac_samples = NULL;
 	hairtunes_t *ctx = (hairtunes_t*) arg;
@@ -1141,14 +1137,14 @@ static void *http_thread_func(void *arg) {
 				memcpy(ctx->encode.buffer + ctx->encode.len, inbuf, size);
 				ctx->encode.len += size;
 				if (ctx->encode.len >= block) {
-					inbuf = (int16_t*) shine_encode_buffer_interleaved(ctx->encode.codec, (int16_t*) ctx->encode.buffer, &len);
+					inbuf = (s16_t*) shine_encode_buffer_interleaved(ctx->encode.codec, (s16_t*) ctx->encode.buffer, &len);
 					ctx->encode.len -= block;
 					memcpy(ctx->encode.buffer, ctx->encode.buffer + block, ctx->encode.len);
 				} else len = 0;
 			} else {
 				if (ctx->encode.config.codec == CODEC_PCM) {
-					int16_t *p = inbuf;
-					for (len = size*2/4; len > 0; len--,p++) *p = (uint8_t) *p << 8 | (uint8_t) (*p >> 8);
+					s16_t *p = inbuf;
+					for (len = size*2/4; len > 0; len--,p++) *p = (u8_t) *p << 8 | (u8_t) (*p >> 8);
 				} else if (ctx->encode.header) {
 #ifdef __RTP_STORE
 					fwrite(&wave_header, sizeof(wave_header), 1, ctx->httpOUT);
@@ -1162,7 +1158,7 @@ static void *http_thread_func(void *arg) {
 			}
 
 			if (len) {
-				uint32_t space, gap = gettime_ms();
+				u32_t space, gap = gettime_ms();
 				int offset;
 
 #ifdef __RTP_STORE
@@ -1178,10 +1174,8 @@ static void *http_thread_func(void *arg) {
 				if (ctx->icy.interval && len > ctx->icy.remain) {
 					int len_16 = 0;
 					char buffer[ICY_LEN_MAX];
-
 					if (ctx->icy.updated) {
 						char *format;
-
 						// there is room for 1 extra byte at the beginning for length
 						if (ctx->metadata.artwork) format = "NStreamTitle='%s%s%s';StreamURL='%s';";
 						else format = "NStreamTitle='%s%s%s';";
@@ -1192,9 +1186,7 @@ static void *http_thread_func(void *arg) {
 						len_16 = (len_16 + 15) / 16;
 						ctx->icy.updated = false;
 					}
-
 					buffer[0] = len_16;
-
 					// release mutex here as send might take a while
 					pthread_mutex_unlock(&ctx->ab_mutex);
 
@@ -1202,19 +1194,16 @@ static void *http_thread_func(void *arg) {
 					offset = ctx->icy.remain;
 					if (offset) send_data(ctx->http_length == -3, sock, (void*) inbuf, offset, 0);
 					len -= offset;
-
 					// then send icy data
 					send_data(ctx->http_length == -3, sock, (void*) buffer, len_16 * 16 + 1, 0);
 					ctx->icy.remain = ctx->icy.interval;
-
 					LOG_SDEBUG("[%p]: ICY checked %u", ctx, ctx->icy.remain);
 				} else {
 					offset = 0;
 					pthread_mutex_unlock(&ctx->ab_mutex);
 				}
-
 				LOG_SDEBUG("[%p]: HTTP sent frame count:%u bytes:%u (W:%hu R:%hu)", ctx, frame_count++, len+offset, ctx->ab_write, ctx->ab_read);
-				sent = send_data(ctx->http_length == -3, sock, (uint8_t*) inbuf + offset , len, 0);
+				sent = send_data(ctx->http_length == -3, sock, (u8_t*) inbuf + offset , len, 0);
 
 				// update remaining count with desired length
 				if (ctx->icy.interval) ctx->icy.remain -= len;
@@ -1283,14 +1272,12 @@ static bool handle_http(hairtunes_t *ctx, int sock)
 			kd_vadd(resp, "Content-Range", "bytes %zu-%zu/*", offset, ctx->http_count);
 		}
 	}
-
 	// check if add ICY metadata is needed (only on live stream)
 	if (ctx->encode.config.codec == CODEC_MP3 && ctx->encode.config.mp3.icy &&
 		((str = kd_lookup(headers, "Icy-MetaData")) != NULL) && atoi(str)) {
 		kd_vadd(resp, "icy-metaint", "%u", ICY_INTERVAL);
 		ctx->icy.interval = ctx->icy.remain = ICY_INTERVAL;
 	} else ctx->icy.interval = 0;
-
 	// let owner modify HTTP response if needed
 	if (ctx->http_cb) ctx->http_cb(ctx->owner, headers, resp);
 

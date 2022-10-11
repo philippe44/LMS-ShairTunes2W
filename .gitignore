@@ -69,3 +69,7 @@ _backup/
 *-idx*
 *.save*
 *.bak
+*.user
+*.old
+*.vs/
+build/

@@ -1,0 +1,12 @@
+[submodule "application/libcodecs"]
+	path = application/libcodecs
+	url = https://github.com/philippe44/libcodecs
+[submodule "application/pthreads4w"]
+	path = application/pthreads4w
+	url = https://github.com/philippe44/pthreads4w
+[submodule "application/libmdns"]
+	path = application/libmdns
+	url = https://github.com/philippe44/libmdns
+[submodule "application/libopenssl"]
+	path = application/libopenssl
+	url = https://github.com/philippe44/libopenssl
