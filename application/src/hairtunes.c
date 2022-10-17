@@ -1,53 +1,30 @@
 /*
  * HairTunes - RAOP packet handler and slave-clocked replay engine
  * Copyright (c) James Laird 2011
- * All rights reserved.
+ * 
+ * (c) Philippe, philippe_44@outlook.com
  *
- * Modularisation: philippe_44@outlook.com, 2017
+ * See LICENSE
  *
- * Permission is hereby granted, free of charge, to any person
- * obtaining a copy of this software and associated documentation
- * files (the "Software"), to deal in the Software without
- * restriction, including without limitation the rights to use,
- * copy, modify, merge, publish, distribute, sublicense, and/or
- * sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be
- * included in all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
- * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
- * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
- * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
- * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
- * OTHER DEALINGS IN THE SOFTWARE.
  */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdarg.h>
-#include <sys/types.h>
-#include <pthread.h>
-#include <math.h>
-#include <errno.h>
-#include <sys/stat.h>
-#include <stdint.h>
-#include <fcntl.h>
 #include <assert.h>
-#include <inttypes.h>
 
-#include "openssl/aes.h"
+#include <pthread.h>
+#include <openssl/aes.h>
 
 #include "platform.h"
 #include "hairtunes.h"
 #include "alac.h"
 #include "FLAC/stream_encoder.h"
 #include "layer3.h"
-#include "log_util.h"
+
+#include "cross_net.h"
+#include "cross_log.h"
+#include "cross_util.h"
 #include "util.h"
 
 #define NTP2MS(ntp) ((((ntp) >> 10) * 1000L) >> 22)
@@ -57,9 +34,7 @@
 #define MS2TS(ms, rate) ((((uint64_t) (ms)) * (rate)) / 1000)
 #define TS2MS(ts, rate) NTP2MS(TS2NTP(ts,rate))
 
-
 #define GAP_THRES	8
-
 #define GAP_COUNT	20
 
 extern log_level 	raop_loglevel;
@@ -81,7 +56,7 @@ static log_level 	*loglevel = &raop_loglevel;
 #define RESEND_TO	200
 
 #define	ICY_INTERVAL 16384
-#define ICY_LEN_MAX		(255*16+1)
+#define ICY_LEN_MAX	 (255*16+1)
 
 enum { DATA, CONTROL, TIMING };
 static char *mime_types[] = { "audio/mpeg", "audio/flac", "audio/L16;rate=44100;channels=2", "audio/wav" };
@@ -283,7 +258,6 @@ static void encoder_close(hairtunes_t *ctx) {
 
 /*---------------------------------------------------------------------------*/
 static alac_file* alac_init(int fmtp[32]) {
-	alac_file *alac;
 	int sample_size = fmtp[3];
 
 	if (sample_size != 16) {
@@ -291,7 +265,7 @@ static alac_file* alac_init(int fmtp[32]) {
 		return false;
 	}
 
-	alac = create_alac(sample_size, 2);
+	alac_file* alac = create_alac(sample_size, 2);
 
 	if (!alac) {
 		LOG_ERROR("cannot create alac codec", NULL);
@@ -324,7 +298,6 @@ hairtunes_resp_t hairtunes_init(struct in_addr host, struct in_addr peer, encode
 								unsigned short port_base, unsigned short port_range,
 								int http_length)
 {
-	int i = 0;
 	char *arg, *p;
 	int fmtp[12];
 	bool rc = true;
@@ -381,7 +354,7 @@ hairtunes_resp_t hairtunes_init(struct in_addr host, struct in_addr peer, encode
 	}
 
 	memset(fmtp, 0, sizeof(fmtp));
-	while ((arg = strsep(&fmtpstr, " \t")) != NULL) fmtp[i++] = atoi(arg);
+	for (int i = 0; arg = strsep(&fmtpstr, " \t"); i++) fmtp[i] = atoi(arg);
 
 	ctx->frame_size = fmtp[1];
 	ctx->silence_frame = (char*) calloc(ctx->frame_size, 4);
@@ -396,7 +369,7 @@ hairtunes_resp_t hairtunes_init(struct in_addr host, struct in_addr peer, encode
 
 	buffer_alloc(ctx->audio_buffer, ctx->frame_size*4);
 
-	for (i = 0; rc && i < 3; i++) {
+	for (int i = 0; rc && i < 3; i++) {
 		do {
 			ctx->rtp_sockets[i].lport = port_base + ((port.offset + port.count++) % port_range);
 			ctx->rtp_sockets[i].sock = bind_socket(ctx->host, &ctx->rtp_sockets[i].lport, SOCK_DGRAM);
@@ -413,7 +386,7 @@ hairtunes_resp_t hairtunes_init(struct in_addr host, struct in_addr peer, encode
 		ctx->http_listener = bind_socket(ctx->host, &resp.hport, SOCK_STREAM);
 	} while (ctx->http_listener < 0 && port.count < port_range);
 
-	i = 128*1024;
+	int i = 128*1024;
 	setsockopt(ctx->http_listener, SOL_SOCKET, SO_SNDBUF, (void*) &i, sizeof(i));
 	rc &= ctx->http_listener > 0;
 	rc &= listen(ctx->http_listener, 1) == 0;
@@ -517,14 +490,12 @@ bool hairtunes_flush(hairtunes_t *ctx, unsigned short seqno, unsigned int rtptim
 }
 
 /*---------------------------------------------------------------------------*/
-void hairtunes_flush_release(hairtunes_t *ctx)
-{
+void hairtunes_flush_release(hairtunes_t *ctx) {
 	pthread_mutex_unlock(&ctx->ab_mutex);
 }
 
 /*---------------------------------------------------------------------------*/
-void hairtunes_record(hairtunes_t *ctx, unsigned short seqno, unsigned rtptime)
-{
+void hairtunes_record(hairtunes_t *ctx, unsigned short seqno, unsigned rtptime) {
 	ctx->record.seqno = seqno;
 	ctx->record.rtptime = rtptime;
 	ctx->record.time = gettime_ms();
@@ -578,7 +549,6 @@ static void alac_decode(hairtunes_t *ctx, int16_t *dest, char *buf, int len, int
 		decode_frame(ctx->alac_codec, packet, dest, outsize);
 	} else decode_frame(ctx->alac_codec, (unsigned char*) buf, dest, outsize);
 }
-
 
 /*---------------------------------------------------------------------------*/
 static void buffer_put_packet(hairtunes_t *ctx, seq_t seqno, unsigned rtptime, bool first, char *data, int len) {
@@ -917,7 +887,6 @@ static bool rtp_request_resend(hairtunes_t *ctx, seq_t first, seq_t last) {
 
 	return true;
 }
-
 
 /*---------------------------------------------------------------------------*/
 // get the next frame, when available. return 0 if underrun/stream reset.

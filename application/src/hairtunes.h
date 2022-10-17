@@ -1,7 +1,15 @@
-#ifndef _HAIRTUNES_H_
-#define _HAIRTUNES_H_
+/*
+ * RAOP http server
+ *
+ * (c) Philippe, philippe_44@outlook.com
+ *
+ * See LICENSE file
+ *
+ */
 
-#include "util.h"
+#pragma once
+
+#include "cross_util.h"
 
 typedef struct {
 	unsigned short cport, tport, aport, hport;
@@ -38,5 +46,3 @@ bool 				hairtunes_flush(struct hairtunes_s *ctx, unsigned short seqno, unsigned
 void 				hairtunes_flush_release(struct hairtunes_s *ctx);
 void 				hairtunes_record(struct hairtunes_s *ctx, unsigned short seqno, unsigned rtptime);
 void 				hairtunes_metadata(struct hairtunes_s *ctx, struct metadata_s *metadata);
-
-#endif

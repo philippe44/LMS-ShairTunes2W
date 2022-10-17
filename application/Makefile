@@ -14,9 +14,10 @@ else
 LDFLAGS 	+= -Wl,--gc-sections
 endif
 
-TOOLS		= tools
-#VALGRIND	= ../valgrind
 SRC 		= src
+TOOLS		= crosstools/src
+RAOP		= libraop/targets
+#VALGRIND	= ../valgrind
 MDNS		= libmdns/targets
 CODECS		= libcodecs/targets
 OPENSSL		= libopenssl/targets/$(HOST)/$(PLATFORM)
@@ -27,17 +28,18 @@ LDFLAGS 	+= -s -lpthread -ldl -lm -lrt -L.
 
 vpath %.c $(TOOLS):$(SRC)
 
-INCLUDE = -I$(CODECS)/include/flac \
-		  -I$(CODECS)/include/shine \
+INCLUDE = -I$(CODECS)/include/flac -I$(CODECS)/include/shine \
 		  -I$(TOOLS) \
+		  -I$(RAOP)/include \
 		  -I$(MDNS)/include/tinysvcmdns \
 		  -I$(OPENSSL)/include
 
-SOURCES = alac.c hairtunes.c main.c \
-		  log_util.c util.c
+SOURCES = main.c \
+		  cross_util.c cross_log.c cross_net.c cross_thread.c platform.c 
 		
 OBJECTS = $(patsubst %.c,$(BUILDDIR)/%.o,$(SOURCES)) 
-LIBRARY = $(CODECS)/$(HOST)/$(PLATFORM)/libcodecs.a $(MDNS)/$(HOST)/$(PLATFORM)/libmdns.a $(OPENSSL)/libopenssl.a
+LIBRARY = $(RAOP)/$(HOST)/$(PLATFORM)/libraop.a $(CODECS)/$(HOST)/$(PLATFORM)/libcodecs.a \
+		  $(MDNS)/$(HOST)/$(PLATFORM)/libmdns.a $(OPENSSL)/libopenssl.a
 
 all: directory $(BIN)
 directory:

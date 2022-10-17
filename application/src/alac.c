@@ -43,7 +43,7 @@ static const int host_bigendian = 1;
 
 #include "alac.h"
 
-extern int _fprintf(FILE *file, ...);
+#define _fprintf fprintf
 
 #define _Swap32(v) do { \
                    v = (((v) & 0x000000FF) << 0x18) | \

@@ -1,12 +1,18 @@
 [submodule "application/libcodecs"]
 	path = application/libcodecs
 	url = https://github.com/philippe44/libcodecs
-[submodule "application/pthreads4w"]
-	path = application/pthreads4w
-	url = https://github.com/philippe44/pthreads4w
 [submodule "application/libmdns"]
 	path = application/libmdns
 	url = https://github.com/philippe44/libmdns
 [submodule "application/libopenssl"]
 	path = application/libopenssl
 	url = https://github.com/philippe44/libopenssl
+[submodule "application/crosstools"]
+	path = application/crosstools
+	url = https://github.com/philippe44/crosstools
+[submodule "application/libpthreads4w"]
+	path = application/libpthreads4w
+	url = https://github.com/philippe44/libpthreads4w
+[submodule "application/libraop"]
+	path = application/libraop
+	url = https://github.com/philippe44/libraop

@@ -1,29 +1,10 @@
 /*
  * HairTunes - RAOP packet handler and slave-clocked replay engine
- * Copyright (c) James Laird 2011, philippe_44 2017
- * All rights reserved.
+ * Copyright (c) James Laird 2011
+ * (c) Philippe, philippe_44@outlook.com
  *
- * Modularisation: philippe_44@outlook.com, 2017
+ * See LICENSE file
  *
- * Permission is hereby granted, free of charge, to any person
- * obtaining a copy of this software and associated documentation
- * files (the "Software"), to deal in the Software without
- * restriction, including without limitation the rights to use,
- * copy, modify, merge, publish, distribute, sublicense, and/or
- * sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be
- * included in all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
- * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
- * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
- * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
- * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
- * OTHER DEALINGS IN THE SOFTWARE.
  */
 
 #include <stdio.h>
@@ -42,9 +23,10 @@
 
 #include "platform.h"
 #include "tinysvcmdns.h"
-#include "hairtunes.h"
-#include "util.h"
-#include "log_util.h"
+#include "raop_streamer.h"
+#include "cross_net.h"
+#include "cross_util.h"
+#include "cross_log.h"
 
 extern int 		mdns_server(int argc, char *argv[]);
 static int 		sock_printf(int sock,...);
@@ -150,14 +132,14 @@ static int sock_printf(int sock, ...)
 }
 
 /*----------------------------------------------------------------------------*/
-static void hairtunes_cb(void *owner, hairtunes_event_t event)
+static void streamer_cb(void *owner, raopst_event_t event)
 {
 	switch(event) {
-		case HAIRTUNES_PLAY:
+		case RAOP_STREAMER_PLAY:
 			sock_printf(ipc_sock, "play\n");
 			break;
 		default:
-			LOG_ERROR("unknown hairtunes event %d", event);
+			LOG_ERROR("unknown event %d", event);
 			break;
 	}
 }
@@ -190,9 +172,7 @@ static void print_usage(void) {
 /*---------------------------------------------------------------------------*/
 static void sighandler(int signum) {
 	mdnsd_stop(svr);
-#ifdef _WIN32
-	winsock_close();
-#endif
+	netsock_close();
 	exit(0);
 }
 
@@ -203,7 +183,7 @@ int main(int argc, char **argv) {
 	int ret = 0;
 	bool use_sync = false, drift = false;
 	static struct in_addr peer;
-	encode_t encoder;
+	raopst_encode_t encoder;
 
 	// just print usage and exit
 	if (argc <= 2) {
@@ -211,9 +191,7 @@ int main(int argc, char **argv) {
 		exit(0);
 	}
 
-#ifdef _WIN32
-	winsock_init();
-#endif
+	netsock_init();
 
 	// mDNS server mode
 	if (!strcmp(argv[1], "-mdns")) {
@@ -286,7 +264,7 @@ int main(int argc, char **argv) {
 		free(type);
 		free(txt);
 	} else {
-		memset(&encoder, 0, sizeof(encode_t));
+		memset(&encoder, 0, sizeof(raopst_encode_t));
 		encoder.codec = CODEC_FLAC;
 
 		while ( (arg = *++argv) != NULL ) {
@@ -342,18 +320,18 @@ int main(int argc, char **argv) {
 
 		LOG_INFO("client: %s, ipc port %hu", inet_ntoa(peer), ipc_port);
 	
-		ipc_sock = conn_socket(ipc_port);
+		ipc_sock = tcp_connect_loopback(ipc_port);
 
 		if (ipc_sock != -1) {
-			hairtunes_resp_t ht;
+			raopst_resp_t ht;
 			char line[128];
 			int in_line = 0, n;
 			struct in_addr host;
 
 			host.s_addr = INADDR_ANY;
-			ht = hairtunes_init(host, peer, encoder, use_sync, drift, false, latencies,
+			ht = raopst_init(host, peer, encoder, use_sync, drift, false, latencies,
 								aeskey, aesiv, fmtp, cport, tport, NULL,
-								hairtunes_cb, NULL, port_base, port_range, -1);
+								streamer_cb, NULL, port_base, port_range, -1);
 
 			sock_printf(ipc_sock, "port: %d\n", ht.aport);
 			sock_printf(ipc_sock, "cport: %d\n", ht.cport);
@@ -379,7 +357,7 @@ int main(int argc, char **argv) {
 					unsigned rtptime;
 
 					sscanf(line, "flush %hu %u", &seqno, &rtptime);
-					if (hairtunes_flush(ht.ctx, seqno, rtptime, false, false)) {
+					if (raopst_flush(ht.ctx, seqno, rtptime, false, false)) {
 						sock_printf(ipc_sock, "flushed %hu %u\n", seqno, rtptime);
 					}
 				}
@@ -389,11 +367,11 @@ int main(int argc, char **argv) {
 					unsigned rtptime;
 
 					sscanf(line, "record %hu %u", &seqno, &rtptime);
-					hairtunes_record(ht.ctx, seqno, rtptime);
+					raopst_record(ht.ctx, seqno, rtptime);
 				}
 			}
 
-			hairtunes_end(ht.ctx);
+			raopst_end(ht.ctx);
 
 			sock_printf(ipc_sock, "bye!\n", NULL);
 		} else {
@@ -405,9 +383,7 @@ int main(int argc, char **argv) {
 		if (ipc_sock != -1) shutdown_socket(ipc_sock);
 	}
 
-#ifdef _WIN32
-	winsock_close();
-#endif
+	netsock_close();
 
 	return ret;
 }
