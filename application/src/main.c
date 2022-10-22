@@ -22,7 +22,7 @@
 #include <assert.h>
 
 #include "platform.h"
-#include "tinysvcmdns.h"
+#include "mdnssvc.h"
 #include "raop_streamer.h"
 #include "cross_net.h"
 #include "cross_util.h"

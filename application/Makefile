@@ -5,14 +5,8 @@ endif
 PLATFORM ?= $(firstword $(subst -, ,$(CC)))
 HOST ?= $(word 2, $(subst -, ,$(CC)))
 
-BUILDDIR	= build/$(PLATFORM)
-BIN		 	= bin/shairport_helper-$(PLATFORM)
-
-ifeq ($(OS),Darwin)
-LDFLAGS 	+= -Wl,-dead_strip
-else
-LDFLAGS 	+= -Wl,--gc-sections
-endif
+BUILDDIR	= bin/$(HOST)/$(PLATFORM)
+BIN		 	= bin/shairport_helper-$(HOST)-$(PLATFORM)
 
 SRC 		= src
 TOOLS		= crosstools/src
@@ -22,16 +16,16 @@ MDNS		= libmdns/targets
 CODECS		= libcodecs/targets
 OPENSSL		= libopenssl/targets/$(HOST)/$(PLATFORM)
 
-DEFINES 	= -DHAIRTUNES_STANDALONE -DHTTP_PARSER_STRICT=0 -D_GNU_SOURCE
+DEFINES 	= -DHTTP_PARSER_STRICT=0 -D_GNU_SOURCE
 CFLAGS  	+= -Wall -Wno-deprecated-declarations -Wno-format-truncation -fPIC -ggdb -O2 $(DEFINES) -fdata-sections -ffunction-sections 
-LDFLAGS 	+= -s -lpthread -ldl -lm -lrt -L. 
+LDFLAGS 	+= -s -lpthread -ldl -lm -L. 
 
 vpath %.c $(TOOLS):$(SRC)
 
 INCLUDE = -I$(CODECS)/include/flac -I$(CODECS)/include/shine \
 		  -I$(TOOLS) \
 		  -I$(RAOP)/include \
-		  -I$(MDNS)/include/tinysvcmdns \
+		  -I$(MDNS)/include/mdnssvc \
 		  -I$(OPENSSL)/include
 
 SOURCES = main.c \
