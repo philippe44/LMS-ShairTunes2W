@@ -5,6 +5,14 @@ endif
 PLATFORM ?= $(firstword $(subst -, ,$(CC)))
 HOST ?= $(word 2, $(subst -, ,$(CC)))
 
+ifneq ($(HOST),macos)
+ifneq ($(HOST),solaris)
+LDFLAGS += -static
+else
+LDFLAGS += -lssp
+endif
+endif
+
 BUILDDIR	= bin/$(HOST)/$(PLATFORM)
 BIN		 	= bin/shairport_helper-$(HOST)-$(PLATFORM)
 
@@ -17,7 +25,7 @@ CODECS		= libcodecs/targets
 OPENSSL		= libopenssl/targets/$(HOST)/$(PLATFORM)
 
 DEFINES 	= -DHTTP_PARSER_STRICT=0 -D_GNU_SOURCE
-CFLAGS  	+= -Wall -Wno-deprecated-declarations -Wno-format-truncation -fPIC -ggdb -O2 $(DEFINES) -fdata-sections -ffunction-sections 
+CFLAGS  	+= -Wall -Wno-deprecated-declarations -Wno-format-truncation -Wno-stringop-truncation -fPIC -ggdb -O2 $(DEFINES) -fdata-sections -ffunction-sections 
 LDFLAGS 	+= -s -lpthread -ldl -lm -L. 
 
 vpath %.c $(TOOLS):$(SRC)

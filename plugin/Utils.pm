@@ -45,43 +45,39 @@ sub helperBinary {
 	if ($os->{'os'} eq 'Linux') {
 
 		if ($os->{'osArch'} =~ /x86_64/) {
-			$bin = "shairport_helper-x64-linux";
+			$bin = "shairport_helper-linux-x86_64";
         } elsif ($os->{'binArch'} =~ /i386/) {
-		    $bin = "shairport_helper-i386-linux";
-		}
-		
-		if ($os->{'osArch'} =~ /aarch64/) {
-			$bin = "shairport_helper-aarch64";
-		}	
-		
-		if ($os->{'binArch'} =~ /armhf/) {
-			$bin = "shairport_helper-armv6hf";
+		    $bin = "shairport_helper-linux-x86";
+		} elsif ($os->{'osArch'} =~ /aarch64/) {
+			$bin = "shairport_helper-linux-aarch64";
 		} elsif ($os->{'binArch'} =~ /arm/) {
-			$bin = "shairport_helper-armv5te";
-		}	
-		
-		if ($os->{'binArch'} =~ /ppc|powerpc/) {
-			$bin = "shairport_helper-ppc";
+			$bin = "shairport_helper-linux-arm";
+		} elsif ($os->{'binArch'} =~ /ppc|powerpc/) {
+			$bin = "shairport_helper-linux-powerpc";
+		} elsif ($os->{'binArch'} =~ /sparc/) {
+			$bin = "shairport_helper-linux-sparc64";
+		} elsif ($os->{'binArch'} =~ /mips/) {
+			$bin = "shairport_helper-linux-powerpc";
 		}
 	
 	}
 	
 	if ($os->{'os'} eq 'Darwin') {
-		$bin = "shairport_helper-osx";
+		$bin = "shairport_helper-macos_x86_64";
 	}
 	
 	if ($os->{'os'} eq 'Windows') {
-		$bin = "shairport_helper-win.exe";
+		$bin = "shairport_helper.exe";
 	}	
 	
 	if ($os->{'os'} eq 'Unix') {
 	
 		if ($os->{'osName'} eq 'solaris') {
-			$bin = "shairport_helper-i86pc-solaris";
+			$bin = "shairport_helper-solaris-x86_64";
 		}	
 		
 		if ($os->{'osName'} =~ /freebsd/) {
-			$bin = "shairport_helper-bsd-x64";
+			$bin = "shairport_helper-freebsd-x86_64";
 		}
 			
 	}	
@@ -119,7 +115,7 @@ sub checkHelper {
 }
 
 sub helperBinaries {
-	return qw (shairport_helper-x64-linux shairport_helper-i386-linux shairport_helper-aarch64 shairport_helper-armv6hf shairport_helper-armv5te shairport_helper-osx shairport_helper-win.exe shairport_helper-i86pc-solaris shairport_helper-bsd-x64 );
+	return qw ( shairport_helper-linux-x86_64 shairport_helper-linux-x86 shairport_helper-linux-aarch64 shairport_helper-linux-arm shairport_helper-linux-powerpc shairport_helper-linux-sparc64 shairport_helper-linux-powerpc shairport_helper-macos_x86_64 shairport_helper.exe shairport_helper-solaris-x86_64 shairport_helper-freebsd-x86_64 );
 }
 
 sub helperPath {

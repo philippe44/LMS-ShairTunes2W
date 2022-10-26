@@ -461,7 +461,7 @@ sub publishPlayer {
     $log->info("using built-in helper: $shairtunes_helper");
 	
 	$mDNShelper = $shairtunes_helper;
-	eval { $proc = Proc::Background->new( $shairtunes_helper, "-dns", "host", Slim::Utils::Network::serverAddr(), $id, "_raop._tcp", @params ); };
+	eval { $proc = Proc::Background->new( $shairtunes_helper, "-mdns", "host", Slim::Utils::Network::serverAddr(), $id, "_raop._tcp", @params ); };
 	return $proc if $proc;
 	$log->error( "start $shairtunes_helper failed" ) if (!$@);
 	

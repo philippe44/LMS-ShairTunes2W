@@ -150,7 +150,7 @@ static void print_usage(void) {
 	printf("start with \"-mdns\" to use mDNS server mode\n"
 		   "AIRPORT mode (default):\n"
 		   " [iv <n> key <n>]\n"
-		   " [host <ip>]\n"
+		   " [peer <ip>]\n"
 		   " [socket <port>]\n"
 		   " [fmtp <n>]\n"
 		   " [cport <n>] [tport <n>]\n"
@@ -161,7 +161,7 @@ static void print_usage(void) {
 		   " [latency <airplay max ms hold[:http ms delay]>]\n"
 		   " [ports <start[:<range|128>]>]\n"
 		   "mDNS server mode:\n"
-		   " [-o <ip>]\n"
+		   " [-o <ip[iface>]\n"
 		   " -i <identity>\n"
 		   " -t <type>\n"
 		   " -p <port>\n"
@@ -197,7 +197,7 @@ int main(int argc, char **argv) {
 	if (!strcmp(argv[1], "-mdns")) {
 		const char** txt = NULL;
 		struct in_addr host;
-		char hostname[256], * identity = NULL, * type = NULL;
+		char hostname[256], * identity = NULL, * type = NULL, *iface = NULL;
 		int port = 0;
 
 		signal(SIGINT, sighandler);
@@ -217,7 +217,7 @@ int main(int argc, char **argv) {
 
 		while ((arg = *++argv) != NULL) {
 			if (!strcasecmp(arg, "-o") || !strcasecmp(arg, "host")) {
-				host.s_addr = inet_addr(*++argv);
+				iface = *++argv;
 				argc -= 2;
 			} else if (!strcasecmp(arg, "-p")) {
 				port = atoi(*++argv);
@@ -234,6 +234,7 @@ int main(int argc, char **argv) {
 					txt = (const char**) malloc((argc  + 1)* sizeof(char**));
 					memcpy(txt, argv, argc * sizeof(char**));
 					txt[argc] = NULL;
+					break;
 				}
 				argc--;
 			}
@@ -241,11 +242,14 @@ int main(int argc, char **argv) {
 
 		gethostname(hostname, sizeof(hostname));
 		strcat(hostname, ".local");
-		get_interface(&host);
 
+		host = get_interface(iface);
 		svr = mdnsd_start(host); 
+
 		if (svr) {
-			LOG_INFO("host: %s\nidentity: %s\ntype: %s\nip: %s\nport: %u\n", hostname, identity, type, inet_ntoa(host), port);
+			char txt_info[1024];
+			for (int i = 0, n = 0; txt[i]; i++) n += snprintf(txt_info + n, sizeof(txt_info) - n, "\t%s\n", txt[i]);
+			LOG_INFO("host: %s\nidentity: %s\ntype: %s\nip: %s\nport: %u\nwith TXT:\n%s", hostname, identity, type, inet_ntoa(host), port, txt_info);
 
 			mdnsd_set_hostname(svr, hostname, host);
 			svc = mdnsd_register_svc(svr, identity, type, port, NULL, txt);
@@ -272,7 +276,7 @@ int main(int argc, char **argv) {
 				hex2bin(aesiv, *++argv);
 			} else if (!strcasecmp(arg, "key")) {
 				hex2bin(aeskey, *++argv);
-			} else if (!strcasecmp(arg, "host")) {
+			} else if (!strcasecmp(arg, "peer")) {
 				peer.s_addr = inet_addr(*++argv);
 			} else if (!strcasecmp(arg, "fmtp")) {
 				fmtp = *++argv;
