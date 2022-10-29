@@ -18,6 +18,15 @@ note:
 		(on Solaris and a few debian - arm & aarch64 now, need to specify mirror -M https://cpan.metacpan.org before the lib name)
 	- on FreeBSD, use cshrc instead of bashrc	
 	
+1.0.1
+ - new compîlers to allow glibc starting 2.23
+ - mips is bigendian by default
+ 
+1.0.0 
+ - new build backend 
+ - iface can be used for binding
+ - many small changes...
+ 
 0.205.3
  - (P) bind listening socket to LMS' address (thanks@chincheta0815)
 	

@@ -304,7 +304,7 @@ sub stop_mDNS {
 	if ($os->{'os'} eq 'Windows') {
 		system("taskkill /F /T /IM ". basename($mDNShelper));
 	} else {	
-		system("killall $mDNShelper");
+		system("pkill -9 -f $mDNShelper");
 	}	
 }	
 

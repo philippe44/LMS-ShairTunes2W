@@ -44,12 +44,14 @@ LIBRARY = $(RAOP)/$(HOST)/$(PLATFORM)/libraop.a $(CODECS)/$(HOST)/$(PLATFORM)/li
 		  $(MDNS)/$(HOST)/$(PLATFORM)/libmdns.a $(OPENSSL)/libopenssl.a
 
 all: directory $(BIN)
+
+$(BIN): $(OBJECTS)
+	$(CC) $(OBJECTS) $(LIBRARY) $(CFLAGS) $(LDFLAGS) -o $@ 
+
+$(OBJECTS) $(OBJECTS_STATIC): $(DEPS)
+
 directory:
 	@mkdir -p $(BUILDDIR)
-	@mkdir -p bin
-
-$(BIN): $(OBJECTS) $(DEPS)
-	$(CC) $(OBJECTS) $(LIBRARY) $(LDFLAGS) -o $@
 
 $(BUILDDIR)/%.o : %.c
 	$(CC) $(CFLAGS) $(CPPFLAGS) $(INCLUDE) $< -c -o $@
