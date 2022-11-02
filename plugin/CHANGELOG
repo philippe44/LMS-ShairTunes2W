@@ -18,6 +18,10 @@ note:
 		(on Solaris and a few debian - arm & aarch64 now, need to specify mirror -M https://cpan.metacpan.org before the lib name)
 	- on FreeBSD, use cshrc instead of bashrc	
 	
+1.0.2
+ - fix mdns service query issues
+ - add arm64 for M1 
+	
 1.0.1
  - new compîlers to allow glibc starting 2.23
  - mips is bigendian by default
