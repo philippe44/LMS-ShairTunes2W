@@ -17,7 +17,10 @@ note:
 		cpan -T MIK/CryptX-0.060.tar.gz
 		(on Solaris and a few debian - arm & aarch64 now, need to specify mirror -M https://cpan.metacpan.org before the lib name)
 	- on FreeBSD, use cshrc instead of bashrc	
-	
+
+1.0.4	
+ - update mdnssd
+
 1.0.3
  - update libmdns 
  
