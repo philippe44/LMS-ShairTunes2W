@@ -20,16 +20,17 @@ LDFLAGS += -lssp
 endif
 endif
 
-BUILDDIR	= bin/$(HOST)/$(PLATFORM)
-BIN		 	= bin/shairport_helper-$(HOST)-$(PLATFORM)
+CORE       = bin/shairport_helper-$(HOST)
+BUILDDIR   = $(dir $(CORE))$(HOST)/$(PLATFORM)
+EXECUTABLE = $(CORE)-$(PLATFORM)
 
 SRC 		= src
 TOOLS		= crosstools/src
 RAOP		= libraop/targets
-#VALGRIND	= ../valgrind
 MDNS		= libmdns/targets
 CODECS		= libcodecs/targets
 OPENSSL		= libopenssl/targets/$(HOST)/$(PLATFORM)
+#VALGRIND	= ../valgrind
 
 DEFINES 	= -DHTTP_PARSER_STRICT=0 -D_GNU_SOURCE
 CFLAGS  	+= -Wall -fPIC -ggdb -O2 $(DEFINES) -fdata-sections -ffunction-sections 
@@ -50,10 +51,14 @@ OBJECTS = $(patsubst %.c,$(BUILDDIR)/%.o,$(SOURCES))
 LIBRARY = $(RAOP)/$(HOST)/$(PLATFORM)/libraop.a $(CODECS)/$(HOST)/$(PLATFORM)/libcodecs.a \
 		  $(MDNS)/$(HOST)/$(PLATFORM)/libmdns.a $(OPENSSL)/libopenssl.a
 
-all: directory $(BIN)
+all: directory $(EXECUTABLE)
 
-$(BIN): $(OBJECTS)
-	$(CC) $(OBJECTS) $(LIBRARY) $(CFLAGS) $(LDFLAGS) -o $@ 
+$(EXECUTABLE): $(OBJECTS)
+	$(CC) $(OBJECTS) $(LIBRARY) $(CFLAGS) $(LDFLAGS) -o $@
+ifeq ($(HOST),macos)
+	rm -f $(CORE)
+	lipo -create -output $(CORE) $$(ls $(CORE)* | grep -v '\-static')
+endif
 
 $(OBJECTS) $(OBJECTS_STATIC): $(DEPS)
 
@@ -64,4 +69,4 @@ $(BUILDDIR)/%.o : %.c
 	$(CC) $(CFLAGS) $(CPPFLAGS) $(INCLUDE) $< -c -o $@
 
 clean:
-	rm -f $(OBJECTS) $(BIN)
+	rm -f $(OBJECTS) $(EXECUTABLE) $(CORE)
