@@ -18,6 +18,9 @@ note:
 		(on Solaris and a few debian - arm & aarch64 now, need to specify mirror -M https://cpan.metacpan.org before the lib name)
 	- on FreeBSD, use cshrc instead of bashrc	
 
+1.0.8
+ - new mdnssvc API
+
 1.0.7
  - use really static glibc (-nss)
 
