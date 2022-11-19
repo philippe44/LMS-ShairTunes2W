@@ -16,8 +16,11 @@ note:
 		cpan -T TODDR/Crypt-OpenSSL-RSA-0.30.tar.gz
 		cpan -T MIK/CryptX-0.060.tar.gz
 		(on Solaris and a few debian - arm & aarch64 now, need to specify mirror -M https://cpan.metacpan.org before the lib name)
-	- on FreeBSD, use cshrc instead of bashrc	
-
+	- on FreeBSD, use cshrc instead of bashrc or launch bash before "sourcing"
+    
+1.0.9
+ - (P) add extra libs for 5.34 and 5.36
+ 
 1.0.8
  - new mdnssvc API
 
