@@ -19,6 +19,9 @@ note:
 		(on Solaris and a few debian - arm & aarch64 now, need to specify mirror -M https://cpan.metacpan.org before the lib name)
 	- on FreeBSD, use cshrc instead of bashrc or launch bash before "sourcing"
     
+1.0.12
+ - release
+ 
 1.0.11
  - (P) fix aarch64 names for Perl >= 5.32
  
