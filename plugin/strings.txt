@@ -16,12 +16,15 @@ PLUGIN_SHAIRTUNES2_WIPE
 	EN	Wipe
 	
 PLUGIN_SHAIRTUNES2_NEEDRESTART
-	EN	(restarting LMS recommended if changed)
+	EN	(restart LMS if changed)
 
 PLUGIN_SHAIRTUNES2_BINARIES_DESC
 	EN	Choose what helper will be used. Leave it empty to let plugin choose automatically
 	EN	<br>Re-Publish will stop all ShairTunes2 clients and republish them
 	EN	<br>Wipe will kill all DNS publishers with the same name and republish ShairTunes2 client - DANGEROUS
+    
+PLUGIN_SHAIRTUNES2_VCREDIST
+	EN	Windows users, please install this    
 	
 PLUGIN_SHAIRTUNES2_INBOUNDPORT
 	EN	Inbound ports
