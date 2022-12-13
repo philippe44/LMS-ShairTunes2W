@@ -33,7 +33,7 @@ static int 		sock_printf(int sock,...);
 static char*	sock_gets(int sock, char *str, int n);
 static void 	print_usage(void);
 
-const char *version = "1.0.12";
+const char *version = "1.0.14";
 
 static unsigned short cport, tport, ipc_port;
 static unsigned short port_base, port_range;
@@ -243,7 +243,7 @@ int main(int argc, char **argv) {
 		gethostname(hostname, sizeof(hostname));
 		strcat(hostname, ".local");
 
-		host = get_interface(iface);
+		host = get_interface(iface, NULL);
 		svr = mdnsd_start(host, false); 
 
 		if (svr) {

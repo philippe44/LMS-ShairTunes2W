@@ -65,9 +65,9 @@ sub helperBinary {
 	if ($os->{'os'} eq 'Darwin') {
 		
 		if ($os->{'osArch'} =~ /x86_64/) {
-			$bin = "shairport_helper-macos_x86_64";
-        } elsif ($os->{'binArch'} =~ /arm64/) {
-			$bin = "shairport_helper-macos_arm64";
+			$bin = "shairport_helper-macos-x86_64";
+        } elsif ($os->{'osArch'} =~ /arm64/) {
+			$bin = "shairport_helper-macos-arm64";
 		}	
 		
 	}
@@ -121,7 +121,7 @@ sub checkHelper {
 }
 
 sub helperBinaries {
-	return qw ( shairport_helper-linux-x86_64 shairport_helper-linux-x86 shairport_helper-linux-aarch64 shairport_helper-linux-arm shairport_helper-linux-armv6 shairport_helper-linux-powerpc shairport_helper-linux-sparc64 shairport_helper-linux-powerpc shairport_helper-macos_x86_64 shairport_helper-macos_arm64 shairport_helper.exe shairport_helper-solaris-x86_64 shairport_helper-freebsd-x86_64 );
+	return qw ( shairport_helper-linux-x86_64 shairport_helper-linux-x86 shairport_helper-linux-aarch64 shairport_helper-linux-arm shairport_helper-linux-armv6 shairport_helper-linux-powerpc shairport_helper-linux-sparc64 shairport_helper-linux-powerpc shairport_helper-macos-x86_64 shairport_helper-macos-arm64 shairport_helper.exe shairport_helper-solaris-x86_64 shairport_helper-freebsd-x86_64 );
 }
 
 sub helperPath {

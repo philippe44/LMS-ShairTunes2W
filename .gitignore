@@ -74,3 +74,4 @@ _backup/
 build/
 __recovery/
 *.bat
+*bak

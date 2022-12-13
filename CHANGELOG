@@ -19,6 +19,9 @@ note:
 		(on Solaris and a few debian - arm & aarch64 now, need to specify mirror -M https://cpan.metacpan.org before the lib name)
 	- on FreeBSD, use cshrc instead of bashrc or launch bash before "sourcing"
     
+1.0.14
+ - fix MacOS helper names    
+    
 1.0.13
  - add vcredist link    
     
