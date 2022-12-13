@@ -66,7 +66,7 @@ sub helperBinary {
 		
 		if ($os->{'osArch'} =~ /x86_64/) {
 			$bin = "shairport_helper-macos-x86_64";
-        } elsif ($os->{'osArch'} =~ /arm64/) {
+        } elsif ($os->{'osArch'} =~ /M1/) {
 			$bin = "shairport_helper-macos-arm64";
 		}	
 		
