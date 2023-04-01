@@ -18,6 +18,9 @@ note:
 		cpan -T MIK/CryptX-0.060.tar.gz
 		(on Solaris and a few debian - arm & aarch64 now, need to specify mirror -M https://cpan.metacpan.org before the lib name)
 	- on FreeBSD, use cshrc instead of bashrc or launch bash before "sourcing"
+	
+1.1.0
+ - bring back armv5	
    
 1.0.15
  - (P) osArch is M1 for MacOS M1   
