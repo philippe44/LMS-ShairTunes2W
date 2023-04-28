@@ -121,7 +121,7 @@ sub checkHelper {
 }
 
 sub helperBinaries {
-	return qw ( shairport_helper-linux-x86_64 shairport_helper-linux-x86 shairport_helper-linux-aarch64 shairport_helper-linux-arm shairport_helper-linux-armv6 shairport_helper-linux-armv5 shairport_helper-linux-powerpc shairport_helper-linux-sparc64 shairport_helper-linux-powerpc shairport_helper-macos-x86_64 shairport_helper-macos-arm64 shairport_helper.exe shairport_helper-solaris-x86_64 shairport_helper-freebsd-x86_64 ); 
+	return qw ( shairport_helper-linux-x86_64 shairport_helper-linux-x86 shairport_helper-linux-aarch64 shairport_helper-linux-arm shairport_helper-linux-armv6 shairport_helper-linux-armv5 shairport_helper-linux-powerpc shairport_helper-linux-sparc64 shairport_helper-linux-powerpc shairport_helper-macos shairport_helper-macos-x86_64 shairport_helper-macos-arm64 shairport_helper.exe shairport_helper-solaris-x86_64 shairport_helper-freebsd-x86_64 shairport_helper-linux-x86_64-static shairport_helper-linux-x86-static shairport_helper-linux-aarch64-static shairport_helper-linux-arm-static shairport_helper-linux-armv6-static shairport_helper-linux-armv5-static shairport_helper-linux-powerpc-static shairport_helper-linux-sparc64-static shairport_helper-linux-powerpc-static shairport_helper-freebsd-x86_64-static); 
 }
 
 sub helperPath {

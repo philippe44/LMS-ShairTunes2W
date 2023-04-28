@@ -14,7 +14,7 @@ HOST ?= $(word 2, $(subst -, ,$(CC)))
 
 ifneq ($(HOST),macos)
 ifneq ($(HOST),solaris)
-#LDFLAGS += -static
+LINKSTATIC = -static
 else
 LDFLAGS += -lssp
 endif
@@ -23,6 +23,7 @@ endif
 CORE       = bin/shairport_helper-$(HOST)
 BUILDDIR   = $(dir $(CORE))$(HOST)/$(PLATFORM)
 EXECUTABLE = $(CORE)-$(PLATFORM)
+EXECUTABLE_STATIC = $(EXECUTABLE)-static
 
 SRC 		= src
 TOOLS		= crosstools/src
@@ -49,9 +50,9 @@ SOURCES = main.c \
 		
 OBJECTS = $(patsubst %.c,$(BUILDDIR)/%.o,$(SOURCES)) 
 LIBRARY = $(RAOP)/$(HOST)/$(PLATFORM)/libraop.a $(CODECS)/$(HOST)/$(PLATFORM)/libcodecs.a \
-		  $(MDNS)/$(HOST)/$(PLATFORM)/libmdns.a $(OPENSSL)/libopenssl.a
+		  $(MDNS)/$(HOST)/$(PLATFORM)/libmdns.a $(OPENSSL)/libopenssl.a          
 
-all: directory $(EXECUTABLE)
+all: directory $(EXECUTABLE) $(EXECUTABLE_STATIC)
 
 $(EXECUTABLE): $(OBJECTS)
 	$(CC) $(OBJECTS) $(LIBRARY) $(CFLAGS) $(LDFLAGS) -o $@
@@ -60,7 +61,14 @@ ifeq ($(HOST),macos)
 	lipo -create -output $(CORE) $$(ls $(CORE)* | grep -v '\-static')
 endif
 
-$(OBJECTS) $(OBJECTS_STATIC): $(DEPS)
+$(EXECUTABLE_STATIC): $(OBJECTS)
+	$(CC) $(OBJECTS) $(LIBRARY) $(CFLAGS) $(LDFLAGS) $(LINKSTATIC) -o $@
+ifeq ($(HOST),macos)
+	rm -f $(CORE)-static
+	lipo -create -output $(CORE)-static $(CORE)-*-static
+endif	
+
+$(OBJECTS) : $(DEPS)
 
 directory:
 	@mkdir -p $(BUILDDIR)
@@ -69,4 +77,4 @@ $(BUILDDIR)/%.o : %.c
 	$(CC) $(CFLAGS) $(CPPFLAGS) $(INCLUDE) $< -c -o $@
 
 clean:
-	rm -f $(OBJECTS) $(EXECUTABLE) $(CORE)
+	rm -f $(OBJECTS) $(EXECUTABLE) $(EXECUTABLE_STATIC) $(CORE) $(CORE)-static 
