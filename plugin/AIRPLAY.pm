@@ -9,6 +9,7 @@ use Slim::Utils::Strings qw(string);
 use Slim::Utils::Misc;
 use Slim::Utils::Log;
 use Slim::Utils::Prefs;
+use Slim::Utils::Errno;
 
 Slim::Player::ProtocolHandlers->registerHandler( 'airplay', __PACKAGE__ );
 
@@ -23,28 +24,23 @@ sub bufferThreshold { $prefs->get('bufferThreshold') // 255; }
 
 sub canDoAction {
     my ( $class, $client, $url, $action ) = @_;
-    
 	$log->info( "Action=$action" );
-
     return Plugins::ShairTunes2W::Plugin->sendAction($client, $action);
 }
 
 sub scanUrl {
     my ( $class, $url, $args ) = @_;
+    my $track = $args->{song}->currentTrack;
 
-	$args->{cb}->( $args->{song}->currentTrack() );
+    # we don't allow scan, so audio_offset will not be discovered
+    $track->audio_offset(44) if $url =~/wav$/;
+	$args->{cb}->($track);
 }
 
-sub canDirectStream {
-    my ( $class, $client, $url ) = @_;
-	
-	return 0 if $client->isSynced(1);
-	
-    $log->debug( "canDirectStream $url" );
-
-    $url =~ s{^airplay://}{http://};
-	
-    return $class->SUPER::canDirectStream($client, $url);
+sub canDirectStreamSong {
+    my ($class, $client, $song) = @_;
+    my $directUrl = $class->SUPER::canDirectStreamSong($client, $song);  
+    return $song->stripHeader ? undef : $directUrl;
 }
 
 # To support remote streaming (synced players, slimp3/SB1), we need to subclass Protocols::HTTP
@@ -78,21 +74,42 @@ sub new {
 	
 	$log->debug("new: $url");
 
-	${*$sock}{contentType} = substr($prefs->get('codec'), 0, 3);
+    my $codec = substr($prefs->get('codec'), 0, 3);
+	${*$sock}{contentType} = $codec;
 	
     return $sock;
 }
 
+sub sysread{
+    my $self = $_[0];   
+    return $self->SUPER::sysread($_[1], $_[2], $_[3]) unless ${*$self}{__PACKAGE__ . '_skip'};
+        
+    # skip what we need until done or EOF
+    my $bytes = $self->SUPER::sysread($_[1], min(${*$self}{__PACKAGE__ . '_skip'}, $_[2]), $_[3]);
+    return $bytes if defined $bytes && !$bytes;
+
+    ${*$self}{__PACKAGE__ . '_skip'} -= $bytes if $bytes;
+    $_[1] = '';
+    $! = EINTR;
+    return undef;
+}    
+
 sub contentType {
     my $self = shift;
-
     return ${*$self}{'contentType'};
+}
+
+sub response {
+    my $self = shift;
+    my $args = shift;
+	my $song = $args->{song};
+    $self->SUPER::response($args, @_);
+    ${*$self}{__PACKAGE__ . '_skip'} = $song->currentTrack->audio_offset if $song->stripHeader && !${*$self}{_skip};
 }
 
 sub getMetadataFor {
 	my ( $class, $client ) = @_;
 	my $metadata = $client->master->pluginData('metadata');
-	
 	return $metadata || {};
 }
 
