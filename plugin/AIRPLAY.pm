@@ -30,11 +30,10 @@ sub canDoAction {
 
 sub scanUrl {
     my ( $class, $url, $args ) = @_;
-    my $track = $args->{song}->currentTrack;
-
-    # we don't allow scan, so audio_offset will not be discovered
-    $track->audio_offset(44) if $url =~/wav$/;
-	$args->{cb}->($track);
+    # we can't set $track->audio_offset otherwise LMS will *always* skip the WAV header
+	# in the GET request. This is by design because if we claim to have an audio_offset
+	# the it mean we have a header and should use a processor to handle it.
+	$args->{cb}->($args->{song}->currentTrack);
 }
 
 sub canDirectStreamSong {
@@ -104,7 +103,9 @@ sub response {
     my $args = shift;
 	my $song = $args->{song};
     $self->SUPER::response($args, @_);
-    ${*$self}{__PACKAGE__ . '_skip'} = $song->currentTrack->audio_offset if $song->stripHeader && !${*$self}{_skip};
+	# when asked to strip header, it means we are doing wav->pcm, but LMS can't remove 
+	# the header for us, so need to handle it manually
+    ${*$self}{__PACKAGE__ . '_skip'} = 44 if $song->stripHeader;
 }
 
 sub getMetadataFor {
