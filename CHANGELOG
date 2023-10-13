@@ -19,6 +19,9 @@ note:
 		(on Solaris and a few debian - arm & aarch64 now, need to specify mirror -M https://cpan.metacpan.org before the lib name)
 	- on FreeBSD, use cshrc instead of bashrc or launch bash before "sourcing"
 	
+1.3.3
+ - update libs (kd_dump)
+ 
 1.3.2
  - don't set audio_offset, it cannot work w/o a track processor	
 
