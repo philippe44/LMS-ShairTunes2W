@@ -18,6 +18,9 @@ note:
 		cpan -T MIK/CryptX-0.060.tar.gz
 		(on Solaris and a few debian - arm & aarch64 now, need to specify mirror -M https://cpan.metacpan.org before the lib name)
 	- on FreeBSD, use cshrc instead of bashrc or launch bash before "sourcing"
+
+1.3.4
+ - fix http_fill mode	
 	
 1.3.3
  - update libs (kd_dump)
