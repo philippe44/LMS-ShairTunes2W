@@ -33,7 +33,7 @@ static int 		sock_printf(int sock,...);
 static char*	sock_gets(int sock, char *str, int n);
 static void 	print_usage(void);
 
-const char *version = "1.4.0";
+const char *version = "1.5.0";
 
 static unsigned short cport, tport, ipc_port;
 static unsigned short port_base, port_range;
@@ -155,7 +155,7 @@ static void print_usage(void) {
 		   " [fmtp <n>]\n"
 		   " [cport <n>] [tport <n>]\n"
 		   " [log <file>] [dbg <error|warn|info|debug|sdebug>]\n"
-		   " [codec <mp3[:<rate>]|flc[:<level>]|wav|pcm>]\n"
+		   " [codec <mp3[:<rate>]|aac[:<rate>]|flc[:<level>]|wav|pcm>]\n"
 		   " [sync]\n"
    		   " [drift]\n"
 		   " [latency <airplay max ms hold[:http ms delay]>]\n"
@@ -183,7 +183,8 @@ int main(int argc, char **argv) {
 	int ret = 0;
 	bool use_sync = false, drift = false;
 	static struct in_addr peer;
-	raopst_encode_t encoder;
+	char* codec = "";
+	bool metadata = false;
 
 	// just print usage and exit
 	if (argc <= 2) {
@@ -268,9 +269,6 @@ int main(int argc, char **argv) {
 		free(type);
 		free(txt);
 	} else {
-		memset(&encoder, 0, sizeof(raopst_encode_t));
-		encoder.codec = CODEC_FLAC;
-
 		while ( (arg = *++argv) != NULL ) {
 			if (!strcasecmp(arg, "iv")) {
 				hex2bin(aesiv, *++argv);
@@ -302,17 +300,9 @@ int main(int argc, char **argv) {
 				if (!strcmp(*argv, "sdebug")) *loglevel = util_loglevel = lSDEBUG;
 			} else if (!strcasecmp(arg, "codec")) {
 				++argv;
-				if (!strcasecmp(*argv, "pcm")) encoder.codec = CODEC_PCM;
-				else if (!strcasecmp(*argv, "wav")) encoder.codec = CODEC_WAV;
-				else if (strcasestr(*argv, "mp3")) {
-					encoder.codec = CODEC_MP3;
-					if (strchr(*argv, ':')) encoder.mp3.bitrate = atoi(strchr(*argv, ':') + 1);
-				} else {
-					encoder.codec = CODEC_FLAC;
-					if (strchr(*argv, ':')) encoder.flac.level = atoi(strchr(*argv, ':') + 1);
-				}
+				codec = *argv;
 			} else if (!strcasecmp(arg, "metadata")) {
-				encoder.mp3.icy = atoi(*++argv);
+				metadata = atoi(*++argv);
 			} else if (!strcasecmp(arg, "sync")) {
 				use_sync = true;
 			} else if (!strcasecmp(arg, "drift")) {
@@ -333,7 +323,7 @@ int main(int argc, char **argv) {
 			struct in_addr host;
 
 			host.s_addr = INADDR_ANY;
-			ht = raopst_init(host, peer, encoder, use_sync, drift, false, latencies,
+			ht = raopst_init(host, peer, codec, metadata, use_sync, drift, false, latencies,
 								aeskey, aesiv, fmtp, cport, tport, NULL,
 								streamer_cb, NULL, port_base, port_range, -1);
 

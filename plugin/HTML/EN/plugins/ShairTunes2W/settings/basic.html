@@ -53,21 +53,21 @@
 			var codec = document.getElementById('codec_name');
 			var idx = codec.selectedIndex;
 			var	flac = document.getElementById('codec_flac');
-			var	mp3 = document.getElementById('codec_mp3');
+			var	mp3_aac = document.getElementById('codec_mp3_aac');
 			
 			codec = codec.options[idx].value;
-			mp3.style.display = flac.style.display = 'none';
+			mp3_aac.style.display = flac.style.display = 'none';
 			
 			if (codec === 'flc') {
 				flac.style.display = 'inline';
-			} else if (codec === 'mp3') {
-				mp3.style.display = 'inline';
+			} else if (codec === 'mp3' || codec === 'aac') {
+				mp3_aac.style.display = 'inline';
 			}	
 		}
 		</script>
 		
 		<select class="stdedit" id="codec_name" name="codec_name" onchange="codecchange()">
-		[% FOREACH entry IN [ ['',''], ['wav','wav'], ['flac','flc'], ['mp3', 'mp3'] ] %]
+		[% FOREACH entry IN [ ['',''], ['wav','wav'], ['flac','flc'], ['mp3', 'mp3'], ['aac', 'aac'] ] %]
 			<option label="[% entry.0 %]" [% IF entry.1 == codec_name %]selected[% END %] value="[% entry.1 %]">
 		[% END %]
 		</select>
@@ -79,8 +79,8 @@
 		[% END %]
 		</select>
 		</span>
-		<span id="codec_mp3" [% IF codec_name != 'mp3' %]hidden[% END %]>
-		[% "PLUGIN_SHAIRTUNES2_MP3BITRATE" | string %]&nbsp
+		<span id="codec_mp3_aac" [% IF codec_name != 'mp3' && codec_name != 'aac' %]hidden[% END %]>
+		[% "PLUGIN_SHAIRTUNES2_BITRATE" | string %]&nbsp
 		<select class="stdedit" name="codec_bitrate" id="codec_bitrate">
 		[% FOREACH entry IN [ '', '64', '96', '128', '144', '160', '192', '224', '256', '320' ] %]
 			<option [% IF entry == codec_bitrate %]selected[% END %] value="[% entry %]">[% entry %]</option>

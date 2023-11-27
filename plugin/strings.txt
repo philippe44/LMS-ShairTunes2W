@@ -81,13 +81,13 @@ PLUGIN_SHAIRTUNES2_ENCODE
 	
 PLUGIN_SHAIRTUNES2_ENCODE_DESC
 	EN	Audio received from AirPlay devices are coded using ALAC, which cannot be streamed directly to LMS players.
-	EN	It can be re-encoded in wave, flac or mp3. With flac, the compression level can be adjusted from 0 to 9
-	EN	(default = 0, gives lowest compression, least CPU consumption). With mp3 the bitrate must bet set (default = 128)
+	EN	It can be re-encoded in wave, flac, aac or mp3. With flac, the compression level can be adjusted from 0 to 9
+	EN	(default = 0, gives lowest compression, least CPU consumption). With mp3/aac the bitrate must bet set (default = 192/128)
 	
 PLUGIN_SHAIRTUNES2_FLACLEVEL
 	EN	Level
 	
-PLUGIN_SHAIRTUNES2_MP3BITRATE
+PLUGIN_SHAIRTUNES2_BITRATE
 	EN	Bitrate
 	
 PLUGIN_SHAIRTUNES2_DRIFT

@@ -63,7 +63,7 @@ sub handler {
 		my $codec = $params->{codec_name} || 'flc';
 		if ($codec eq 'flc') {
 			$codec .= ":$params->{codec_level}" if defined $params->{codec_level} && $params->{codec_level} ne '';
-		} elsif ($codec eq 'mp3') {
+		} elsif ($codec eq 'mp3' || $codec eq 'aac') {
 			$codec .= ":$params->{codec_bitrate}" if $params->{codec_bitrate};
 		}	
 		$prefs->set( 'codec', $codec );
@@ -95,7 +95,7 @@ sub beforeRender {
 
 	$params->{codec_name} = $1;
 	$params->{codec_level} = $2 if defined $2 && $1 eq 'flc';
-	$params->{codec_bitrate} = $2 if $2 && $1 eq 'mp3';
+	$params->{codec_bitrate} = $2 if $2 && ($1 eq 'mp3' || $1 eq 'aac');
 }
 	
 1;

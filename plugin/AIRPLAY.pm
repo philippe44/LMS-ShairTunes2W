@@ -59,6 +59,8 @@ sub new {
 	} elsif ($1 eq 'flc') {
 		$rate = 705_000;
 	} elsif ($1 eq 'mp3') {
+		$rate = $2 * 1000 || 192_000;
+	} elsif ($1 eq 'aac') {
 		$rate = $2 * 1000 || 128_000;
 	}	
 	
