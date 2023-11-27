@@ -19,6 +19,9 @@ note:
 		(on Solaris and a few debian - arm & aarch64 now, need to specify mirror -M https://cpan.metacpan.org before the lib name)
 	- on FreeBSD, use cshrc instead of bashrc or launch bash before "sourcing"
 	
+1.5.1
+ - surely works better with all helpers recompiled...
+ 
 1.5.0
  - add aac codec (use refactored libraop)
  

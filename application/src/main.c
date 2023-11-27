@@ -33,7 +33,7 @@ static int 		sock_printf(int sock,...);
 static char*	sock_gets(int sock, char *str, int n);
 static void 	print_usage(void);
 
-const char *version = "1.5.0";
+const char *version = "1.5.1";
 
 static unsigned short cport, tport, ipc_port;
 static unsigned short port_base, port_range;
