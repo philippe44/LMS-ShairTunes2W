@@ -18,7 +18,10 @@ note:
 		cpan -T MIK/CryptX-0.060.tar.gz
 		(on Solaris and a few debian - arm & aarch64 now, need to specify mirror -M https://cpan.metacpan.org before the lib name)
 	- on FreeBSD, use cshrc instead of bashrc or launch bash before "sourcing"
-	
+
+1.5.2
+ - just use new libraop where encoder has moved to libcodecs
+ 
 1.5.1
  - surely works better with all helpers recompiled...
  
