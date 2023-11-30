@@ -88,6 +88,10 @@ sub helperBinary {
 			
 	}	
 	
+	if ($os->{'os'} eq 'FreeBSD') {
+		$bin = "shairport_helper-freebsd-x86_64";
+	}
+	
 	checkHelper($bin);
 	
 	my $shairtunes_helper = Slim::Utils::Misc::findbin($bin) || do {

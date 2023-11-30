@@ -21,6 +21,7 @@ note:
 
 1.5.3
  - fix a few codec issues and memory leaks
+ - FreeBSD name seems to have changed
  
 1.5.2
  - just use new libraop where encoder has moved to libcodecs
