@@ -75,3 +75,4 @@ build/
 __recovery/
 *.bat
 *bak
+application/bin
