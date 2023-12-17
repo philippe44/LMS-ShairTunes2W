@@ -19,6 +19,9 @@ note:
 		(on Solaris and a few debian - arm & aarch64 now, need to specify mirror -M https://cpan.metacpan.org before the lib name)
 	- on FreeBSD, use cshrc instead of bashrc or launch bash before "sourcing"
 
+1.6.0	
+ - only send silence on first GET (after a flush) and close socket on flush
+
 1.5.6
  - use updated libcodecs and libraop	
 
