@@ -33,7 +33,7 @@ static int 		sock_printf(int sock,...);
 static char*	sock_gets(int sock, char *str, int n);
 static void 	print_usage(void);
 
-const char *version = "1.6.0";
+const char *version = "1.7.0";
 
 static unsigned short cport, tport, ipc_port;
 static unsigned short port_base, port_range;
@@ -323,7 +323,7 @@ int main(int argc, char **argv) {
 			struct in_addr host;
 
 			host.s_addr = INADDR_ANY;
-			ht = raopst_init(host, peer, codec, metadata, use_sync, drift, false, latencies,
+			ht = raopst_init(host, peer, codec, metadata, use_sync, drift, latencies,
 								aeskey, aesiv, fmtp, cport, tport, NULL,
 								streamer_cb, NULL, port_base, port_range, -1);
 
