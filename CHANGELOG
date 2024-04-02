@@ -19,8 +19,16 @@ note:
 		(on Solaris and a few debian - arm & aarch64 now, need to specify mirror -M https://cpan.metacpan.org before the lib name)
 	- on FreeBSD, use cshrc instead of bashrc or launch bash before "sourcing"
 
+1.7.2
+ - fix f-up build
+ - Strawberry Perl 64 bits
+
+1.7.1
+ - discard silence frame after flush
+ - log resent/missed frames properly
+ 
 1.7.0
- - use update libraop that has a proper handling of flush/first frame
+ - use updated libraop that has a proper handling of flush/first frame
  
 1.6.0	
  - only send silence on first GET (after a flush) and close socket on flush

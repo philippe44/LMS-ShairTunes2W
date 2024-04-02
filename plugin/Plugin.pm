@@ -217,7 +217,7 @@ sub initPlugin {
     my $class = shift;
 	my $version = $class->_pluginDataFor( 'version' );
 
-    $log->info( "Initialising $version on " . $Config{'archname'} );
+    $log->info( "Initializing $version on " . $Config{'archname'} );
 	$log->info( "Using INC", Dumper(\@INC) );
 			
 	eval {require Crypt::OpenSSL::RSA};
