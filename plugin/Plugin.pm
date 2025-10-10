@@ -11,51 +11,15 @@ use File::Spec::Functions;
 use File::Basename qw(basename);
 use Encode qw(encode);
 
-# add libraries that might be missing at end of @INC unless we need a specific version
-BEGIN {
-	
-	my $arch = $Config::Config{'archname'};
-	
-	# Intel broken names
-	$arch = 'i686-linux-thread-multi-64int' if $arch =~ /^i[3456]86-/;
-	$arch = 'x86_64-linux-thread-multi' if $arch =~ /^x86_64/;
-		
-	# Check for use64bitint Perls
-	my $is64bitint = $arch =~ /64int/ ;	
-
-	# ARM broken names.
-	if ( $arch =~ /^arm.*linux/ ) {
-		$arch = $arch =~ /abihf/ 
-			? 'arm-linux-gnueabihf-thread-multi' 
-			: 'arm-linux-gnueabi-thread-multi';
-		$arch .= '-64int' if $is64bitint;
-	}
-	
-	# ARM 64 broken names.
-	$arch = 'aarch64-linux-gnu-thread-multi' if $arch =~ /^aarch64/;
-	
-	# PPC broken names
-	if ( $arch =~ /^(?:ppc|powerpc).*linux/ ) {
-		$arch = 'powerpc-linux-thread-multi';
-		$arch .= '-64int' if $is64bitint;
-	}
-
-	my $perlmajorversion = $Config{'version'};
-	   $perlmajorversion =~ s/\.\d+$//;
-	   
-	my $basedir = Slim::Utils::PluginManager->allPlugins->{'ShairTunes2W'}->{'basedir'};
-
-	push @INC, catdir($basedir, 'elib');
-	push @INC, catdir($basedir, 'elib', $perlmajorversion);
-	push @INC, catdir($basedir, 'elib', $perlmajorversion, $arch);
-	push @INC, catdir($basedir, 'elib', $perlmajorversion, $arch, 'auto');
-}
+use FindBin qw($Bin);
+use lib catdir($Bin, 'Plugins', 'ShairTune2W', 'lib');
 
 use Digest::MD5 qw(md5 md5_hex);
 use MIME::Base64;
 use File::Which;
 use File::Copy;
 use POSIX qw(ceil :errno_h);
+use Math::BigInt try => 'GMP';
 use Data::Dumper;
 
 use IO::Socket::INET;
@@ -102,8 +66,8 @@ my $DACPfqdn = "_dacp._tcp.local";
 my $mDNSsock;
 my $mDNShelper;
 
-my $airport_pem = _airport_pem();
 my $rsa;
+my $airport_pem = _airport_pem();
 
 my $samplingRate = 44100;  
   
@@ -220,13 +184,13 @@ sub initPlugin {
     $log->info( "Initializing $version on " . $Config{'archname'} );
 	$log->info( "Using INC", Dumper(\@INC) );
 			
-	eval {require Crypt::OpenSSL::RSA};
+	eval {require Crypt::PK::RSA};
     if ($@) {
-		$log->warn("cannot find system Crypt::OpenSSL::RSA\n", Dumper(\@INC));
+		$log->warn("cannot find system Crypt::PK::RSA (CryptX)\n", Dumper(\@INC));
 		return;
 	}
 	
-	$rsa = Crypt::OpenSSL::RSA->new_private_key( $airport_pem )	|| do { $log->error( "RSA private key import failed" ); return; };
+	$rsa = Crypt::PK::RSA->new( \$airport_pem )	|| do { $log->error( "RSA private key import failed" ); return; };
 		
 	if ( main::WEBUI ) {
 		require Plugins::ShairTunes2W::Settings;
@@ -724,9 +688,9 @@ sub conn_handle_request {
 
         $data .= join '', map { chr } @hw_addr;
         $data .= chr( 0 ) x ( 0x20 - length( $data ) );
-
-        $rsa->use_pkcs1_padding;              # this isn't hashed before signing
-        my $signature = encode_base64 $rsa->private_encrypt( $data ), '';
+		
+        # this isn't hashed before signing
+		my $signature = encode_base64(rsa_private_encrypt_v15($rsa, $data), ''); 
 		$signature =~ s/=*$//;
         $resp->header( 'Apple-Response', $signature );
     }
@@ -773,8 +737,7 @@ sub conn_handle_request {
 			my $aeskey;
 			            
 			if ($rsaaeskey) {
-				$rsa->use_pkcs1_oaep_padding;
-				$aeskey = $rsa->decrypt( $rsaaeskey ) || do { $log->error( "RSA decrypt failed" ); return; };
+				$aeskey = $rsa->decrypt( $rsaaeskey, 'oaep', 'SHA1', undef ) || do { $log->error( "RSA decrypt failed" ); return; };
 			}	
 
             $session->{aesiv}  = $aesiv;
@@ -803,7 +766,8 @@ sub conn_handle_request {
 			my %socket_params = (   Listen    => 1,
 						ReuseAddr => 1,
 						LocalHost => 'localhost',
-						Proto     => 'tcp'
+						Proto     => 'tcp',
+						Blocking  => 0, 
 					);	
 
 			my $h_ipc  = new IO::Socket::INET(%socket_params);
@@ -1087,6 +1051,22 @@ sub mDNSlistener {
 	}	
 }
 
+# === PKCS#1 v1.5 "private_encrypt" (NO hash), OpenSSL-compatible ===
+sub rsa_private_encrypt_v15 {
+  my ($key, $data) = @_;                 
+  
+  my $h = $key->key2hash;
+  my $n = Math::BigInt->from_hex($h->{N});
+  my $d = Math::BigInt->from_hex($h->{d});
+
+  my $len = (length($h->{N}) / 2) - 3 - length($data);
+  my $bytes = "\x00\x01" . ("\xFF" x $len) . "\x00" . $data;  # 00 01 FF..FF 00 || data
+
+  my $m = Math::BigInt->from_bytes($bytes);
+  my $s = $m->bmodpow($d, $n);             # private exponentiation
+  
+  return $s->to_bytes();
+}
 
 sub _airport_pem {
     return q|-----BEGIN RSA PRIVATE KEY-----

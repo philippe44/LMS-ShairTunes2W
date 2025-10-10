@@ -19,6 +19,10 @@ note:
 		(on Solaris and a few debian - arm & aarch64 now, need to specify mirror -M https://cpan.metacpan.org before the lib name)
 	- on FreeBSD, use cshrc instead of bashrc or launch bash before "sourcing"
 
+1.8.0
+ - OpenSSL 3.x
+ - in SETUP and only for Win64, make sure (really sure) socket is non-blocking
+ 
 1.7.2
  - fix f-up build
  - Strawberry Perl 64 bits
