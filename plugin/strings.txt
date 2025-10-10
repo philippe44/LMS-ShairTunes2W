@@ -4,66 +4,98 @@ PLUGIN_SHAIRTUNES2
 	EN	ShairTunes2 (fork)
 	
 PLUGIN_SHAIRTUNES2_DESC
+	DA	ShairTunes2 Integration (med Windows)
 	EN	ShairTunes2 Integration (w/Windows)
 
 PLUGIN_SHAIRTUNES2_BINARIES
+	DA	Hjælpe-binær
 	EN	Helper binary 
 
 PLUGIN_SHAIRTUNES2_REPUBLISH
+	DA	Genudgiv
 	EN	Re-Publish
 	
 PLUGIN_SHAIRTUNES2_WIPE
+	DA	Slet
 	EN	Wipe
 	
 PLUGIN_SHAIRTUNES2_NEEDRESTART
+	DA	(genstart LMS hvis ændret)
 	EN	(restart LMS if changed)
 
 PLUGIN_SHAIRTUNES2_BINARIES_DESC
+	DA	Vælg hvilket hjælpeprogram, der skal bruges. Lad det stå tomt for at lade udvidelsesmodulet vælge automatisk
+	DA	<br>Genudgiv vil stoppe alle ShairTunes2-klienter og genudgive dem
+	DA	<br>Slet dræber alle DNS-udgivere med samme navn og genudgiver ShairTunes2-klienten - FARLIG
 	EN	Choose what helper will be used. Leave it empty to let plugin choose automatically
 	EN	<br>Re-Publish will stop all ShairTunes2 clients and republish them
 	EN	<br>Wipe will kill all DNS publishers with the same name and republish ShairTunes2 client - DANGEROUS
     
 PLUGIN_SHAIRTUNES2_VCREDIST
+	DA	Windows brugere, venligst installér dette
 	EN	Windows users, please install this    
 	
 PLUGIN_SHAIRTUNES2_INBOUNDPORT
+	DA	Ingående porte
 	EN	Inbound ports
 
 PLUGIN_SHAIRTUNES2_INBOUNDPORT_DESC
+	DA	AirPlay-protokollen kræver tre indgående porte, og den indbyggede webserver har brug yderligere en. Sæt
+	DA	basisværdien og antal (glem ikke at åbne disse i din firewall). Lad dette stå tomt for automatisk udvælgelse
 	EN	AirPlay protocol requires three incoming ports and the built-in webserver needs another one. Set the
 	EN	base value and count (don't forget to open these in your firewall). Leave empty for automatic selection
 	
 PLUGIN_SHAIRTUNES2_INBOUNDBASE
+	DA	Basis
 	EN	Base
 	
 PLUGIN_SHAIRTUNES2_INBOUNDCOUNT
+	DA	Antal
 	EN	Count
 	
 PLUGIN_SHAIRTUNES2_LOGLEVEL
+	DA	Aktivér logning
 	EN	Enable logging 
 	
 PLUGIN_SHAIRTUNES2_LOGLEVEL_DESC
+	DA	Sæt diverse log-niveau
 	EN	Set various log level
 
 PLUGIN_SHAIRTUNES2_BUFFER
+	DA	Buffer niveau (KB)
 	EN	Buffer level (KB)
 	
 PLUGIN_SHAIRTUNES2_BUFFER_DESC
+	DA	Indstil ​bufferstørrelse som LMS skal opsamle før afspilning starter.
 	EN	Set the amount of buffering LMS does before playing. 
 
 PLUGIN_SHAIRTUNES2_LATENCY
+	DA	RTP og HTTP buffer (ms)
 	EN	RTP and HTTP buffering (ms)
 
 PLUGIN_SHAIRTUNES2_RTPLATENCY
+	DA	RTP forsinkelse
 	EN	RTP latency
 	
 PLUGIN_SHAIRTUNES2_HTTPLATENCY
+	DA	HTTP forsinkelse
 	EN	HTTP latency
 
 PLUGIN_SHAIRTUNES2_HTTPFILL
+	DA	Fyld HTTP stream
 	EN	Fill HTTP stream
 	
 PLUGIN_SHAIRTUNES2_LATENCY_DESC
+	DA	Benyttes til justering af buffer i realtid med bro-buffering. AirPlay-rammer modtages ved hjælp af UDP (realtime RTP) og
+	DA	videresendes til SqueezeBoxes ved hjælp af HTTP. Når to modtagne UDP-rammer ikke er fortløbende, anmodes om de manglende
+	DA	rammer igen, men HTTP-afsendelse skal sættes i bero, mens der ventes på disse. Når holdetiden er forløbet, sendes tavse rammer.
+	DA	Det er også muligt at sende tavse rammer, når der ikke modtages nogen UDP-rammer overhovedet efter samme holdetid.
+	DA	SB-afspillere skal også have nok rammer i bufferen til at sikre uafbrudt afspilning. Det ser ud til, at "Buffer niveau"
+	DA	parameteren ovenfor ikke fungerer godt, så det er muligt at tvinge broen til at indsætte tavse rammer i begyndelsen,
+	DA	så SB-afspillere vil modtage en stor mængde større burst frames ved opstart
+	DA	<br>- RTP: maks. holdetid (ms) for HTTP-afsendelse, når der mangler UDP-rammer
+	DA	<br>- HTTP: varigheden af ​​tavse rammer sendt ved start af afspilning for at tillade SB-buffring
+	DA	<br>- Fyld HTTP-stream: send tavse rammer, hvis bufferen forbliver tom i mere end holdetiden
 	EN	Use to tweak buffering realtime bridge buffering. AirPlay frames are received using UDP (realtime RTP) and 
 	EN	are forwarded to SB using HTTP. When two received UDP frames are not consecutive, the in-between missing 
 	EN	ones are requested again but HTTP sending must be put on hold while waiting for these. After holding time
@@ -77,39 +109,55 @@ PLUGIN_SHAIRTUNES2_LATENCY_DESC
 	EN	<br>- Fill HTTP stream: send silence frames if buffer remains empty for more than holding time
 	
 PLUGIN_SHAIRTUNES2_ENCODE
+	DA	Encoding parametre
 	EN	Encoding parameters
 	
 PLUGIN_SHAIRTUNES2_ENCODE_DESC
+	DA	Lyd modtaget fra AirPlay-enheder er kodet ved hjælp af ALAC, som ikke kan streames direkte til LMS-afspillere.
+	DA	Det kan omkodes til wave, flac, aac eller mp3. Med flac kan komprimeringsniveauet justeres fra 0 til 9
+	DA	(standard = 0, giver laveste komprimering, mindst CPU-forbrug). Med mp3/aac skal bitraten sættes (standard = 192/128)
 	EN	Audio received from AirPlay devices are coded using ALAC, which cannot be streamed directly to LMS players.
 	EN	It can be re-encoded in wave, flac, aac or mp3. With flac, the compression level can be adjusted from 0 to 9
 	EN	(default = 0, gives lowest compression, least CPU consumption). With mp3/aac the bitrate must bet set (default = 192/128)
 	
 PLUGIN_SHAIRTUNES2_FLACLEVEL
+	DA	Niveau
 	EN	Level
 	
 PLUGIN_SHAIRTUNES2_BITRATE
 	EN	Bitrate
 	
 PLUGIN_SHAIRTUNES2_DRIFT
+	DA	Lad timingreferencer glide
 	EN	Let timing references drift
 	
 PLUGIN_SHAIRTUNES2_DRIFT_DESC
+	DA	AirPlay og LMS timingreferencer er asynkrone, og på lang sigt kan deres forskelle skabe bufferunderløb
+	DA	eller -overløb (hvilket producerer for mange eller for få samples). Dette korrigeres ved at tving
+	DA	tilføjelse eller sletning af en 8 ms buffer, når det er nødvendigt, men en sådan justering skaber et "klik".
+	DA	Deaktivér denne mulighed for at undgå dette klik, men lad timingreferencer glide.
 	EN	AirPlay and LMS timing references are asynchronous and, on a long term, their differences can create
 	EN	buffer underrun or overrun (producing too much or not enough samples). This is corrected by forcing
 	EN	the addition or deletion of a 8 ms buffer when needed, but such adjustement creates a "click". Disable 
 	EN	this option avoid it but let references drift.
 	
 PLUGIN_SHAIRTUNES2_SYNCVOLUME
+	DA	Ændre lydstyrke for synkroniserede afspillere
 	EN	Change volume of sync'd players
 	
 PLUGIN_SHAIRTUNES2_SYNCVOLUME_DESC
+	DA	Når en afspiller, der bruges gennem ShairTunes2, er synkroniseret, vil ændring af lydstyrken proportionalt
+	DA	ændre volumen for andre afspillere i synkroniseringsgruppen
 	EN	When player used through ShairTunes2 is synchronized, changing its volume will proportionally change volume 
 	EN	of other players in the sync group
 	
 PLUGIN_SHAIRTUNES2_SQUEEZELITE
+	DA	Tillad alle Squeezelite-baserede afspillere
 	EN	Allow all Squeezelite-based Players
 	
 PLUGIN_SHAIRTUNES2_SQUEEZELITE_DESC
+	DA	Tillad squeezelite-version lavere end 1.8 og at AirPlay, ChromeCast og UPnP bridge "virtuelle" afspillere kan bruges,
+	DA	såvel som squeezelite-esp32-baserede enheder (SqueezeAMP, DAC32 og WROVER/A1S/ESP32 boards)
 	EN	Allow squeezelite version lower than 1.8 and AirPlay, ChromeCast and UPnP bridge "virtual" players to be used 
 	EN	as well as squeezelite-esp32 based devices (SqueezeAMP, DAC32 and WROVER/A1S/ESP32 boards)
 	
