@@ -13,11 +13,23 @@ note:
 		
 		with version number:
 		
-        cpan -T MLEHMANN/Crypt-Ed25519-1.04.tar.gz
+	        cpan -T MLEHMANN/Crypt-Ed25519-1.04.tar.gz
 		cpan -T TODDR/Crypt-OpenSSL-RSA-0.30.tar.gz
 		cpan -T MIK/CryptX-0.060.tar.gz
 		(on Solaris and a few debian - arm & aarch64 now, need to specify mirror -M https://cpan.metacpan.org before the lib name)
+		
+	- cpan ignores -M and urllist and uses cpan.org unless you set "o conf pushy_https 0" at cpan's prompt
+	- and if everything is fucked as it should be, just download directly the module from (eg) https://cpan.metacpan.org/authors/id/M/MI/MIK/CryptX-0.060.tar.gz and untar it
+		- perl Makefile.PL
+		- make
+		[- make test]
+		- make install
+
 	- on FreeBSD, use cshrc instead of bashrc or launch bash before "sourcing"
+
+1.8.1
+ - Move plugin to CryptX
+ - Add Perl 5.38 and 5.40 (except for arm7) 
 
 1.8.0
  - OpenSSL 3.x
