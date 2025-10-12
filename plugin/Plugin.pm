@@ -19,7 +19,7 @@ use MIME::Base64;
 use File::Which;
 use File::Copy;
 use POSIX qw(ceil :errno_h);
-use Math::BigInt try => 'GMP';
+use Math::BigInt try => 'LTM';
 use Data::Dumper;
 
 use IO::Socket::INET;
@@ -184,7 +184,7 @@ sub initPlugin {
     $log->info( "Initializing $version on " . $Config{'archname'} );
 	$log->info( "Using INC", Dumper(\@INC) );
 			
-	eval {require Crypt::PK::RSA};
+	eval { require Crypt::PK::RSA };
     if ($@) {
 		$log->warn("cannot find system Crypt::PK::RSA (CryptX)\n", Dumper(\@INC));
 		return;
@@ -1052,21 +1052,28 @@ sub mDNSlistener {
 }
 
 # === PKCS#1 v1.5 "private_encrypt" (NO hash), OpenSSL-compatible ===
+# because for sure Apple uses private encrypt that is not supported in CryptX
 sub rsa_private_encrypt_v15 {
-  my ($key, $data) = @_;                 
-  
+  my ($key, $data) = @_;
+
   my $h = $key->key2hash;
   my $n = Math::BigInt->from_hex($h->{N});
   my $d = Math::BigInt->from_hex($h->{d});
 
   my $len = (length($h->{N}) / 2) - 3 - length($data);
   my $bytes = "\x00\x01" . ("\xFF" x $len) . "\x00" . $data;  # 00 01 FF..FF 00 || data
-
-  my $m = Math::BigInt->from_bytes($bytes);
-  my $s = $m->bmodpow($d, $n);             # private exponentiation
   
-  return $s->to_bytes();
-}
+  # why do we need all that shit of hex, pack and unpack ? Well because we can
+  # and to_bytes and to_hex is not properly supported in our CryptX. Of course
+  $bytes = unpack("H*", $bytes);
+
+  my $m = Math::BigInt->from_hex($bytes);
+  # private exponentiation
+  my $s = $m->bmodpow($d, $n);
+ 
+  (my $res = $s->as_hex()) =~ s/^0x//i; 
+  return pack("H*", $res);
+ }
 
 sub _airport_pem {
     return q|-----BEGIN RSA PRIVATE KEY-----

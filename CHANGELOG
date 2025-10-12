@@ -26,7 +26,12 @@ note:
 		- make install
 
 	- on FreeBSD, use cshrc instead of bashrc or launch bash before "sourcing"
+	- armv7 should be arm-linux-gnueabihf-thread-multi-64int, not armv7...
 
+1.8.3
+ - armv7 should be arm-linux-gnueabihf-thread-multi-64int
+ - and deal with all the shit from Math::BigInt and CryptX older library to have LTM
+ 
 1.8.2
  - add armv7 5.38 and 5.40
  
