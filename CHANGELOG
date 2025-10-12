@@ -13,7 +13,7 @@ note:
 		
 		with version number:
 		
-	        cpan -T MLEHMANN/Crypt-Ed25519-1.04.tar.gz
+	    cpan -T MLEHMANN/Crypt-Ed25519-1.04.tar.gz
 		cpan -T TODDR/Crypt-OpenSSL-RSA-0.30.tar.gz
 		cpan -T MIK/CryptX-0.060.tar.gz
 		(on Solaris and a few debian - arm & aarch64 now, need to specify mirror -M https://cpan.metacpan.org before the lib name)
@@ -27,9 +27,12 @@ note:
 
 	- on FreeBSD, use cshrc instead of bashrc or launch bash before "sourcing"
 
+1.8.2
+ - add armv7 5.38 and 5.40
+ 
 1.8.1
  - Move plugin to CryptX
- - Add Perl 5.38 and 5.40 (except for arm7) 
+ - Add Perl 5.38 and 5.40 (except arm7) 
 
 1.8.0
  - OpenSSL 3.x
