@@ -28,6 +28,10 @@ note:
 	- on FreeBSD, use cshrc instead of bashrc or launch bash before "sourcing"
 	- armv7 should be arm-linux-gnueabihf-thread-multi-64int, not armv7...
 
+1.9.0
+ - move back to elib and only include it if system's modules can't be found so that we don't interfere
+ - Math::BigInt is capricious on older arm versions as we MUST specify use of LTM, otherwise the calc version takes forever (sigh)
+
 1.8.3
  - armv7 should be arm-linux-gnueabihf-thread-multi-64int
  - and deal with all the shit from Math::BigInt and CryptX older library to have LTM

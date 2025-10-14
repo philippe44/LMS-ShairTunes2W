@@ -11,20 +11,16 @@ use File::Spec::Functions;
 use File::Basename qw(basename);
 use Encode qw(encode);
 
-use FindBin qw($Bin);
-use lib catdir($Bin, 'Plugins', 'ShairTune2W', 'lib');
-
 use Digest::MD5 qw(md5 md5_hex);
 use MIME::Base64;
 use File::Which;
 use File::Copy;
 use POSIX qw(ceil :errno_h);
-use Math::BigInt try => 'LTM';
-use Data::Dumper;
 
 use IO::Socket::INET;
 use IO::Handle;
-use Net::SDP;
+
+use Data::Dumper;
 
 use Slim::Utils::Log;
 use Slim::Utils::Prefs;
@@ -183,12 +179,54 @@ sub initPlugin {
 
     $log->info( "Initializing $version on " . $Config{'archname'} );
 	$log->info( "Using INC", Dumper(\@INC) );
-			
-	eval { require Crypt::PK::RSA };
-    if ($@) {
-		$log->warn("cannot find system Crypt::PK::RSA (CryptX)\n", Dumper(\@INC));
-		return;
+	
+	my $basedir = Slim::Utils::PluginManager->allPlugins->{'ShairTunes2W'}->{'basedir'};
+	my $perlmajorversion = $Config{'version'};
+	$perlmajorversion =~ s/\.\d+$//;
+
+	my $arch = $Config::Config{'archname'};		
+	
+	# align arch names with LMS' expectations (see Slim::Utils::PluginManager)
+	$arch =~ s/^i[3456]86-/i686-/;
+	$arch =~ s/gnu-//;
+	my $is64bitint = $arch =~ /64int/;
+	
+	if ( $arch =~ /^arm.*linux/ ) {
+		$arch = $arch =~ /gnueabihf/
+				? 'arm-linux-gnueabihf-thread-multi'
+				: 'arm-linux-gnueabi-thread-multi';
+		$arch .= '-64int' if $is64bitint;
 	}
+
+	if ( $arch =~ /^(?:ppc|powerpc).*linux/ ) {
+		$arch = 'powerpc-linux-thread-multi';
+		$arch .= '-64int' if $is64bitint;
+	}
+	
+	# note the '/...pm' instead of "::"
+	foreach my $module ( 'Math/BigInt.pm', 'Crypt/PK/RSA.pm', 'Net/SDP.pm' ) {
+		eval { require $module };
+		
+		if ($@) {
+			$log->warn("cannot find system $module, using local version");
+	
+			local @INC = ( @INC, 
+				"$basedir/elib", 
+				"$basedir/elib/$perlmajorversion",
+				"$basedir/elib/$perlmajorversion/$arch",
+				"$basedir/elib/$perlmajorversion/$arch/auto"
+			);
+			
+			$log->info( "Using INC", Dumper(\@INC) );
+		
+			require $module;
+		} else {
+			$log->info("$module library loaded from system");
+		}	
+	}	
+	
+	# we need LTM and it might not be loaded on older arm version
+	Math::BigInt->import( lib => 'LTM' );
 	
 	$rsa = Crypt::PK::RSA->new( \$airport_pem )	|| do { $log->error( "RSA private key import failed" ); return; };
 		
@@ -1064,7 +1102,7 @@ sub rsa_private_encrypt_v15 {
   my $bytes = "\x00\x01" . ("\xFF" x $len) . "\x00" . $data;  # 00 01 FF..FF 00 || data
   
   # why do we need all that shit of hex, pack and unpack ? Well because we can
-  # and to_bytes and to_hex is not properly supported in our CryptX. Of course
+  # and to_bytes and to_hex are not properly supported in our CryptX. Of course
   $bytes = unpack("H*", $bytes);
 
   my $m = Math::BigInt->from_hex($bytes);
