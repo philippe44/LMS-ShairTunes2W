@@ -226,7 +226,8 @@ sub initPlugin {
 	}	
 	
 	# we need LTM and it might not be loaded on older arm version
-	Math::BigInt->import( lib => 'LTM' );
+	Math::BigInt->import( try => 'LTM, GMP, FastCalc,Pari' );
+	$log->info("Using ", Math::BigInt->config->{lib}, " version ", Math::BigInt->config->{version});
 	
 	$rsa = Crypt::PK::RSA->new( \$airport_pem )	|| do { $log->error( "RSA private key import failed" ); return; };
 		
