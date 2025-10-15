@@ -4,7 +4,7 @@ endif
 
 ifeq ($(findstring gcc,$(CC)),gcc)
 CFLAGS  += -Wno-deprecated-declarations -Wno-format-truncation -Wno-stringop-truncation 
-LDFLAGS += -s
+LDFLAGS += -s -latomic
 else
 CFLAGS += -fno-temp-file
 endif
@@ -36,9 +36,6 @@ OPENSSL		= libopenssl/targets/$(HOST)/$(PLATFORM)
 DEFINES 	= -DHTTP_PARSER_STRICT=0 -D_GNU_SOURCE
 CFLAGS  	+= -Wall -fPIC -ggdb -O2 $(DEFINES) -fdata-sections -ffunction-sections 
 LDFLAGS 	+= -lpthread -ldl -lm -L. 
-ifneq ($(HOST),macos)
-LDFLAGS 	+= -latomic 
-endif
 
 vpath %.c $(TOOLS):$(SRC)
 

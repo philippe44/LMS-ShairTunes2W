@@ -28,6 +28,10 @@ note:
 	- on FreeBSD, use cshrc instead of bashrc or launch bash before "sourcing"
 	- armv7 should be arm-linux-gnueabihf-thread-multi-64int, not armv7...
 
+1.9.2
+ - upon reload, INC starts with local
+ - deleted breadcrumbs left potentially on failed load
+ 
 1.9.1
  - can load GMP and others
  

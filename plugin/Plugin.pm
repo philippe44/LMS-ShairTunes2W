@@ -208,25 +208,25 @@ sub initPlugin {
 		eval { require $module };
 		
 		if ($@) {
-			$log->warn("cannot find system $module, using local version");
+			$log->warn("cannot find system $module, using local version [$INC{$module}]");
+			delete $INC{$module};
 	
-			local @INC = ( @INC, 
+			local @INC = (
 				"$basedir/elib", 
 				"$basedir/elib/$perlmajorversion",
 				"$basedir/elib/$perlmajorversion/$arch",
-				"$basedir/elib/$perlmajorversion/$arch/auto"
+				"$basedir/elib/$perlmajorversion/$arch/auto",
+				@INC
 			);
 			
-			$log->info( "Using INC", Dumper(\@INC) );
-		
 			require $module;
-		} else {
-			$log->info("$module library loaded from system");
 		}	
+		
+		$log->info("$module loaded from $INC{$module}");
 	}	
 	
 	# we need LTM and it might not be loaded on older arm version
-	Math::BigInt->import( try => 'LTM, GMP, FastCalc,Pari' );
+	Math::BigInt->import( try => 'LTM, GMP, FastCalc, Pari' );
 	$log->info("Using ", Math::BigInt->config->{lib}, " version ", Math::BigInt->config->{version});
 	
 	$rsa = Crypt::PK::RSA->new( \$airport_pem )	|| do { $log->error( "RSA private key import failed" ); return; };
