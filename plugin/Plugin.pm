@@ -208,7 +208,7 @@ sub initPlugin {
 		eval { require $module };
 		
 		if ($@) {
-			$log->warn("cannot find system $module, using local version [$INC{$module}]");
+			$log->warn("cannot find system $module, using local version [", $INC{$module} || '<n/a>', "]");
 			delete $INC{$module};
 	
 			local @INC = (

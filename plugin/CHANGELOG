@@ -27,6 +27,12 @@ note:
 
 	- on FreeBSD, use cshrc instead of bashrc or launch bash before "sourcing"
 	- armv7 should be arm-linux-gnueabihf-thread-multi-64int, not armv7...
+	
+1.9.4
+ - make sure log at init does not use undefined $INC
+	
+1.9.3
+ - nothing, just signature issue (thanks SOurceForge)	
 
 1.9.2
  - upon reload, INC starts with local
