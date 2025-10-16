@@ -30,6 +30,7 @@ note:
 	
 1.9.5
  - use cross_ssl
+ - add -static helper
  - remove atomic dependency
  
 1.9.4
