@@ -27,13 +27,14 @@
 #include "cross_net.h"
 #include "cross_util.h"
 #include "cross_log.h"
+#include "cross_ssl.h"
 
 extern int 		mdns_server(int argc, char *argv[]);
 static int 		sock_printf(int sock,...);
 static char*	sock_gets(int sock, char *str, int n);
 static void 	print_usage(void);
 
-const char *version = "1.8.0";
+const char *version = "1.9.5";
 
 static unsigned short cport, tport, ipc_port;
 static unsigned short port_base, port_range;
@@ -269,6 +270,12 @@ int main(int argc, char **argv) {
 		free(type);
 		free(txt);
 	} else {
+
+		if (!cross_ssl_load()) {
+			LOG_ERROR("Cannot load SSL libraries", NULL);
+			return false;
+		}
+
 		while ( (arg = *++argv) != NULL ) {
 			if (!strcasecmp(arg, "iv")) {
 				hex2bin(aesiv, *++argv);
@@ -375,6 +382,8 @@ int main(int argc, char **argv) {
 		}
 
 		if (ipc_sock != -1) shutdown_socket(ipc_sock);
+
+		cross_ssl_free();
 	}
 
 	netsock_close();

@@ -9,10 +9,19 @@
       <Configuration>Release</Configuration>
       <Platform>Win32</Platform>
     </ProjectConfiguration>
+	<ProjectConfiguration Include="Static|Win32">
+      <Configuration>Static</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="crosstools\src\cross_log.c" />
     <ClCompile Include="crosstools\src\cross_net.c" />
+	<ClCompile Include="crosstools\src\cross_ssl.c">
+      <LanguageStandard_C Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">stdc11</LanguageStandard_C>
+      <LanguageStandard_C Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">stdc11</LanguageStandard_C>
+      <LanguageStandard_C Condition="'$(Configuration)|$(Platform)'=='Static|Win32'">stdc11</LanguageStandard_C>
+    </ClCompile>
     <ClCompile Include="crosstools\src\cross_util.c" />
     <ClCompile Include="crosstools\src\platform.c" />
     <ClCompile Include="src\main.c" />
@@ -20,7 +29,6 @@
   <ItemGroup>
     <Library Include="libcodecs\targets\win32\x86\libcodecs.lib" />
     <Library Include="libmdns\targets\win32\x86\libmdns.lib" />
-    <Library Include="libopenssl\targets\win32\x86\libcrypto_static.lib" />
     <Library Include="libpthreads4w\targets\win32\x86\libpthreadVC3.lib" />
     <Library Include="libraop\targets\win32\x86\libraop.lib" />
   </ItemGroup>
@@ -52,6 +60,9 @@
     <IntDir>$(SolutionDir)\$(ProjectName)\build\$(Platform)\$(Configuration)\</IntDir>
     <OutDir>$(SolutionDir)\bin\</OutDir>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Static|Win32'">
+    <TargetName>$(ProjectName)-static</TargetName>
+  </PropertyGroup>  
   <ItemDefinitionGroup>
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
@@ -70,6 +81,25 @@
       <AdditionalDependencies>ws2_32.lib;wsock32.lib;Crypt32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <IgnoreSpecificDefaultLibraries>libcmt;libcmtd</IgnoreSpecificDefaultLibraries>
     </Link>
+	<Manifest>
+      <AdditionalManifestFiles Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">manifest.xml</AdditionalManifestFiles>
+    </Manifest>
+    <Manifest>
+      <AdditionalManifestFiles Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">manifest.xml</AdditionalManifestFiles>
+    </Manifest>	
+  </ItemDefinitionGroup>
+    <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Static|Win32'">
+    <ClCompile>
+      <PreprocessorDefinitions>SSL_STATIC_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ProgramDataBaseFileName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(TEMP)vc$(PlatformToolsetVersion)$(ProjectName).pd</ProgramDataBaseFileName>
+    </ClCompile>
+    <Link>
+      <AdditionalLibraryDirectories>libopenssl\targets\win32\$(PlatformTarget);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>libopenssl_static.lib;Crypt32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <Manifest>
+      <AdditionalManifestFiles>manifest.xml</AdditionalManifestFiles>
+    </Manifest>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -18,9 +18,8 @@
   <ItemGroup>
     <Library Include="libcodecs\targets\win32\x86\libcodecs.lib" />
     <Library Include="libmdns\targets\win32\x86\libmdns.lib" />
-    <Library Include="pthreads4w\targets\win32\x86\libpthreadVC3.lib" />
-    <Library Include="raoptools\targets\win32\x86\libraop.lib" />
-    <Library Include="libopenssl\targets\win32\x86\libcrypto_static.lib" />
+    <Library Include="libpthreads4w\targets\win32\x86\libpthreadVC3.lib" />
+    <Library Include="libraop\targets\win32\x86\libraop.lib" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="crosstools">

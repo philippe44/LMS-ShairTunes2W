@@ -4,7 +4,7 @@ endif
 
 ifeq ($(findstring gcc,$(CC)),gcc)
 CFLAGS  += -Wno-deprecated-declarations -Wno-format-truncation -Wno-stringop-truncation 
-LDFLAGS += -s -latomic
+LDFLAGS += -s
 else
 CFLAGS += -fno-temp-file
 endif
@@ -14,7 +14,7 @@ HOST ?= $(word 2, $(subst -, ,$(CC)))
 
 ifneq ($(HOST),macos)
 ifneq ($(HOST),solaris)
-LINKSTATIC = -static
+LINKSTATIC = -static -latomic
 else
 LDFLAGS += -lssp
 endif
@@ -46,11 +46,12 @@ INCLUDE = -I$(CODECS)/include/flac -I$(CODECS)/include/shine \
 		  -I$(OPENSSL)/include
 
 SOURCES = main.c \
-		  cross_util.c cross_log.c cross_net.c cross_thread.c platform.c 
+		  cross_util.c cross_log.c cross_net.c cross_thread.c cross_ssl.c platform.c 
 		
 OBJECTS = $(patsubst %.c,$(BUILDDIR)/%.o,$(SOURCES)) 
 LIBRARY = $(RAOP)/$(HOST)/$(PLATFORM)/libraop.a $(CODECS)/$(HOST)/$(PLATFORM)/libcodecs.a \
-		  $(MDNS)/$(HOST)/$(PLATFORM)/libmdns.a $(OPENSSL)/libopenssl.a          
+		  $(MDNS)/$(HOST)/$(PLATFORM)/libmdns.a
+LIBRARY_STATIC = $(LIBRARY) $(OPENSSL)/libopenssl.a          
 
 all: directory $(EXECUTABLE) $(EXECUTABLE_STATIC)
 
@@ -62,7 +63,7 @@ ifeq ($(HOST),macos)
 endif
 
 $(EXECUTABLE_STATIC): $(OBJECTS)
-	$(CC) $(OBJECTS) $(LIBRARY) $(CFLAGS) $(LDFLAGS) $(LINKSTATIC) -o $@
+	$(CC) $(OBJECTS) $(LIBRARY_STATIC) $(CFLAGS) $(LDFLAGS) $(LINKSTATIC) -o $@
 ifeq ($(HOST),macos)
 	rm -f $(CORE)-static
 	lipo -create -output $(CORE)-static $(CORE)-*-static

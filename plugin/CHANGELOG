@@ -28,6 +28,10 @@ note:
 	- on FreeBSD, use cshrc instead of bashrc or launch bash before "sourcing"
 	- armv7 should be arm-linux-gnueabihf-thread-multi-64int, not armv7...
 	
+1.9.5
+ - use cross_ssl
+ - remove atomic dependency
+ 
 1.9.4
  - make sure log at init does not use undefined $INC
 	

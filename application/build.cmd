@@ -8,5 +8,6 @@ if /I [%1] == [rebuild] (
 )
 
 msbuild shairport_helper.sln /property:Configuration=Release %option%
+msbuild shairport_helper.sln /property:Configuration=Static %option%
 
 endlocal
