@@ -776,7 +776,7 @@ sub conn_handle_request {
 			my $aeskey;
 			            
 			if ($rsaaeskey) {
-				$aeskey = $rsa->decrypt( $rsaaeskey, 'oaep', 'SHA1', undef ) || do { $log->error( "RSA decrypt failed" ); return; };
+				$aeskey = $rsa->decrypt( $rsaaeskey, 'oaep', 'SHA1', '' ) || do { $log->error( "RSA decrypt failed" ); return; };
 			}	
 
             $session->{aesiv}  = $aesiv;
