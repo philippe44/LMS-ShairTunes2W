@@ -30,6 +30,7 @@ note:
 
 1.9.6
  - pass empty string to Crypt::PK::RSA::decrypt as lparam instead of undef
+ - call SUPER at the beginning of initPlugin;
  
 1.9.5
  - use cross_ssl

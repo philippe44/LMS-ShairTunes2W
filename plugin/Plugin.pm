@@ -175,6 +175,8 @@ sub sendAction {
 
 sub initPlugin {
     my $class = shift;
+	$class->SUPER::initPlugin();
+	
 	my $version = $class->_pluginDataFor( 'version' );
 
     $log->info( "Initializing $version on " . $Config{'archname'} );
