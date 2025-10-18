@@ -28,6 +28,12 @@ note:
 	- on FreeBSD, use cshrc instead of bashrc or launch bash before "sourcing"
 	- armv7 should be arm-linux-gnueabihf-thread-multi-64int, not armv7...
 
+1.9.8
+ - propose a solution in the log if Math::BigInt cannot load an accelerated XS module
+ 
+1.9.7
+ - more traces around apple-challenge 
+ 
 1.9.6
  - pass empty string to Crypt::PK::RSA::decrypt as lparam instead of undef
  - call SUPER at the beginning of initPlugin;

@@ -227,9 +227,15 @@ sub initPlugin {
 		$log->info("$module loaded from $INC{$module}");
 	}	
 	
-	# we need LTM and it might not be loaded on older arm version
-	Math::BigInt->import( try => 'LTM, GMP, FastCalc, Pari' );
-	$log->info("Using ", Math::BigInt->config->{lib}, " version ", Math::BigInt->config->{version});
+	# we need some accelerated library and it might not be loaded on older arm version
+	Math::BigInt->import( try => 'LTM, GMP, Pari' );
+	
+	my $BigInt = Math::BigInt->config->{lib};
+
+	$log->info("Using $BigInt for large integer");
+	$log->warn("Slow Math::BigInt, Shairtunes is unlikely to work\n" .
+			   "use 'sudo apt-get install libmath-bigint-gmp-perl'\n" .
+			   "or any library of your choice like LTM or Pari") if $BigInt =~ /calc/i;
 	
 	$rsa = Crypt::PK::RSA->new( \$airport_pem )	|| do { $log->error( "RSA private key import failed" ); return; };
 		
@@ -720,19 +726,20 @@ sub conn_handle_request {
         my $ip   = $socket->sockhost;
         if ( $ip =~ /((\d+\.){3}\d+)$/ ) {    # IPv4
             $data .= join '', map { chr } split( /\./, $1 );
-        }
-        else {
+        } else {
             $data .= Plugins::ShairTunes2W::Utils::ip6bin( $ip );
         }
 
 		my @hw_addr = +( map( ord, split( //, md5( encode('utf8', $session->{player}->name()) ) ) ) )[ 0 .. 5 ];
 
-        $data .= join '', map { chr } @hw_addr;
-        $data .= chr( 0 ) x ( 0x20 - length( $data ) );
+		$data .= join '', map { chr } @hw_addr;
+		$data .= chr( 0 ) x ( 0x20 - length( $data ) );
+		$log->info("Apple-Challenge request: ", $chall);
 		
-        # this isn't hashed before signing
+		# this isn't hashed before signing
 		my $signature = encode_base64(rsa_private_encrypt_v15($rsa, $data), ''); 
 		$signature =~ s/=*$//;
+		$log->info("Apple-Challenge response: ", $signature);
         $resp->header( 'Apple-Response', $signature );
     }
 
