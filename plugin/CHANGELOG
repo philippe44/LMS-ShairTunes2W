@@ -1,4 +1,4 @@
-note:
+note
 	- Playback will fail if PCM is used and target device requires MP3 conversion (eg it is a bridge) 
 	because the lame conversion rule expects a wav file which means a header. 
 	- BEWARE OF VERSION NUMBER FOR PERL LIBS
@@ -27,7 +27,13 @@ note:
 
 	- on FreeBSD, use cshrc instead of bashrc or launch bash before "sourcing"
 	- armv7 should be arm-linux-gnueabihf-thread-multi-64int, not armv7...
-
+	
+1.9.10
+ - try all system-accelerated options before using our own Math::BigInt::LTM
+ 
+1.9.9	
+ - aarch64 should not have 'gnu' in path
+	
 1.9.8
  - propose a solution in the log if Math::BigInt cannot load an accelerated XS module
  

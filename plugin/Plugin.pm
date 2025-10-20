@@ -10,6 +10,7 @@ use File::Spec;
 use File::Spec::Functions;
 use File::Basename qw(basename);
 use Encode qw(encode);
+use Module::Metadata qw(find_module_by_name);
 
 use Digest::MD5 qw(md5 md5_hex);
 use MIME::Base64;
@@ -204,13 +205,41 @@ sub initPlugin {
 		$arch = 'powerpc-linux-thread-multi';
 		$arch .= '-64int' if $is64bitint;
 	}
+
+	# this never fails
+	require Math::BigInt;
 	
-	# note the '/...pm' instead of "::"
-	foreach my $module ( 'Math/BigInt.pm', 'Crypt/PK/RSA.pm', 'Net/SDP.pm' ) {
+	foreach ('LTM', 'GMP', 'Pari') {
+		eval { Math::BigInt->import( only => $_ ) };
+		last unless $@;
+	}
+	
+	# if we have not loaded anything, force our local version
+	if ($@) {
+		local @INC = (
+			"$basedir/elib", 
+			"$basedir/elib/$perlmajorversion",
+			"$basedir/elib/$perlmajorversion/$arch",
+			"$basedir/elib/$perlmajorversion/$arch/auto",
+			@INC
+		);
+		$log->info("No accelerated Math::BigInt in system, trying local LTM for $arch");
+		Math::BigInt->import( try => 'LTM, FastCalc');
+	}	
+
+	# at this point, something is imported
+	my $BigInt = Math::BigInt->config->{lib};
+	$log->info("Using $BigInt for large integer");
+	$log->warn("Still no accelerated Math::BigInt, Shairtunes is unlikely to work\n" .
+			   "use 'sudo apt-get install libmath-bigint-gmp-perl'\n" .
+			   "or any library of your choice like LTM or Pari") if $BigInt =~ /calc/i;
+	
+	# note the '/' and '.pm' instead of "::"
+	foreach my $module ('Crypt/PK/RSA.pm', 'Net/SDP.pm') {
 		eval { require $module };
 		
 		if ($@) {
-			$log->warn("cannot find system $module, using local version [", $INC{$module} || '<n/a>', "]");
+			$log->warn("cannot find system $module, using local version");
 			delete $INC{$module};
 	
 			local @INC = (
@@ -226,16 +255,6 @@ sub initPlugin {
 		
 		$log->info("$module loaded from $INC{$module}");
 	}	
-	
-	# we need some accelerated library and it might not be loaded on older arm version
-	Math::BigInt->import( try => 'LTM, GMP, Pari' );
-	
-	my $BigInt = Math::BigInt->config->{lib};
-
-	$log->info("Using $BigInt for large integer");
-	$log->warn("Slow Math::BigInt, Shairtunes is unlikely to work\n" .
-			   "use 'sudo apt-get install libmath-bigint-gmp-perl'\n" .
-			   "or any library of your choice like LTM or Pari") if $BigInt =~ /calc/i;
 	
 	$rsa = Crypt::PK::RSA->new( \$airport_pem )	|| do { $log->error( "RSA private key import failed" ); return; };
 		
