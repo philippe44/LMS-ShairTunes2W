@@ -10,7 +10,6 @@ use File::Spec;
 use File::Spec::Functions;
 use File::Basename qw(basename);
 use Encode qw(encode);
-use Module::Metadata qw(find_module_by_name);
 
 use Digest::MD5 qw(md5 md5_hex);
 use MIME::Base64;

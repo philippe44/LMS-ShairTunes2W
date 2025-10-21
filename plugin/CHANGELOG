@@ -27,7 +27,10 @@ note
 
 	- on FreeBSD, use cshrc instead of bashrc or launch bash before "sourcing"
 	- armv7 should be arm-linux-gnueabihf-thread-multi-64int, not armv7...
-	
+
+1.9.11	
+ - remove some unused 'used'
+ 
 1.9.10
  - try all system-accelerated options before using our own Math::BigInt::LTM
  
