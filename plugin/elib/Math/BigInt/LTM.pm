@@ -437,16 +437,13 @@ sub _log_int {
 # _sadd(CLASS, X, si): add signed small native int 'si' to X (in place)
 sub _sadd {
     my ($class, $x, $si) = @_;
-    # turn small int into a backend value; "$si" preserves sign
-    my $y = $class->_new("$si");
-    return $class->_add($x, $y);
+    return $class->_add($x, $class->_new(0 + $si));  # force small int
 }
 
 # _ssub(CLASS, X, si): subtract signed small native int 'si' from X (in place)
 sub _ssub {
     my ($class, $x, $si) = @_;
-    my $y = $class->_new("$si");
-    return $class->_sub($x, $y);
+    return $class->_sub($x, $class->_new(0 + $si));
 }
 
 1;
