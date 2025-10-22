@@ -28,6 +28,9 @@ note
 	- on FreeBSD, use cshrc instead of bashrc or launch bash before "sourcing"
 	- armv7 should be arm-linux-gnueabihf-thread-multi-64int, not armv7...
 	
+1.9.13
+ - add proper _sadd and _ssub in Math::BigInt
+ 
 1.9.12
  - oh well, Perl Math::BigInt 5.36+ have _sadd and _ssub that are not provided by my old LTM backend (of course)
 

@@ -434,16 +434,46 @@ sub _log_int {
   return $y, 0;                       # result is too small
 }
 
-# _sadd(CLASS, X, si): add signed small native int 'si' to X (in place)
+# Signed addition. If the flag is false, $xa might be modified, but not $ya. If
+# the false is true, $ya might be modified, but not $xa.
 sub _sadd {
-    my ($class, $x, $si) = @_;
-    return $class->_add($x, $class->_new(0 + $si));  # force small int
+    my $class = shift;
+    my ($xa, $xs, $ya, $ys, $flag) = @_;
+    my ($za, $zs);
+
+    if ($xs eq $ys) {
+        if ($flag) {
+            $za = $class -> _add($ya, $xa);
+        } else {
+            $za = $class -> _add($xa, $ya);
+        }
+        $zs = $class -> _is_zero($za) ? '+' : $xs;
+        return $za, $zs;
+    }
+    my $acmp = $class -> _acmp($xa, $ya);       # abs(x) = abs(y)
+    if ($acmp == 0) {                           # x = -y or -x = y
+        $za = $class -> _zero();
+        $zs = '+';
+        return $za, $zs;
+    }
+    if ($acmp > 0) {                            # abs(x) > abs(y)
+        $za = $class -> _sub($xa, $ya, $flag);
+        $zs = $xs;
+    } else {                                    # abs(x) < abs(y)
+        $za = $class -> _sub($ya, $xa, !$flag);
+        $zs = $ys;
+    }
+    return $za, $zs;
 }
 
-# _ssub(CLASS, X, si): subtract signed small native int 'si' from X (in place)
+# Signed subtraction. If the flag is false, $xa might be modified, but not $ya.
+# If the false is true, $ya might be modified, but not $xa.
 sub _ssub {
-    my ($class, $x, $si) = @_;
-    return $class->_sub($x, $class->_new(0 + $si));
+    my $class = shift;
+    my ($xa, $xs, $ya, $ys, $flag) = @_;
+    # Swap sign of second operand and let _sadd() do the job.
+    $ys = $ys eq '+' ? '-' : '+';
+    $class -> _sadd($xa, $xs, $ya, $ys, $flag);
 }
 
 1;
