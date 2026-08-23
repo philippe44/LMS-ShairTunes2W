@@ -925,11 +925,24 @@ sub conn_handle_request {
 						type     => 'ShairTunes Stream, ' . $prefs->get('codec'),
 			} );			
 
-			# save volume 
+			# save volume
 			$client->pluginData(volume => $sprefs->client($client)->get('volume'));
-			
+
+			# apply last known AirPlay volume on resume, unless the source has already told us
+			# the current volume for this session (SET_PARAMETER can arrive before RECORD, in
+			# which case that value is the most recent instruction and simply wins).
+			# pluginData('volume') above is untouched: it stays the pre-AirPlay snapshot restored
+			# at TEARDOWN.
+			my $lastVolume = $client->pluginData('lastAirplayVolume');
+			if ( !$session->{volumeFromSource} && defined $lastVolume ) {
+				$log->info( "restoring last AirPlay volume: $lastVolume" );
+				$client->execute( [ 'mixer', 'volume', $lastVolume ] );
+				# keep volumeChange() from echoing our own change back to the source
+				$session->{volume} = $lastVolume;
+			}
+
 			$log->info( "Playing url: $session->{url}" );
-			
+
             $session->{poweredoff} = !$session->{player}->power;
 			$client->execute( [ 'playlist', 'load', $session->{url} ] );
 			
@@ -1014,6 +1027,11 @@ sub conn_handle_request {
 					
 					$client->execute( [ 'mixer', 'volume', $percent ] );
 					$session->{volume} = $percent;
+
+					# remember the last volume AirPlay ever sent us (survives TEARDOWN) and flag
+					# that this session got an explicit volume, so RECORD knows not to override it
+					$client->pluginData(lastAirplayVolume => $percent);
+					$session->{volumeFromSource} = 1;
 	            } elsif ( exists $content{progress} ) {
                     my ( $start, $curr, $end ) = split( /\//, $content{progress} );
                     my $position = ( $curr - $start ) / $samplingRate;
