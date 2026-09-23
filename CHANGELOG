@@ -28,6 +28,9 @@ note
 	- on FreeBSD, use cshrc instead of bashrc or launch bash before "sourcing"
 	- armv7 should be arm-linux-gnueabihf-thread-multi-64int, not armv7...
 	
+1.9.14
+ - fix some potential buffer overflow (crosstools/libraop)
+ 
 1.9.13
  - add proper _sadd and _ssub in Math::BigInt
  
